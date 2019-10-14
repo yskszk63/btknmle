@@ -1,6 +1,6 @@
 use std::io;
 
-use bytes::{Bytes, BytesMut, IntoBuf};
+use bytes::{BytesMut, IntoBuf};
 use futures::{SinkExt as _, StreamExt as _};
 use tokio::codec::{Decoder, Encoder};
 use either::{Left, Right};
@@ -62,7 +62,7 @@ async fn main() {
 
     builder.begin_service(pkt::att::Uuid::Uuid16(0x1800));
     builder.with_characteristic(
-        gatt::CharacteristicProperties::READ, pkt::att::Uuid::Uuid16(0x2A00), "MYDEVICENAME");
+        gatt::CharacteristicProperties::READ, pkt::att::Uuid::Uuid16(0x2A00), "MYDEVICENAME0123456789ABCDEF");
     builder.with_characteristic(
         gatt::CharacteristicProperties::READ, pkt::att::Uuid::Uuid16(0x2A01), vec![0xC2, 0x03]); // HID mouse
 
@@ -79,6 +79,8 @@ async fn main() {
         gatt::CharacteristicProperties::READ, pkt::att::Uuid::Uuid16(0x2A24), "1234");
     builder.with_characteristic(
         gatt::CharacteristicProperties::READ, pkt::att::Uuid::Uuid16(0x2A24), "9999");
+    /*
+    */
 
     builder.begin_service(pkt::att::Uuid::Uuid16(0x180F));
     builder.with_characteristic(
@@ -101,7 +103,7 @@ async fn main() {
                             item.attribute_group_type());
 
                         match response {
-                            Some(response) => {
+                            Ok(response) => {
                                 let mut iter = response.iter();
                                 let head = iter.next().unwrap();
                                 let mut b = pkt::att::ReadByGroupTypeResponse::builder(
@@ -112,7 +114,15 @@ async fn main() {
                                 let d = pkt::att::Att::from(b.build());
                                 transport.send((handle, d)).await.unwrap();
                             },
-                            None => {
+                            Err(gatt::Error::AttError(e)) => {
+                                let d = pkt::att::ErrorResponse::new(
+                                    0x10,//pkt::att::ReadByGroupTypeRequest::OPCODE,
+                                    item.starting_handle(),
+                                    e);
+                                let d = pkt::att::Att::from(d);
+                                transport.send((handle, d)).await.unwrap();
+                            },
+                            Err(..) => {
                                 let d = pkt::att::ErrorResponse::new(
                                     0x10,//pkt::att::ReadByGroupTypeRequest::OPCODE,
                                     item.starting_handle(),
@@ -130,7 +140,7 @@ async fn main() {
                             item.attribute_type());
 
                         match response {
-                            Some(response) => {
+                            Ok(response) => {
                                 let mut iter = response.iter();
                                 let head = iter.next().unwrap();
                                 let mut b = pkt::att::ReadByTypeResponse::builder(
@@ -141,7 +151,15 @@ async fn main() {
                                 let d = pkt::att::Att::from(b.build());
                                 transport.send((handle, d)).await.unwrap();
                             },
-                            None => {
+                            Err(gatt::Error::AttError(e)) => {
+                                let d = pkt::att::ErrorResponse::new(
+                                    0x08,//pkt::att::ReadByTypeRequest::OPCODE,
+                                    item.starting_handle(),
+                                    e);
+                                let d = pkt::att::Att::from(d);
+                                transport.send((handle, d)).await.unwrap();
+                            },
+                            Err(..) => {
                                 let d = pkt::att::ErrorResponse::new(
                                     0x08,//pkt::att::ReadByTypeRequest::OPCODE,
                                     item.starting_handle(),
@@ -158,7 +176,7 @@ async fn main() {
                             item.ending_handle());
 
                         match response {
-                            Some(response) => {
+                            Ok(response) => {
                                 let mut iter = response.iter();
                                 let head = iter.next().unwrap();
                                 let mut b = pkt::att::FindInformationResponse::builder(
@@ -169,11 +187,19 @@ async fn main() {
                                 let d = pkt::att::Att::from(b.build());
                                 transport.send((handle, d)).await.unwrap();
                             },
-                            None => {
+                            Err(gatt::Error::AttError(e)) => {
                                 let d = pkt::att::ErrorResponse::new(
                                     0x05,//pkt::att::FindInformationResponse::OPCODE,
                                     item.starting_handle(),
-                                    pkt::att::ErrorCode::AttributeNotFound);
+                                    e);
+                                let d = pkt::att::Att::from(d);
+                                transport.send((handle, d)).await.unwrap();
+                            },
+                            Err(..) => {
+                                let d = pkt::att::ErrorResponse::new(
+                                    0x05,//pkt::att::FindInformationResponse::OPCODE,
+                                    item.starting_handle(),
+                                    pkt::att::ErrorCode::UnlikelyError);
                                 let d = pkt::att::Att::from(d);
                                 transport.send((handle, d)).await.unwrap();
                             },
@@ -184,16 +210,52 @@ async fn main() {
                         let response = gatt.read(item.attribute_handle());
 
                         match response {
-                            Some(response) => {
-                                let b = pkt::att::ReadResponse::new(Bytes::from(response));
+                            Ok(response) => {
+                                let b = pkt::att::ReadResponse::new(response);
                                 let d = pkt::att::Att::from(b);
                                 transport.send((handle, d)).await.unwrap();
                             },
-                            None => {
+                            Err(gatt::Error::AttError(e)) => {
                                 let d = pkt::att::ErrorResponse::new(
                                     0x0A,//pkt::att::ReadRequest::OPCODE,
                                     item.attribute_handle(),
-                                    pkt::att::ErrorCode::AttributeNotFound);
+                                    e);
+                                let d = pkt::att::Att::from(d);
+                                transport.send((handle, d)).await.unwrap();
+                            },
+                            Err(..) => {
+                                let d = pkt::att::ErrorResponse::new(
+                                    0x0A,//pkt::att::ReadRequest::OPCODE,
+                                    item.attribute_handle(),
+                                    pkt::att::ErrorCode::UnlikelyError);
+                                let d = pkt::att::Att::from(d);
+                                transport.send((handle, d)).await.unwrap();
+                            },
+                        };
+                    },
+
+                    pkt::att::Att::ReadBlobRequest(item) => {
+                        let response = gatt.read_blob(item.attribute_handle(), item.value_offset());
+
+                        match response {
+                            Ok(response) => {
+                                let b = pkt::att::ReadBlobResponse::new(response);
+                                let d = pkt::att::Att::from(b);
+                                transport.send((handle, d)).await.unwrap();
+                            },
+                            Err(gatt::Error::AttError(e)) => {
+                                let d = pkt::att::ErrorResponse::new(
+                                    0x0C,//pkt::att::ReadRequest::OPCODE,
+                                    item.attribute_handle(),
+                                    e);
+                                let d = pkt::att::Att::from(d);
+                                transport.send((handle, d)).await.unwrap();
+                            },
+                            Err(..) => {
+                                let d = pkt::att::ErrorResponse::new(
+                                    0x0C,//pkt::att::ReadRequest::OPCODE,
+                                    item.attribute_handle(),
+                                    pkt::att::ErrorCode::UnlikelyError);
                                 let d = pkt::att::Att::from(d);
                                 transport.send((handle, d)).await.unwrap();
                             },
@@ -224,16 +286,16 @@ async fn main() {
                         let response = gatt.exchange_mtu(item.client_rx_mtu());
 
                         match response {
-                            Some(mtu) => {
+                            Ok(mtu) => {
                                 let b = pkt::att::ExchangeMtuResponse::new(mtu);
                                 let d = pkt::att::Att::from(b);
                                 transport.send((handle, d)).await.unwrap();
                             },
-                            None => {
+                            Err(..) => {
                                 let d = pkt::att::ErrorResponse::new(
                                     0x02,//pkt::att::ReadRequest::OPCODE,
                                     pkt::att::Handle::from(0),
-                                    pkt::att::ErrorCode::AttributeNotFound);
+                                    pkt::att::ErrorCode::UnlikelyError);
                                 let d = pkt::att::Att::from(d);
                                 transport.send((handle, d)).await.unwrap();
                             },

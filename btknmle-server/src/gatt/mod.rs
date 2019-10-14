@@ -11,13 +11,41 @@ use btknmle_pkt::att::{Handle, Uuid, ErrorCode};
 pub enum Error {
     #[fail(display="att err {:?}", _0)]
     AttError(ErrorCode),
+    #[fail(display="?")]
+    _E,
 }
+
+impl From<ErrorCode> for Error {
+    fn from(v: ErrorCode) -> Self {
+        Self::AttError(v)
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 bitflags! {
     pub struct Permissions: u16 {
-        const WRITE = 0x0000_0001;
-        const AUTHORIZATION = 0x0000_0010;
-        const AUTHENTICATION = 0x0000_0100;
+        const READABLE = 0x0000_0001;
+        const WRITABLE = 0x0000_0010;
+        const AUTHORIZATION_REQUIRED = 0x0000_0100;
+        const AUTHENTICATION_REQUIRED = 0x0000_1000;
+    }
+}
+
+impl From<CharacteristicProperties> for Permissions {
+    fn from(v: CharacteristicProperties) -> Self {
+        let mut result = Self::empty();
+
+        if v.contains(CharacteristicProperties::READ) {
+            result |= Permissions::READABLE
+        }
+
+        if v.contains(CharacteristicProperties::WRITE) ||
+            v.contains(CharacteristicProperties::WRITE_WITHOUT_RESPONSE) ||
+            v.contains(CharacteristicProperties::AUTHENTICATED_SIGNED_WRITE) {
+            result |= Permissions::WRITABLE
+        }
+        result
     }
 }
 
@@ -138,13 +166,40 @@ impl Database {
         }
     }
 
-    pub fn exchange_mtu(&mut self, client_mtu: u16) -> Option<u16> {
+    pub fn exchange_mtu(&mut self, client_mtu: u16) -> Result<u16> {
         self.mtu = client_mtu as usize;
-        Some(client_mtu)
+        Ok(client_mtu)
     }
 
-    pub fn read(&self, handle: Handle) -> Option<AttributeValue> {
-        self.attrs.get(&handle).map(|v| v.att_value.clone())
+    fn read_raw(&self, handle: Handle) -> Result<AttributeValue> {
+        let att = match self.attrs.get(&handle) {
+            Some(att) => att,
+            None => return Err(ErrorCode::AttributeNotFound.into()),
+        };
+        if !att.att_perm.contains(Permissions::READABLE) {
+            return Err(ErrorCode::ReadNotPermitted.into())
+        }
+        Ok(att.att_value.clone())
+    }
+
+    pub fn read(&self, handle: Handle) -> Result<Bytes> {
+        let val = self.read_raw(handle)?;
+        let val = Bytes::from(val);
+        Ok(if val.len() > self.mtu - 1 {
+            val.slice_to(self.mtu - 1)
+        } else {
+            val
+        })
+    }
+
+    pub fn read_blob(&self, handle: Handle, offset: u16) -> Result<Bytes> {
+        let val = self.read_raw(handle)?;
+        let val = Bytes::from(val).slice_from(offset as usize); // FIXME
+        Ok(if val.len() > self.mtu - 1 {
+            val.slice_to(self.mtu - 1)
+        } else {
+            val
+        })
     }
 
     pub fn write(&mut self, handle: Handle, val: impl Into<Bytes>) -> Option<()> {
@@ -157,7 +212,7 @@ impl Database {
     }
 
     pub fn find_information(&self, begin: Handle, end: Handle)
-        -> Option<Vec<(Handle, Uuid)>> {
+        -> Result<Vec<(Handle, Uuid)>> {
 
         let mut iter = self.attrs
             .range(begin..=end)
@@ -165,22 +220,33 @@ impl Database {
 
         let head = match iter.next() {
             Some(item) => item,
-            None => return None,
+            None => return Err(ErrorCode::AttributeNotFound.into()),
         };
-        let expect_size = head.att_value.size();
+        let head_type = head.att_type.clone();
+        let type_size = match head_type {
+            Uuid::Uuid16(..) => 2,
+            Uuid::Uuid128(..) => 16,
+        };
         let mut result = vec![(head.att_handle.clone(), head.att_type.clone())];
+        let mut size = 2 + type_size;
         while let Some(item) = iter.next() {
-            if item.att_value.size() != expect_size {
+            match (&head_type, &item.att_type) {
+                (Uuid::Uuid16(..), Uuid::Uuid16(..)) |
+                    (Uuid::Uuid128(..), Uuid::Uuid128(..)) => {},
+                _ => break,
+            };
+            result.push((item.att_handle.clone(), item.att_type.clone()));
+            size += 2 + type_size;
+            if self.mtu < size + 2 + type_size {
                 break
             }
-            result.push((item.att_handle.clone(), head.att_type.clone()));
         }
 
-        Some(result)
+        Ok(result)
     }
 
     pub fn read_by_type(&self, begin: Handle, end: Handle, uuid: Uuid)
-        -> Option<Vec<(Handle, AttributeValue)>> {
+        -> Result<Vec<(Handle, AttributeValue)>> {
 
         let mut iter = self.attrs
             .range(begin..=end)
@@ -188,22 +254,27 @@ impl Database {
 
         let head = match iter.next() {
             Some(item) => item,
-            None => return None,
+            None => return Err(ErrorCode::AttributeNotFound.into()),
         };
-        let expect_size = head.att_value.size();
+        let value_size = head.att_value.size();
         let mut result = vec![(head.att_handle.clone(), head.att_value.clone())];
+        let mut size = 2 + value_size;
         while let Some(item) = iter.next() {
-            if item.att_value.size() != expect_size {
+            if item.att_value.size() != value_size {
                 break
             }
             result.push((item.att_handle.clone(), item.att_value.clone()));
+            size += 2 + value_size;
+            if self.mtu < size + 2 + value_size {
+                break
+            }
         }
 
-        Some(result)
+        Ok(result)
     }
 
     pub fn read_by_group_type(&self, begin: Handle, end: Handle, uuid: Uuid)
-        -> Option<Vec<(RangeInclusive<Handle>, AttributeValue)>> {
+        -> Result<Vec<(RangeInclusive<Handle>, AttributeValue)>> {
 
         let mut iter = self.attrs
             .range(begin..)
@@ -212,36 +283,41 @@ impl Database {
 
         let mut group = match iter.next() {
             Some(item) => item,
-            None => return None,
+            None => return Err(ErrorCode::AttributeNotFound.into()),
         };
-        let expect_size = group.att_value.size();
+        let value_size = group.att_value.size();
         let mut last = &group.att_handle;
 
         let mut result = vec![];
+        let mut size = 0;
         while let Some(item) = iter.next() {
             if item.att_handle > end {
                 return if result.is_empty() {
-                    None
+                    return Err(ErrorCode::AttributeNotFound.into())
                 } else {
-                    Some(result)
+                    Ok(result)
                 };
             };
             if item.att_type == uuid {
-                if expect_size != group.att_value.size() {
-                    return Some(result)
+                if value_size != group.att_value.size() {
+                    return Ok(result)
                 };
                 let range = RangeInclusive::new(group.att_handle.clone(), last.clone());
                 result.push((range, group.att_value.clone()));
+                size += 2 + 2 + value_size;
+                if self.mtu < size + 2 + 2 + value_size {
+                    return Ok(result)
+                }
                 group = item;
             }
             last = &item.att_handle;
         };
-        if expect_size == group.att_value.size() {
+        if value_size == group.att_value.size() {
             let range = RangeInclusive::new(group.att_handle.clone(), last.clone());
             result.push((range, group.att_value.clone()));
         }
 
-        Some(result)
+        Ok(result)
     }
 }
 
@@ -267,7 +343,7 @@ impl DatabaseBuilder {
             att_handle: handle.clone(),
             att_type: Uuid::Uuid16(0x2800),
             att_value: AttributeValue::Service(service),
-            att_perm: Permissions::empty(),
+            att_perm: Permissions::READABLE,
         };
         self.attrs.insert(handle, att);
     }
@@ -289,17 +365,17 @@ impl DatabaseBuilder {
             att_handle: handle.clone(),
             att_type: Uuid::Uuid16(0x2803),
             att_value: AttributeValue::Characteristic {
-                properties,
+                properties: properties.clone(),
                 value_handle: value_handle.clone(),
                 chr_type: chr_type.clone(),
             },
-            att_perm: Permissions::empty(),
+            att_perm: Permissions::READABLE,
         });
         self.attrs.insert(value_handle.clone(), Attribute {
             att_handle: value_handle.clone(),
             att_type: chr_type,
             att_value: AttributeValue::Value(value),
-            att_perm: Permissions::empty(), // FIXME
+            att_perm: Permissions::from(properties), // FIXME
         });
 
         value_handle
@@ -312,7 +388,7 @@ impl DatabaseBuilder {
             att_handle: handle.clone(),
             att_type: Uuid::Uuid16(0x2901),
             att_value: AttributeValue::UTF8(description),
-            att_perm: Permissions::empty(),
+            att_perm: Permissions::READABLE | Permissions::WRITABLE // FIXME
         };
         self.attrs.insert(handle, att);
     }
@@ -324,7 +400,7 @@ impl DatabaseBuilder {
             att_handle: handle.clone(),
             att_type: Uuid::Uuid16(0x2902),
             att_value: AttributeValue::CCCD(value),
-            att_perm: Permissions::empty(),
+            att_perm: Permissions::READABLE | Permissions::WRITABLE // FIXME
         };
         self.attrs.insert(handle, att);
     }
@@ -338,7 +414,7 @@ mod tests {
     fn test1() {
         let mut builder = Database::builder();
         builder.begin_service(Uuid::Uuid16(0x1800)); // #1
-        builder.with_characteristic(CharacteristicProperties::empty(), Uuid::Uuid16(0x2A00), "MYDEVICENAME"); // #2,3
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), "MYDEVICENAME"); // #2,3
         builder.with_cccd(CCCD::empty()); // #4
         builder.begin_service(Uuid::Uuid16(0x1801)); // #5
         builder.begin_service(Uuid::Uuid16(0x180A)); // #6
@@ -348,43 +424,43 @@ mod tests {
         let gatt = builder.build();
 
         let result = gatt.read_by_group_type(Handle::from(0x0001), Handle::from(0xffff), Uuid::Uuid16(0x2800));
-        assert_eq!(result, Some(vec![
+        assert_eq!(result.unwrap(), vec![
                 (Handle::from(0x01)..=Handle::from(0x04), AttributeValue::Service(Uuid::Uuid16(0x1800))),
                 (Handle::from(0x05)..=Handle::from(0x05), AttributeValue::Service(Uuid::Uuid16(0x1801))),
                 (Handle::from(0x06)..=Handle::from(0x06), AttributeValue::Service(Uuid::Uuid16(0x180A))),
                 (Handle::from(0x07)..=Handle::from(0x07), AttributeValue::Service(Uuid::Uuid16(0x180F))),
-        ]));
+        ]);
 
         let result = gatt.read_by_group_type(Handle::from(0x0008), Handle::from(0xffff), Uuid::Uuid16(0x2800));
-        assert_eq!(result, Some(vec![
+        assert_eq!(result.unwrap(), vec![
                 (Handle::from(0x08)..=Handle::from(0x08),
                     AttributeValue::Service(Uuid::Uuid128(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff)))
-        ]));
+        ]);
 
         let result = gatt.read_by_group_type(Handle::from(0x0009), Handle::from(0xffff), Uuid::Uuid16(0x2800));
-        assert_eq!(result, Some(vec![
+        assert_eq!(result.unwrap(), vec![
                 (Handle::from(0x09)..=Handle::from(0x09), AttributeValue::Service(Uuid::Uuid16(0x1802)))
-        ]));
+        ]);
 
         let result = gatt.read_by_group_type(Handle::from(0x000A), Handle::from(0xffff), Uuid::Uuid16(0x2800));
-        assert_eq!(result, None);
+        assert_eq!(result.is_err(), true); // FIXME
 
-        let result = gatt.read_by_type(Handle::from(0x01), Handle::from(0x04), Uuid::Uuid16(0x2803));
-        assert_eq!(result, Some(vec![
+        let result = gatt.read_by_type(Handle::from(0x01), Handle::from(0x04), Uuid::Uuid16(0x2803)).unwrap();
+        assert_eq!(result, vec![
                 (Handle::from(0x02), AttributeValue::Characteristic{
-                    properties: CharacteristicProperties::empty(),
+                    properties: CharacteristicProperties::READ,
                     value_handle: Handle::from(0x0003),
                     chr_type: Uuid::Uuid16(0x2A00),
                 }),
-        ]));
+        ]);
 
-        let result = gatt.find_information(Handle::from(0x04), Handle::from(0x04));
-        assert_eq!(result, Some(vec![
+        let result = gatt.find_information(Handle::from(0x04), Handle::from(0x04)).unwrap();
+        assert_eq!(result, vec![
                 (Handle::from(0x04), Uuid::Uuid16(0x2902)),
-        ]));
+        ]);
 
-        let result = gatt.read(Handle::from(0x03));
-        assert_eq!(result, Some(AttributeValue::Value(Bytes::from("MYDEVICENAME"))));
+        let result = gatt.read_raw(Handle::from(0x03)).unwrap();
+        assert_eq!(result, AttributeValue::Value(Bytes::from("MYDEVICENAME")));
     }
 
 }

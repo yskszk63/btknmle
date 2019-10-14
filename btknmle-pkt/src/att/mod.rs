@@ -15,6 +15,8 @@ pub use read_by_group_type_request::*;
 pub use read_by_group_type_response::*;
 pub use read_request::*;
 pub use read_response::*;
+pub use read_blob_request::*;
+pub use read_blob_response::*;
 pub use write_request::*;
 pub use write_response::*;
 
@@ -29,6 +31,8 @@ mod read_by_group_type_request;
 mod read_by_group_type_response;
 mod read_request;
 mod read_response;
+mod read_blob_request;
+mod read_blob_response;
 mod write_request;
 mod write_response;
 
@@ -190,6 +194,8 @@ pub enum Att {
     ReadByGroupTypeResponse(ReadByGroupTypeResponse),
     ReadRequest(ReadRequest),
     ReadResponse(ReadResponse),
+    ReadBlobRequest(ReadBlobRequest),
+    ReadBlobResponse(ReadBlobResponse),
     WriteRequest(WriteRequest),
     WriteResponse(WriteResponse),
 }
@@ -213,6 +219,8 @@ impl Codec for Att {
             ReadByGroupTypeResponse::OPCODE => ReadByGroupTypeResponse::parse(buf)?.into(),
             ReadRequest::OPCODE => ReadRequest::parse(buf)?.into(),
             ReadResponse::OPCODE => ReadResponse::parse(buf)?.into(),
+            ReadBlobRequest::OPCODE => ReadBlobRequest::parse(buf)?.into(),
+            ReadBlobResponse::OPCODE => ReadBlobResponse::parse(buf)?.into(),
             WriteRequest::OPCODE => WriteRequest::parse(buf)?.into(),
             WriteResponse::OPCODE => WriteResponse::parse(buf)?.into(),
             x => return Err(CodecError::UnknownAtt(x)),
@@ -233,6 +241,8 @@ impl Codec for Att {
             Att::ReadByGroupTypeResponse(..) => buf.put_u8(ReadByGroupTypeResponse::OPCODE),
             Att::ReadRequest(..) => buf.put_u8(ReadRequest::OPCODE),
             Att::ReadResponse(..) => buf.put_u8(ReadResponse::OPCODE),
+            Att::ReadBlobRequest(..) => buf.put_u8(ReadBlobRequest::OPCODE),
+            Att::ReadBlobResponse(..) => buf.put_u8(ReadBlobResponse::OPCODE),
             Att::WriteRequest(..) => buf.put_u8(WriteRequest::OPCODE),
             Att::WriteResponse(..) => buf.put_u8(WriteResponse::OPCODE),
         }
@@ -249,6 +259,8 @@ impl Codec for Att {
             Att::ReadByGroupTypeResponse(item) => item.write_to(buf)?,
             Att::ReadRequest(item) => item.write_to(buf)?,
             Att::ReadResponse(item) => item.write_to(buf)?,
+            Att::ReadBlobRequest(item) => item.write_to(buf)?,
+            Att::ReadBlobResponse(item) => item.write_to(buf)?,
             Att::WriteRequest(item) => item.write_to(buf)?,
             Att::WriteResponse(item) => item.write_to(buf)?,
         }

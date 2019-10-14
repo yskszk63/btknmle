@@ -19,6 +19,7 @@ pub use read_blob_request::*;
 pub use read_blob_response::*;
 pub use write_request::*;
 pub use write_response::*;
+pub use handle_value_notification::*;
 
 mod error_response;
 mod exchange_mtu_request;
@@ -35,6 +36,7 @@ mod read_blob_request;
 mod read_blob_response;
 mod write_request;
 mod write_response;
+mod handle_value_notification;
 
 trait AttItem: Codec + Into<Att> {
     const OPCODE: u8;
@@ -198,6 +200,7 @@ pub enum Att {
     ReadBlobResponse(ReadBlobResponse),
     WriteRequest(WriteRequest),
     WriteResponse(WriteResponse),
+    HandleValueNotification(HandleValueNotification),
 }
 
 impl Codec for Att {
@@ -223,6 +226,7 @@ impl Codec for Att {
             ReadBlobResponse::OPCODE => ReadBlobResponse::parse(buf)?.into(),
             WriteRequest::OPCODE => WriteRequest::parse(buf)?.into(),
             WriteResponse::OPCODE => WriteResponse::parse(buf)?.into(),
+            HandleValueNotification::OPCODE => HandleValueNotification::parse(buf)?.into(),
             x => return Err(CodecError::UnknownAtt(x)),
         };
         Ok(result)
@@ -245,6 +249,7 @@ impl Codec for Att {
             Att::ReadBlobResponse(..) => buf.put_u8(ReadBlobResponse::OPCODE),
             Att::WriteRequest(..) => buf.put_u8(WriteRequest::OPCODE),
             Att::WriteResponse(..) => buf.put_u8(WriteResponse::OPCODE),
+            Att::HandleValueNotification(..) => buf.put_u8(HandleValueNotification::OPCODE),
         }
 
         match self {
@@ -263,6 +268,7 @@ impl Codec for Att {
             Att::ReadBlobResponse(item) => item.write_to(buf)?,
             Att::WriteRequest(item) => item.write_to(buf)?,
             Att::WriteResponse(item) => item.write_to(buf)?,
+            Att::HandleValueNotification(item) => item.write_to(buf)?,
         }
 
         Ok(())

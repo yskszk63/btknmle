@@ -1,4 +1,5 @@
 use std::io;
+use std::sync::{Arc, Mutex};
 
 use bytes::{BytesMut, IntoBuf};
 use futures::{SinkExt as _, StreamExt as _};
@@ -79,17 +80,33 @@ async fn main() {
         gatt::CharacteristicProperties::READ, pkt::att::Uuid::Uuid16(0x2A24), "1234");
     builder.with_characteristic(
         gatt::CharacteristicProperties::READ, pkt::att::Uuid::Uuid16(0x2A24), "9999");
-    /*
-    */
 
     builder.begin_service(pkt::att::Uuid::Uuid16(0x180F));
-    builder.with_characteristic(
+    let bash = builder.with_characteristic(
         gatt::CharacteristicProperties::INDICATE, pkt::att::Uuid::Uuid16(0x2A19), vec![100]);
     builder.with_cccd(gatt::CCCD::empty());
-    let mut gatt = builder.build();
 
-    let mut transport = att::AttTransport::new(l2cap::L2CapTransport::new(frames));
+    let gatt = Arc::new(Mutex::new(builder.build()));
+    let mut transport = Arc::new(Mutex::new(att::AttTransport::new(l2cap::L2CapTransport::new(frames))));
+
+    /*
+    let gatt2 = gatt.clone();
+    let transport2 = transport.clone();
+    tokio::runtime::current_thread::spawn(async move {
+        let mut interval = tokio::timer::Interval::new_interval(std::time::Duration::from_secs(5));
+        while let Some(..) = interval.next().await {
+            let b = pkt::att::HandleValueNotification::new(bash.clone(), vec![100]);
+            let d = pkt::att::Att::from(b);
+            transport2.lock().unwrap().send((l2cap::Handle(16), d)).await.unwrap();
+            //println!("{:?}", g);
+        }
+    });
+    */
+
     loop {
+        let mut transport = transport.lock().unwrap();
+        let mut gatt = gatt.lock().unwrap();
+
         let p = transport.next().await.unwrap().unwrap();
         match p {
             Left((handle, data)) => {
@@ -304,6 +321,10 @@ async fn main() {
 
                     x => unimplemented!("{:?}", x),
                 };
+
+                let b = pkt::att::HandleValueNotification::new(bash.clone(), vec![(std::time::UNIX_EPOCH.elapsed().unwrap().as_secs() % 100) as u8]);
+                let d = pkt::att::Att::from(b);
+                transport.send((l2cap::Handle(16), d)).await.unwrap();
             },
             Right(e) => {
                 println!("{:?}", e);

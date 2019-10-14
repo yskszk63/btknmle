@@ -11,7 +11,7 @@ use btknmle_pkt::acldata::{AclData, AclFlags};
 const ATT_CID: u16 = 0x04;
 
 #[derive(Debug)]
-pub struct Handle(u16);
+pub struct Handle(pub u16);
 
 #[derive(Debug)]
 pub struct L2CapTransport<C> {

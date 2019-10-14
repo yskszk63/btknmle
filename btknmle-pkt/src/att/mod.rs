@@ -5,6 +5,8 @@ use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 use super::{Codec, CodecError};
 
 pub use error_response::*;
+pub use exchange_mtu_request::*;
+pub use exchange_mtu_response::*;
 pub use find_information_request::*;
 pub use find_information_response::*;
 pub use read_by_type_request::*;
@@ -17,6 +19,8 @@ pub use write_request::*;
 pub use write_response::*;
 
 mod error_response;
+mod exchange_mtu_request;
+mod exchange_mtu_response;
 mod find_information_request;
 mod find_information_response;
 mod read_by_type_request;
@@ -176,6 +180,8 @@ impl From<u16> for Handle {
 #[derive(Debug)]
 pub enum Att {
     ErrorResponse(ErrorResponse),
+    ExchangeMtuRequest(ExchangeMtuRequest),
+    ExchangeMtuResponse(ExchangeMtuResponse),
     FindInformationRequest(FindInformationRequest),
     FindInformationResponse(FindInformationResponse),
     ReadByTypeRequest(ReadByTypeRequest),
@@ -197,6 +203,8 @@ impl Codec for Att {
         let opcode = buf.get_u8();
         let result = match opcode {
             ErrorResponse::OPCODE => ErrorResponse::parse(buf)?.into(),
+            ExchangeMtuRequest::OPCODE => ExchangeMtuRequest::parse(buf)?.into(),
+            ExchangeMtuResponse::OPCODE => ExchangeMtuResponse::parse(buf)?.into(),
             FindInformationRequest::OPCODE => FindInformationRequest::parse(buf)?.into(),
             FindInformationResponse::OPCODE => FindInformationResponse::parse(buf)?.into(),
             ReadByTypeRequest::OPCODE => ReadByTypeRequest::parse(buf)?.into(),
@@ -215,6 +223,8 @@ impl Codec for Att {
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {
         match self {
             Att::ErrorResponse(..) => buf.put_u8(ErrorResponse::OPCODE),
+            Att::ExchangeMtuRequest(..) => buf.put_u8(ExchangeMtuRequest::OPCODE),
+            Att::ExchangeMtuResponse(..) => buf.put_u8(ExchangeMtuResponse::OPCODE),
             Att::FindInformationRequest(..) => buf.put_u8(FindInformationRequest::OPCODE),
             Att::FindInformationResponse(..) => buf.put_u8(FindInformationResponse::OPCODE),
             Att::ReadByTypeRequest(..) => buf.put_u8(ReadByTypeRequest::OPCODE),
@@ -229,6 +239,8 @@ impl Codec for Att {
 
         match self {
             Att::ErrorResponse(item) => item.write_to(buf)?,
+            Att::ExchangeMtuRequest(item) => item.write_to(buf)?,
+            Att::ExchangeMtuResponse(item) => item.write_to(buf)?,
             Att::FindInformationRequest(item) => item.write_to(buf)?,
             Att::FindInformationResponse(item) => item.write_to(buf)?,
             Att::ReadByTypeRequest(item) => item.write_to(buf)?,

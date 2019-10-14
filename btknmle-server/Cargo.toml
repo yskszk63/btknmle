@@ -12,5 +12,6 @@ futures-preview = "0.3.0-alpha"
 bytes = "0.4"
 either = "1.5"
 bitflags = "1.2"
+failure = "0.1.6"
 btknmle-sock = { path="../btknmle-sock" }
 btknmle-pkt = { path="../btknmle-pkt" }

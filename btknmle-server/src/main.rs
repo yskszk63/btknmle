@@ -220,6 +220,26 @@ async fn main() {
                         };
                     },
 
+                    pkt::att::Att::ExchangeMtuRequest(item) => {
+                        let response = gatt.exchange_mtu(item.client_rx_mtu());
+
+                        match response {
+                            Some(mtu) => {
+                                let b = pkt::att::ExchangeMtuResponse::new(mtu);
+                                let d = pkt::att::Att::from(b);
+                                transport.send((handle, d)).await.unwrap();
+                            },
+                            None => {
+                                let d = pkt::att::ErrorResponse::new(
+                                    0x02,//pkt::att::ReadRequest::OPCODE,
+                                    pkt::att::Handle::from(0),
+                                    pkt::att::ErrorCode::AttributeNotFound);
+                                let d = pkt::att::Att::from(d);
+                                transport.send((handle, d)).await.unwrap();
+                            },
+                        }
+                    },
+
                     x => unimplemented!("{:?}", x),
                 };
             },

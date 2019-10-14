@@ -3,8 +3,15 @@ use std::collections::BTreeMap;
 
 use bytes::{Bytes, BytesMut, Buf as _, BufMut as _, IntoBuf as _};
 use bitflags::bitflags;
+use failure::Fail;
 
-use btknmle_pkt::att::{Handle, Uuid};
+use btknmle_pkt::att::{Handle, Uuid, ErrorCode};
+
+#[derive(Debug, Fail)]
+pub enum Error {
+    #[fail(display="att err {:?}", _0)]
+    AttError(ErrorCode),
+}
 
 bitflags! {
     pub struct Permissions: u16 {
@@ -112,13 +119,14 @@ bitflags! {
 
 bitflags! {
     pub struct CCCD: u16 {
-        const Notification = 0x0001;
-        const Indication = 0x0002;
+        const NOTIFICATION = 0x0001;
+        const INDICATION = 0x0002;
     }
 }
 
 #[derive(Debug)]
 pub struct Database {
+    mtu: usize,
     attrs: BTreeMap<Handle, Attribute>,
 }
 
@@ -128,6 +136,11 @@ impl Database {
             next: 1,
             attrs: BTreeMap::new(),
         }
+    }
+
+    pub fn exchange_mtu(&mut self, client_mtu: u16) -> Option<u16> {
+        self.mtu = client_mtu as usize;
+        Some(client_mtu)
     }
 
     pub fn read(&self, handle: Handle) -> Option<AttributeValue> {
@@ -240,7 +253,10 @@ pub struct DatabaseBuilder {
 
 impl DatabaseBuilder {
     pub fn build(self) -> Database {
-        Database { attrs: self.attrs, }
+        Database {
+            mtu: 23,
+            attrs: self.attrs,
+        }
     }
 
     pub fn begin_service(&mut self, service: impl Into<Uuid>) {
@@ -325,28 +341,32 @@ mod tests {
         builder.with_characteristic(CharacteristicProperties::empty(), Uuid::Uuid16(0x2A00), "MYDEVICENAME"); // #2,3
         builder.with_cccd(CCCD::empty()); // #4
         builder.begin_service(Uuid::Uuid16(0x1801)); // #5
-        builder.begin_service(Uuid::Uuid128(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff)); // #6
-        builder.begin_service(Uuid::Uuid16(0x1802)); // #7
+        builder.begin_service(Uuid::Uuid16(0x180A)); // #6
+        builder.begin_service(Uuid::Uuid16(0x180F)); // #7
+        builder.begin_service(Uuid::Uuid128(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff)); // #8
+        builder.begin_service(Uuid::Uuid16(0x1802)); // #9
         let gatt = builder.build();
 
         let result = gatt.read_by_group_type(Handle::from(0x0001), Handle::from(0xffff), Uuid::Uuid16(0x2800));
         assert_eq!(result, Some(vec![
                 (Handle::from(0x01)..=Handle::from(0x04), AttributeValue::Service(Uuid::Uuid16(0x1800))),
-                (Handle::from(0x05)..=Handle::from(0x05), AttributeValue::Service(Uuid::Uuid16(0x1801)))
-        ]));
-
-        let result = gatt.read_by_group_type(Handle::from(0x0006), Handle::from(0xffff), Uuid::Uuid16(0x2800));
-        assert_eq!(result, Some(vec![
-                (Handle::from(0x06)..=Handle::from(0x06),
-                    AttributeValue::Service(Uuid::Uuid128(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff)))
-        ]));
-
-        let result = gatt.read_by_group_type(Handle::from(0x0007), Handle::from(0xffff), Uuid::Uuid16(0x2800));
-        assert_eq!(result, Some(vec![
-                (Handle::from(0x07)..=Handle::from(0x07), AttributeValue::Service(Uuid::Uuid16(0x1802)))
+                (Handle::from(0x05)..=Handle::from(0x05), AttributeValue::Service(Uuid::Uuid16(0x1801))),
+                (Handle::from(0x06)..=Handle::from(0x06), AttributeValue::Service(Uuid::Uuid16(0x180A))),
+                (Handle::from(0x07)..=Handle::from(0x07), AttributeValue::Service(Uuid::Uuid16(0x180F))),
         ]));
 
         let result = gatt.read_by_group_type(Handle::from(0x0008), Handle::from(0xffff), Uuid::Uuid16(0x2800));
+        assert_eq!(result, Some(vec![
+                (Handle::from(0x08)..=Handle::from(0x08),
+                    AttributeValue::Service(Uuid::Uuid128(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff)))
+        ]));
+
+        let result = gatt.read_by_group_type(Handle::from(0x0009), Handle::from(0xffff), Uuid::Uuid16(0x2800));
+        assert_eq!(result, Some(vec![
+                (Handle::from(0x09)..=Handle::from(0x09), AttributeValue::Service(Uuid::Uuid16(0x1802)))
+        ]));
+
+        let result = gatt.read_by_group_type(Handle::from(0x000A), Handle::from(0xffff), Uuid::Uuid16(0x2800));
         assert_eq!(result, None);
 
         let result = gatt.read_by_type(Handle::from(0x01), Handle::from(0x04), Uuid::Uuid16(0x2803));

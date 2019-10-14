@@ -1,0 +1,16 @@
+[package]
+name = "btknmle-server"
+version = "0.1.0"
+authors = ["yskszk63 <yskszk63@gamil.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = "0.2.0-alpha"
+futures-preview = "0.3.0-alpha"
+bytes = "0.4"
+either = "1.5"
+bitflags = "1.2"
+btknmle-sock = { path="../btknmle-sock" }
+btknmle-pkt = { path="../btknmle-pkt" }

@@ -1,9 +1,10 @@
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use bytes::{BytesMut, IntoBuf};
 use futures::{SinkExt as _, StreamExt as _};
 use tokio::codec::{Decoder, Encoder};
+use tokio::sync::Mutex;
 use either::{Left, Right};
 
 use btknmle_pkt::{self as pkt, Codec as _, HciPacket};
@@ -86,31 +87,28 @@ async fn main() {
         gatt::CharacteristicProperties::INDICATE, pkt::att::Uuid::Uuid16(0x2A19), vec![100]);
     builder.with_cccd(gatt::CCCD::empty());
 
-    let gatt = Arc::new(Mutex::new(builder.build()));
-    let mut transport = Arc::new(Mutex::new(att::AttTransport::new(l2cap::L2CapTransport::new(frames))));
+    let mut gatt = builder.build();
+    let transport = att::AttTransport::new(l2cap::L2CapTransport::new(frames));
+    let (tx, mut rx) = transport.split();
+    let tx = Arc::new(Mutex::new(tx));
 
-    /*
-    let gatt2 = gatt.clone();
-    let transport2 = transport.clone();
+    let tx2 = tx.clone();
     tokio::runtime::current_thread::spawn(async move {
-        let mut interval = tokio::timer::Interval::new_interval(std::time::Duration::from_secs(5));
+        let mut interval = tokio::timer::Interval::new_interval(std::time::Duration::from_secs(1));
         while let Some(..) = interval.next().await {
-            let b = pkt::att::HandleValueNotification::new(bash.clone(), vec![100]);
+            let b = pkt::att::HandleValueNotification::new(bash.clone(), vec![(std::time::UNIX_EPOCH.elapsed().unwrap().as_secs() % 100) as u8]);
             let d = pkt::att::Att::from(b);
-            transport2.lock().unwrap().send((l2cap::Handle(16), d)).await.unwrap();
+            tx2.lock().await.send((l2cap::Handle(16), d)).await.unwrap();
             //println!("{:?}", g);
         }
     });
-    */
 
     loop {
-        let mut transport = transport.lock().unwrap();
-        let mut gatt = gatt.lock().unwrap();
-
-        let p = transport.next().await.unwrap().unwrap();
+        let p = rx.next().await.unwrap().unwrap();
         match p {
             Left((handle, data)) => {
                 println!("{:?} {:?}", handle, data);
+                let mut tx = tx.lock().await;
 
                 match data {
                     pkt::att::Att::ReadByGroupTypeRequest(item) => {
@@ -129,7 +127,7 @@ async fn main() {
                                     b.add((item.0).start().clone(), (item.0).end().clone(), item.1.clone());
                                 };
                                 let d = pkt::att::Att::from(b.build());
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(gatt::Error::AttError(e)) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -137,7 +135,7 @@ async fn main() {
                                     item.starting_handle(),
                                     e);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(..) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -145,7 +143,7 @@ async fn main() {
                                     item.starting_handle(),
                                     pkt::att::ErrorCode::AttributeNotFound);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                         };
                     },
@@ -166,7 +164,7 @@ async fn main() {
                                     b.add(item.0.clone(), item.1.clone());
                                 };
                                 let d = pkt::att::Att::from(b.build());
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(gatt::Error::AttError(e)) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -174,7 +172,7 @@ async fn main() {
                                     item.starting_handle(),
                                     e);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(..) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -182,7 +180,7 @@ async fn main() {
                                     item.starting_handle(),
                                     pkt::att::ErrorCode::AttributeNotFound);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                         };
                     },
@@ -202,7 +200,7 @@ async fn main() {
                                     b.add(item.0.clone(), item.1.clone());
                                 };
                                 let d = pkt::att::Att::from(b.build());
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(gatt::Error::AttError(e)) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -210,7 +208,7 @@ async fn main() {
                                     item.starting_handle(),
                                     e);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(..) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -218,7 +216,7 @@ async fn main() {
                                     item.starting_handle(),
                                     pkt::att::ErrorCode::UnlikelyError);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                         }
                     },
@@ -230,7 +228,7 @@ async fn main() {
                             Ok(response) => {
                                 let b = pkt::att::ReadResponse::new(response);
                                 let d = pkt::att::Att::from(b);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(gatt::Error::AttError(e)) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -238,7 +236,7 @@ async fn main() {
                                     item.attribute_handle(),
                                     e);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(..) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -246,7 +244,7 @@ async fn main() {
                                     item.attribute_handle(),
                                     pkt::att::ErrorCode::UnlikelyError);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                         };
                     },
@@ -258,7 +256,7 @@ async fn main() {
                             Ok(response) => {
                                 let b = pkt::att::ReadBlobResponse::new(response);
                                 let d = pkt::att::Att::from(b);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(gatt::Error::AttError(e)) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -266,7 +264,7 @@ async fn main() {
                                     item.attribute_handle(),
                                     e);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(..) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -274,7 +272,7 @@ async fn main() {
                                     item.attribute_handle(),
                                     pkt::att::ErrorCode::UnlikelyError);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                         };
                     },
@@ -286,7 +284,7 @@ async fn main() {
                             Some(_response) => {
                                 let b = pkt::att::WriteResponse::new();
                                 let d = pkt::att::Att::from(b);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             None => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -294,7 +292,7 @@ async fn main() {
                                     item.attribute_handle(),
                                     pkt::att::ErrorCode::AttributeNotFound);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                         };
                     },
@@ -306,7 +304,7 @@ async fn main() {
                             Ok(mtu) => {
                                 let b = pkt::att::ExchangeMtuResponse::new(mtu);
                                 let d = pkt::att::Att::from(b);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                             Err(..) => {
                                 let d = pkt::att::ErrorResponse::new(
@@ -314,7 +312,7 @@ async fn main() {
                                     pkt::att::Handle::from(0),
                                     pkt::att::ErrorCode::UnlikelyError);
                                 let d = pkt::att::Att::from(d);
-                                transport.send((handle, d)).await.unwrap();
+                                tx.send((handle, d)).await.unwrap();
                             },
                         }
                     },
@@ -322,9 +320,11 @@ async fn main() {
                     x => unimplemented!("{:?}", x),
                 };
 
+                /*
                 let b = pkt::att::HandleValueNotification::new(bash.clone(), vec![(std::time::UNIX_EPOCH.elapsed().unwrap().as_secs() % 100) as u8]);
                 let d = pkt::att::Att::from(b);
                 transport.send((l2cap::Handle(16), d)).await.unwrap();
+                */
             },
             Right(e) => {
                 println!("{:?}", e);

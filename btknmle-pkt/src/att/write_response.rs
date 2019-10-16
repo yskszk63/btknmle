@@ -1,14 +1,13 @@
 use bytes::{Buf, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem};
+use super::{Att, AttItem, Codec, CodecError};
 
 #[derive(Debug)]
-pub struct WriteResponse {
-}
+pub struct WriteResponse {}
 
 impl WriteResponse {
     pub fn new() -> Self {
-        Self { }
+        Self {}
     }
 }
 
@@ -18,7 +17,7 @@ impl AttItem for WriteResponse {
 
 impl Codec for WriteResponse {
     fn parse(_buf: &mut impl Buf) -> Result<Self, CodecError> {
-        Ok(Self { })
+        Ok(Self {})
     }
 
     fn write_to(&self, _buf: &mut BytesMut) -> Result<(), CodecError> {

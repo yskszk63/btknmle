@@ -9,34 +9,34 @@ pub use exchange_mtu_request::*;
 pub use exchange_mtu_response::*;
 pub use find_information_request::*;
 pub use find_information_response::*;
-pub use read_by_type_request::*;
-pub use read_by_type_response::*;
-pub use read_by_group_type_request::*;
-pub use read_by_group_type_response::*;
-pub use read_request::*;
-pub use read_response::*;
+pub use handle_value_notification::*;
 pub use read_blob_request::*;
 pub use read_blob_response::*;
+pub use read_by_group_type_request::*;
+pub use read_by_group_type_response::*;
+pub use read_by_type_request::*;
+pub use read_by_type_response::*;
+pub use read_request::*;
+pub use read_response::*;
 pub use write_request::*;
 pub use write_response::*;
-pub use handle_value_notification::*;
 
 mod error_response;
 mod exchange_mtu_request;
 mod exchange_mtu_response;
 mod find_information_request;
 mod find_information_response;
-mod read_by_type_request;
-mod read_by_type_response;
-mod read_by_group_type_request;
-mod read_by_group_type_response;
-mod read_request;
-mod read_response;
+mod handle_value_notification;
 mod read_blob_request;
 mod read_blob_response;
+mod read_by_group_type_request;
+mod read_by_group_type_response;
+mod read_by_type_request;
+mod read_by_type_response;
+mod read_request;
+mod read_response;
 mod write_request;
 mod write_response;
-mod handle_value_notification;
 
 trait AttItem: Codec + Into<Att> {
     const OPCODE: u8;
@@ -165,7 +165,7 @@ pub struct Handle(pub u16);
 impl Codec for Handle {
     fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
         if buf.remaining() < 2 {
-            return Err(CodecError::Underflow)
+            return Err(CodecError::Underflow);
         }
         Ok(Handle(buf.get_u16_le()))
     }

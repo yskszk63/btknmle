@@ -1,6 +1,6 @@
 use bytes::{Buf, BufMut as _, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem, Handle};
+use super::{Att, AttItem, Codec, CodecError, Handle};
 
 #[derive(Debug, Clone)]
 pub enum ErrorCode {
@@ -79,9 +79,9 @@ impl From<ErrorCode> for u8 {
             ErrorCode::InsufficientResource => 0x11,
             ErrorCode::DatabaseOutOfSync => 0x12,
             ErrorCode::ValueNotAllowed => 0x13,
-            ErrorCode::ApplicationError(v) |
-                ErrorCode::CommonProfileAndServiceErrorCode(v) |
-                ErrorCode::ReservedForFutureUse(v) => v,
+            ErrorCode::ApplicationError(v)
+            | ErrorCode::CommonProfileAndServiceErrorCode(v)
+            | ErrorCode::ReservedForFutureUse(v) => v,
         }
     }
 }
@@ -94,8 +94,16 @@ pub struct ErrorResponse {
 }
 
 impl ErrorResponse {
-    pub fn new(request_opcode_in_error: u8, attribute_handle_in_error: Handle, error_code: ErrorCode) -> Self {
-        Self { request_opcode_in_error, attribute_handle_in_error, error_code }
+    pub fn new(
+        request_opcode_in_error: u8,
+        attribute_handle_in_error: Handle,
+        error_code: ErrorCode,
+    ) -> Self {
+        Self {
+            request_opcode_in_error,
+            attribute_handle_in_error,
+            error_code,
+        }
     }
 }
 
@@ -109,7 +117,11 @@ impl Codec for ErrorResponse {
         let attribute_handle_in_error = Handle::parse(buf)?;
         let error_code = buf.get_u8().into();
 
-        Ok(Self { request_opcode_in_error, attribute_handle_in_error, error_code })
+        Ok(Self {
+            request_opcode_in_error,
+            attribute_handle_in_error,
+            error_code,
+        })
     }
 
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {

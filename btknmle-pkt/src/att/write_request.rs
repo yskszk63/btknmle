@@ -1,6 +1,6 @@
 use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem, Handle};
+use super::{Att, AttItem, Codec, CodecError, Handle};
 
 #[derive(Debug)]
 pub struct WriteRequest {
@@ -26,7 +26,10 @@ impl Codec for WriteRequest {
         let attribute_handle = Handle::parse(buf)?;
         let attribute_value = buf.take(usize::max_value()).collect();
 
-        Ok(Self { attribute_handle, attribute_value })
+        Ok(Self {
+            attribute_handle,
+            attribute_value,
+        })
     }
 
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {

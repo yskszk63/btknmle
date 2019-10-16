@@ -1,6 +1,6 @@
 use bytes::{Buf, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem, Handle, Uuid};
+use super::{Att, AttItem, Codec, CodecError, Handle, Uuid};
 
 #[derive(Debug)]
 pub struct ReadByGroupTypeRequest {
@@ -33,7 +33,11 @@ impl Codec for ReadByGroupTypeRequest {
         let ending_handle = Handle::parse(buf)?;
         let attribute_group_type = Uuid::parse(buf)?;
 
-        Ok(Self { starting_handle, ending_handle, attribute_group_type })
+        Ok(Self {
+            starting_handle,
+            ending_handle,
+            attribute_group_type,
+        })
     }
 
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {

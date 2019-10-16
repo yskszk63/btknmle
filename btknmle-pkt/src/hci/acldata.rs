@@ -1,5 +1,5 @@
-use bytes::{Bytes, BytesMut, Buf, BufMut as _};
 use bitflags::bitflags;
+use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
 use super::{Codec, CodecError};
 
@@ -34,7 +34,11 @@ pub struct AclData {
 
 impl AclData {
     pub fn new(flags: AclFlags, handle: u16, data: Bytes) -> Self {
-        AclData { flags, handle, data }
+        AclData {
+            flags,
+            handle,
+            data,
+        }
     }
 
     pub fn flags(&self) -> &AclFlags {
@@ -53,7 +57,7 @@ impl AclData {
 impl Codec for AclData {
     fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
         if buf.remaining() < 4 {
-            return Err(CodecError::Underflow)
+            return Err(CodecError::Underflow);
         }
 
         let handle = buf.get_u16_le();
@@ -62,10 +66,14 @@ impl Codec for AclData {
         let flags = acl_flags(handle);
         let flags = AclFlags::from_bits(flags).unwrap();
         if buf.remaining() < dlen {
-            return Err(CodecError::Underflow)
+            return Err(CodecError::Underflow);
         }
         let data = buf.take(dlen).iter().collect();
-        Ok(AclData { flags, handle, data })
+        Ok(AclData {
+            flags,
+            handle,
+            data,
+        })
     }
 
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {

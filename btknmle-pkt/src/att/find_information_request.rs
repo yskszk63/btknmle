@@ -1,6 +1,6 @@
 use bytes::{Buf, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem, Handle};
+use super::{Att, AttItem, Codec, CodecError, Handle};
 
 #[derive(Debug)]
 pub struct FindInformationRequest {
@@ -27,7 +27,10 @@ impl Codec for FindInformationRequest {
         let starting_handle = Handle::parse(buf)?;
         let ending_handle = Handle::parse(buf)?;
 
-        Ok(Self { starting_handle, ending_handle })
+        Ok(Self {
+            starting_handle,
+            ending_handle,
+        })
     }
 
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {

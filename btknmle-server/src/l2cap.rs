@@ -1,12 +1,12 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::{ready, Stream, Sink};
-use bytes::{Bytes, BytesMut, Buf as _, BufMut as _, IntoBuf as _};
+use bytes::{Buf as _, BufMut as _, Bytes, BytesMut, IntoBuf as _};
 use either::{Either, Left, Right};
+use futures::{ready, Sink, Stream};
 
-use btknmle_pkt::HciPacket;
-use btknmle_pkt::acldata::{AclData, AclFlags};
+use btknmle_pkt::hci::acldata::{AclData, AclFlags};
+use btknmle_pkt::hci::HciPacket;
 
 const ATT_CID: u16 = 0x04;
 
@@ -24,7 +24,10 @@ impl<C> L2CapTransport<C> {
     }
 }
 
-impl<C, E> Stream for L2CapTransport<C> where C: Stream<Item=Result<HciPacket, E>> + Unpin {
+impl<C, E> Stream for L2CapTransport<C>
+where
+    C: Stream<Item = Result<HciPacket, E>> + Unpin,
+{
     type Item = Result<Either<(Handle, Bytes), HciPacket>, E>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -48,14 +51,17 @@ impl<C, E> Stream for L2CapTransport<C> where C: Stream<Item=Result<HciPacket, E
                     let handle = Handle(handle);
                     Poll::Ready(Some(Ok(Left((handle, data)))))
                 }
-                e => Poll::Ready(Some(Ok(Right(e))))
-            }
-            None => Poll::Ready(None)
+                e => Poll::Ready(Some(Ok(Right(e)))),
+            },
+            None => Poll::Ready(None),
         }
     }
 }
 
-impl<C, E> Sink<(Handle, Bytes)> for L2CapTransport<C> where C: Sink<HciPacket, Error=E> + Unpin {
+impl<C, E> Sink<(Handle, Bytes)> for L2CapTransport<C>
+where
+    C: Sink<HciPacket, Error = E> + Unpin,
+{
     type Error = E;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -79,6 +85,4 @@ impl<C, E> Sink<(Handle, Bytes)> for L2CapTransport<C> where C: Sink<HciPacket, 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Pin::new(&mut self.inner).poll_close(cx)
     }
-
 }
-

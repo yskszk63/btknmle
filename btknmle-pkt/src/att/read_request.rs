@@ -1,6 +1,6 @@
 use bytes::{Buf, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem, Handle};
+use super::{Att, AttItem, Codec, CodecError, Handle};
 
 #[derive(Debug)]
 pub struct ReadRequest {

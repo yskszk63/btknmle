@@ -1,6 +1,6 @@
-use bytes::{Buf, BufMut as _, BytesMut, Bytes};
+use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem};
+use super::{Att, AttItem, Codec, CodecError};
 
 #[derive(Debug)]
 pub struct ReadBlobResponse {

@@ -1,10 +1,10 @@
 use bytes::{Buf, BufMut as _, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem};
+use super::{Att, AttItem, Codec, CodecError};
 
 #[derive(Debug)]
 pub struct ExchangeMtuRequest {
-    client_rx_mtu: u16
+    client_rx_mtu: u16,
 }
 
 impl ExchangeMtuRequest {

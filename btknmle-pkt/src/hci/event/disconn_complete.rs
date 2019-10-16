@@ -21,7 +21,11 @@ impl Codec for DisconnComplete {
         let status = buf.get_u8();
         let handle = buf.get_u16_le();
         let reason = buf.get_u8();
-        Ok(Self { status, handle, reason })
+        Ok(Self {
+            status,
+            handle,
+            reason,
+        })
     }
 
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {

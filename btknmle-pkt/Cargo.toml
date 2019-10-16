@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 bytes = { version="0.4", features=["i128"] }
 bitflags = "1.1"
+failure = "0.1"

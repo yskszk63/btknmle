@@ -1,6 +1,6 @@
 use bytes::{Buf, BufMut as _, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem, Handle};
+use super::{Att, AttItem, Codec, CodecError, Handle};
 
 #[derive(Debug)]
 pub struct ReadBlobRequest {
@@ -27,7 +27,10 @@ impl Codec for ReadBlobRequest {
         let attribute_handle = Handle::parse(buf)?;
         let value_offset = buf.get_u16_le();
 
-        Ok(Self { attribute_handle, value_offset })
+        Ok(Self {
+            attribute_handle,
+            value_offset,
+        })
     }
 
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {

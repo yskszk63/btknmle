@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use bytes::{Buf, BufMut as _, BytesMut, Bytes};
+use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
-use super::{Codec, CodecError, Att, AttItem, Handle};
+use super::{Att, AttItem, Codec, CodecError, Handle};
 
 #[derive(Debug)]
 pub struct ReadByGroupTypeResponseBuilder<V> {
@@ -10,8 +10,16 @@ pub struct ReadByGroupTypeResponseBuilder<V> {
     _phantom: PhantomData<V>,
 }
 
-impl<V> ReadByGroupTypeResponseBuilder<V> where V: Into<Bytes> {
-    pub fn add(&mut self, attribute_handle: impl Into<Handle>, end_group_handle: impl Into<Handle>, attribute_value: V) -> &mut Self {
+impl<V> ReadByGroupTypeResponseBuilder<V>
+where
+    V: Into<Bytes>,
+{
+    pub fn add(
+        &mut self,
+        attribute_handle: impl Into<Handle>,
+        end_group_handle: impl Into<Handle>,
+        attribute_value: V,
+    ) -> &mut Self {
         let data = AttributeData {
             attribute_handle: attribute_handle.into(),
             end_group_handle: end_group_handle.into(),
@@ -23,7 +31,7 @@ impl<V> ReadByGroupTypeResponseBuilder<V> where V: Into<Bytes> {
 
     pub fn build(&mut self) -> ReadByGroupTypeResponse {
         ReadByGroupTypeResponse {
-            attribute_data_list: self.attribute_data_list.clone()
+            attribute_data_list: self.attribute_data_list.clone(),
         }
     }
 }
@@ -41,8 +49,14 @@ pub struct ReadByGroupTypeResponse {
 }
 
 impl ReadByGroupTypeResponse {
-    pub fn builder<V>(attribute_handle: impl Into<Handle>, end_group_handle: impl Into<Handle>, attribute_value: V)
-    -> ReadByGroupTypeResponseBuilder<V> where V: Into<Bytes> {
+    pub fn builder<V>(
+        attribute_handle: impl Into<Handle>,
+        end_group_handle: impl Into<Handle>,
+        attribute_value: V,
+    ) -> ReadByGroupTypeResponseBuilder<V>
+    where
+        V: Into<Bytes>,
+    {
         let data = AttributeData {
             attribute_handle: attribute_handle.into(),
             end_group_handle: end_group_handle.into(),
@@ -68,9 +82,15 @@ impl Codec for ReadByGroupTypeResponse {
             let attribute_handle = Handle::parse(buf)?;
             let end_group_handle = Handle::parse(buf)?;
             let attribute_value = buf.take(len - 4).collect();
-            attribute_data_list.push(AttributeData { attribute_handle, end_group_handle, attribute_value });
+            attribute_data_list.push(AttributeData {
+                attribute_handle,
+                end_group_handle,
+                attribute_value,
+            });
         }
-        Ok(Self { attribute_data_list })
+        Ok(Self {
+            attribute_data_list,
+        })
     }
 
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {
@@ -91,7 +111,7 @@ impl Codec for ReadByGroupTypeResponse {
             item.attribute_handle.write_to(buf)?;
             item.end_group_handle.write_to(buf)?;
             buf.put(item.attribute_value.clone());
-        };
+        }
         Ok(())
     }
 }

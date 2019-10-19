@@ -1,6 +1,7 @@
 use bytes::{Buf, BytesMut};
 use failure::Fail;
 
+pub mod adv;
 pub mod att;
 pub mod hci;
 

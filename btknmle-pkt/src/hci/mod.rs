@@ -26,7 +26,7 @@ impl fmt::Debug for HciPacket {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Command(v) => write!(f, "Command({:?})", v),
-            Self::Acldata(v) => write!(f, "Acldata({:?})", v),
+            Self::Acldata(v) => write!(f, "{:?}", v),
             Self::Scodata(v) => write!(f, "HciPacket::Scodata({:?})", v),
             Self::Event(v) => write!(f, "Event({:?})", v),
             Self::Vendor(v) => write!(f, "HciPacket::Vendor({:?})", v),

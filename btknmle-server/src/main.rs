@@ -1,5 +1,6 @@
 use std::io;
 use std::sync::Arc;
+use std::convert::TryInto as _;
 
 use bytes::{BytesMut, IntoBuf};
 use either::{Left, Right};
@@ -52,11 +53,20 @@ async fn main() {
     frames.send(pkt).await.unwrap();
     let _pkt = frames.next().await.unwrap();
 
-    let mut b = [0; 31];
-    b[0] = 0x02;
-    b[1] = 0x01;
-    b[2] = 0x06;
-    let pkt = HciPacket::Command(hci::command::le_ctl::LeSetAdvertisingData::new(3, b).into());
+    let adv = pkt::adv::AdvertiseList::new(vec![
+        (pkt::adv::Flags::LE_GENERAL_DISCOVERABLE_MODE | pkt::adv::Flags::BR_EDR_NOT_SUPPORTED).into(),
+        //pkt::adv::IncompleteListUuid16::new(vec![0x180F]).into(),
+        //pkt::adv::CompleteListUuid16::new(vec![0x180A]).into(),
+        //pkt::adv::IncompleteListUuid128::new(vec![0x180F]).into(),
+        //pkt::adv::CompleteListUuid128::new(vec![0x180A]).into(),
+        //pkt::adv::ShortenedLocalName::new("btknmle").into(),
+        //pkt::adv::CompleteLocalName::new("btknmle").into(),
+        //pkt::adv::TxPower::new(127).into(),
+        pkt::adv::Appearance::new(0x03C2).into(),
+    ]);
+    let (n, b) = adv.try_into().unwrap();
+
+    let pkt = HciPacket::Command(hci::command::le_ctl::LeSetAdvertisingData::new(n, b).into());
     frames.send(pkt).await.unwrap();
     let _pkt = frames.next().await.unwrap();
 

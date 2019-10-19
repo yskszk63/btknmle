@@ -1,9 +1,16 @@
+use std::fmt;
+
 use super::{Codec, CodecError, Event, EventItem};
 use bytes::{Buf, BufMut as _, BytesMut};
 
-#[derive(Debug)]
 pub struct NumCompPkts {
     num_hndl: u8,
+}
+
+impl fmt::Debug for NumCompPkts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "NumCompPkts(num_hndl={})", self.num_hndl)
+    }
 }
 
 impl EventItem for NumCompPkts {

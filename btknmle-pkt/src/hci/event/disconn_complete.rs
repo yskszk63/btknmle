@@ -1,11 +1,18 @@
+use std::fmt;
+
 use super::{Codec, CodecError, Event, EventItem};
 use bytes::{Buf, BufMut as _, BytesMut};
 
-#[derive(Debug)]
 pub struct DisconnComplete {
     status: u8,
     handle: u16,
     reason: u8,
+}
+
+impl fmt::Debug for DisconnComplete {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "DisconnComplete(status={}, handle=0x{:04X}, reason={})", self.status, self.handle, self.reason)
+    }
 }
 
 impl EventItem for DisconnComplete {

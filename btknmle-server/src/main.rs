@@ -6,6 +6,7 @@ use either::{Left, Right};
 use futures::{SinkExt as _, StreamExt as _};
 use tokio::codec::{Decoder, Encoder};
 use tokio::sync::Mutex;
+use log::debug;
 
 use btknmle_pkt::hci::{self, HciPacket};
 use btknmle_pkt::{self as pkt, Codec as _};
@@ -22,6 +23,7 @@ impl Encoder for PacketCodec {
     type Error = io::Error;
 
     fn encode(&mut self, item: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        debug!("> {:?}", item);
         item.write_to(buf).unwrap();
         Ok(())
     }
@@ -33,19 +35,22 @@ impl Decoder for PacketCodec {
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let item = HciPacket::parse(&mut buf.take().into_buf()).unwrap();
+        debug!("< {:?}", item);
         Ok(Some(item))
     }
 }
 
 #[tokio::main(single_thread)]
 async fn main() {
+    dotenv::dotenv().ok();
+    env_logger::init();
+
     let sock = HciSocket::bind(0).unwrap();
     let mut frames = HciFramed::new(sock, PacketCodec);
 
     let pkt = HciPacket::Command(hci::command::host_ctl::Reset::new().into());
     frames.send(pkt).await.unwrap();
-    let pkt = frames.next().await.unwrap();
-    println!("{:?}", &pkt);
+    let _pkt = frames.next().await.unwrap();
 
     let mut b = [0; 31];
     b[0] = 0x02;
@@ -53,13 +58,11 @@ async fn main() {
     b[2] = 0x06;
     let pkt = HciPacket::Command(hci::command::le_ctl::LeSetAdvertisingData::new(3, b).into());
     frames.send(pkt).await.unwrap();
-    let pkt = frames.next().await.unwrap();
-    println!("{:?}", &pkt);
+    let _pkt = frames.next().await.unwrap();
 
     let pkt = HciPacket::Command(hci::command::le_ctl::LeSetAdvertiseEnable::new(true).into());
     frames.send(pkt).await.unwrap();
-    let pkt = frames.next().await.unwrap();
-    println!("{:?}", &pkt);
+    let _pkt = frames.next().await.unwrap();
 
     let mut builder = gatt::Database::builder();
 
@@ -123,8 +126,7 @@ async fn main() {
                 vec![(std::time::UNIX_EPOCH.elapsed().unwrap().as_secs() % 100) as u8],
             );
             let d = pkt::att::Att::from(b);
-            tx2.lock().await.send((l2cap::Handle(16), d)).await.unwrap();
-            //println!("{:?}", g);
+            //tx2.lock().await.send((l2cap::Handle(16), d)).await.unwrap();
         }
     });
 
@@ -132,7 +134,7 @@ async fn main() {
         let p = rx.next().await.unwrap().unwrap();
         match p {
             Left((handle, data)) => {
-                println!("{:?} {:?}", handle, data);
+                debug!("{:?} {:?}", handle, data);
                 let mut tx = tx.lock().await;
 
                 match data {
@@ -369,14 +371,9 @@ async fn main() {
                     x => unimplemented!("{:?}", x),
                 };
 
-                /*
-                let b = pkt::att::HandleValueNotification::new(bash.clone(), vec![(std::time::UNIX_EPOCH.elapsed().unwrap().as_secs() % 100) as u8]);
-                let d = pkt::att::Att::from(b);
-                transport.send((l2cap::Handle(16), d)).await.unwrap();
-                */
             }
             Right(e) => {
-                println!("{:?}", e);
+                debug!("unhandled {:?}", e);
             }
         }
     }

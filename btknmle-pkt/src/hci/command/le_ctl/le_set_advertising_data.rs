@@ -1,11 +1,22 @@
+use std::fmt;
+
 use bytes::{Buf, BufMut as _, BytesMut};
 
 use super::{Codec, CodecError, Command, CommandItem, OGF};
 
-#[derive(Debug)]
 pub struct LeSetAdvertisingData {
     len: u8,
     data: [u8; 31],
+}
+
+impl fmt::Debug for LeSetAdvertisingData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "LeSetAdvertisingData(len={}, data=", self.len)?;
+        for d in &self.data {
+            write!(f, "{:02X}", d)?;
+        }
+        write!(f, ")")
+    }
 }
 
 impl LeSetAdvertisingData {

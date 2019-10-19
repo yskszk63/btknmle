@@ -1,3 +1,5 @@
+use std::fmt;
+
 use super::HciPacket;
 use super::{Codec, CodecError};
 use bytes::{Buf, BufMut, BytesMut};
@@ -27,11 +29,20 @@ trait CommandItem: Codec + Into<Command> {
     const OPCODE: (u8, u16);
 }
 
-#[derive(Debug)]
 pub enum Command {
     Reset(host_ctl::Reset),
     LeSetAdvertisingData(le_ctl::LeSetAdvertisingData),
     LeSetAdvertiseEnable(le_ctl::LeSetAdvertiseEnable),
+}
+
+impl fmt::Debug for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Reset(v) => v.fmt(f),
+            Self::LeSetAdvertisingData(v) => v.fmt(f),
+            Self::LeSetAdvertiseEnable(v) => v.fmt(f),
+        }
+    }
 }
 
 impl Codec for Command {

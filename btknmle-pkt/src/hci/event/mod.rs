@@ -1,3 +1,5 @@
+use std::fmt;
+
 use super::{Codec, CodecError};
 use bytes::{Buf, BufMut as _, BytesMut};
 
@@ -13,11 +15,20 @@ trait EventItem: Codec + Into<Event> {
     const ID: u8;
 }
 
-#[derive(Debug)]
 pub enum Event {
     CmdComplete(CmdComplete),
     DisconnComplete(DisconnComplete),
     NumCompPkts(NumCompPkts),
+}
+
+impl fmt::Debug for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CmdComplete(v) => v.fmt(f),
+            Self::DisconnComplete(v) => v.fmt(f),
+            Self::NumCompPkts(v) => v.fmt(f),
+        }
+    }
 }
 
 impl Codec for Event {

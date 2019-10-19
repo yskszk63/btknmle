@@ -1,11 +1,18 @@
+use std::fmt;
+
 use super::{Codec, CodecError, Event, EventItem};
 use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
-#[derive(Debug)]
 pub struct CmdComplete {
     ncmd: u8,
     opcode: u16,
     data: Bytes,
+}
+
+impl fmt::Debug for CmdComplete {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "CmdComplete(ncmd={}, opcode=0x{:04X}, data={:?})", self.ncmd, self.opcode, self.data)
+    }
 }
 
 impl EventItem for CmdComplete {

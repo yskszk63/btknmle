@@ -4,25 +4,25 @@ use bytes::{Buf, BufMut as _, BytesMut};
 
 use super::{Codec, CodecError, Result};
 
-pub use flags::*;
-pub use incomp_list_uuid16::*;
-pub use comp_list_uuid16::*;
-pub use incomp_list_uuid128::*;
-pub use comp_list_uuid128::*;
-pub use shortened_local_name::*;
-pub use complete_local_name::*;
-pub use tx_power::*;
 pub use appearance::*;
+pub use comp_list_uuid128::*;
+pub use comp_list_uuid16::*;
+pub use complete_local_name::*;
+pub use flags::*;
+pub use incomp_list_uuid128::*;
+pub use incomp_list_uuid16::*;
+pub use shortened_local_name::*;
+pub use tx_power::*;
 
-mod flags;
-mod incomp_list_uuid16;
-mod comp_list_uuid16;
-mod incomp_list_uuid128;
-mod comp_list_uuid128;
-mod shortened_local_name;
-mod complete_local_name;
-mod tx_power;
 mod appearance;
+mod comp_list_uuid128;
+mod comp_list_uuid16;
+mod complete_local_name;
+mod flags;
+mod incomp_list_uuid128;
+mod incomp_list_uuid16;
+mod shortened_local_name;
+mod tx_power;
 
 trait AdvItem: Codec + Into<Advertise> {
     const TYPE: u8;

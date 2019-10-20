@@ -35,7 +35,11 @@ pub struct AclData {
 
 impl fmt::Debug for AclData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "AclData(flags={:?}, handle=0x{:X}, data=", self.flags, self.handle)?;
+        write!(
+            f,
+            "AclData(flags={:?}, handle=0x{:X}, data=",
+            self.flags, self.handle
+        )?;
         for d in &self.data {
             write!(f, "{:02X}", d)?;
         }

@@ -21,6 +21,10 @@ impl<C> AttTransport<C> {
     pub fn new(inner: L2CapTransport<C>) -> Self {
         Self { inner }
     }
+
+    pub fn into_inner(self) -> C {
+        self.inner.into_inner()
+    }
 }
 
 impl<C, E> Stream for AttTransport<C>

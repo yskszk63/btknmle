@@ -22,6 +22,10 @@ impl<C> L2CapTransport<C> {
     pub fn new(inner: C) -> Self {
         Self { inner }
     }
+
+    pub fn into_inner(self) -> C {
+        self.inner
+    }
 }
 
 impl<C, E> Stream for L2CapTransport<C>
@@ -42,7 +46,7 @@ where
                     let len = data.get_u16_le() as usize;
                     let cid = data.get_u16_le();
                     if cid != ATT_CID {
-                        panic!("{}", cid);
+                        panic!("{} {}", cid, handle);
                     }
                     let data = data.take(len).iter().collect::<Bytes>();
                     if data.len() != len {

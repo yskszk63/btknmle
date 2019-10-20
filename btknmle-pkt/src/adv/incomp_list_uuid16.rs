@@ -1,13 +1,13 @@
 use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
-use super::{Advertise, AdvItem, Codec, Result};
+use super::{AdvItem, Advertise, Codec, Result};
 use crate::att::Uuid16; // FIXME
 
 #[derive(Debug)]
 pub struct IncompleteListUuid16(Vec<Uuid16>);
 
 impl IncompleteListUuid16 {
-    pub fn new(v: impl IntoIterator<Item=impl Into<Uuid16>>) -> Self {
+    pub fn new(v: impl IntoIterator<Item = impl Into<Uuid16>>) -> Self {
         Self(v.into_iter().map(|v| v.into()).collect())
     }
 }

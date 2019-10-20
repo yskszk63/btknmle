@@ -1,6 +1,6 @@
 use bytes::{Buf, BufMut as _, BytesMut};
 
-use super::{Advertise, AdvItem, Codec, Result};
+use super::{AdvItem, Advertise, Codec, Result};
 
 #[derive(Debug)]
 pub struct TxPower(i8);

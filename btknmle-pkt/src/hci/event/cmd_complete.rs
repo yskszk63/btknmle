@@ -9,9 +9,27 @@ pub struct CmdComplete {
     data: Bytes,
 }
 
+impl CmdComplete {
+    pub fn ncmd(&self) -> u8 {
+        self.ncmd
+    }
+
+    pub fn opcode(&self) -> u16 {
+        self.opcode
+    }
+
+    pub fn data(&self) -> Bytes {
+        self.data.clone()
+    }
+}
+
 impl fmt::Debug for CmdComplete {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "CmdComplete(ncmd={}, opcode=0x{:04X}, data={:?})", self.ncmd, self.opcode, self.data)
+        write!(
+            f,
+            "CmdComplete(ncmd={}, opcode=0x{:04X}, data={:?})",
+            self.ncmd, self.opcode, self.data
+        )
     }
 }
 

@@ -11,7 +11,11 @@ pub struct DisconnComplete {
 
 impl fmt::Debug for DisconnComplete {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "DisconnComplete(status={}, handle=0x{:04X}, reason={})", self.status, self.handle, self.reason)
+        write!(
+            f,
+            "DisconnComplete(status={}, handle=0x{:04X}, reason={})",
+            self.status, self.handle, self.reason
+        )
     }
 }
 

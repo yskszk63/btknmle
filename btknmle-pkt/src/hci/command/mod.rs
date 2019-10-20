@@ -35,6 +35,17 @@ pub enum Command {
     LeSetAdvertiseEnable(le_ctl::LeSetAdvertiseEnable),
 }
 
+impl Command {
+    pub fn opcode(&self) -> u16 {
+        let (ogf, ocf) = match self {
+            Self::Reset(..) => host_ctl::Reset::OPCODE,
+            Self::LeSetAdvertisingData(..) => le_ctl::LeSetAdvertisingData::OPCODE,
+            Self::LeSetAdvertiseEnable(..) => le_ctl::LeSetAdvertiseEnable::OPCODE,
+        };
+        cmd_opcode_pack(ogf, ocf)
+    }
+}
+
 impl fmt::Debug for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -81,12 +92,7 @@ impl Codec for Command {
             Self::LeSetAdvertiseEnable(item) => item.write_to(&mut b)?,
         }
 
-        let (ogf, ocf) = match self {
-            Self::Reset(..) => host_ctl::Reset::OPCODE,
-            Self::LeSetAdvertisingData(..) => le_ctl::LeSetAdvertisingData::OPCODE,
-            Self::LeSetAdvertiseEnable(..) => le_ctl::LeSetAdvertiseEnable::OPCODE,
-        };
-        let opcode = cmd_opcode_pack(ogf, ocf);
+        let opcode = self.opcode();
         buf.reserve(b.len() + 3);
         buf.put_u16_le(opcode);
         buf.put_u8(b.len() as u8);

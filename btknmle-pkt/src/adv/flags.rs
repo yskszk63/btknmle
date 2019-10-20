@@ -1,7 +1,7 @@
-use bytes::{Buf, BufMut as _, BytesMut};
 use bitflags::bitflags;
+use bytes::{Buf, BufMut as _, BytesMut};
 
-use super::{Advertise, AdvItem, Codec, Result};
+use super::{AdvItem, Advertise, Codec, Result};
 
 bitflags! {
     pub struct Flags: u8 {

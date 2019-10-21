@@ -82,8 +82,8 @@ async fn main() -> Result<(), Error> {
         //pkt::adv::CompleteListUuid16::new(vec![0x180A]).into(),
         //pkt::adv::IncompleteListUuid128::new(vec![0x180F]).into(),
         //pkt::adv::CompleteListUuid128::new(vec![0x180A]).into(),
-        //pkt::adv::ShortenedLocalName::new("btknmle").into(),
-        //pkt::adv::CompleteLocalName::new("btknmle").into(),
+        pkt::adv::ShortenedLocalName::new("btknmle").into(),
+        pkt::adv::CompleteLocalName::new("btknmle").into(),
         //pkt::adv::TxPower::new(127).into(),
         pkt::adv::Appearance::new(0x03C2).into(),
     ]);
@@ -98,14 +98,50 @@ async fn main() -> Result<(), Error> {
             .invoke(pkt::hci::command::le_ctl::LeSetAdvertiseEnable::new(true))
             .await?;
         server
-            .serve(|connection| {
-                if connection.cid() == 0x0004 {
+            .serve(|mut connection| match connection.cid() {
+                0x0004 => {
                     tokio::spawn(async move {
                         let db = database();
                         let svc = gatt::GattService::new(db);
                         svc.run(connection).await.unwrap();
                     });
                 }
+
+                0x0006 => {
+                    tokio::spawn(async move {
+                        use bytes::IntoBuf;
+                        use futures::SinkExt;
+                        use futures::StreamExt;
+                        use pkt::Codec;
+                        while let Some(v) = connection.next().await {
+                            log::debug!("{:?}", v);
+                            let x = pkt::smp::Smp::parse(&mut v.unwrap().into_buf()).unwrap();
+                            log::debug!("{:?}", x);
+                            match x {
+                                pkt::smp::Smp::PairingRequest(_v) => {
+                                    let k = pkt::smp::LeKeyDistribution::from_bits_truncate(7);
+                                    //let x = pkt::smp::PairingResponse::new(0x00, 0x00, 33, 16, k, k);
+                                    let x =
+                                        pkt::smp::PairingResponse::new(0x03, 0x00, 33, 16, k, k);
+                                    //let x = pkt::smp::PairingResponse::new(0x04, 0x00, 45, 16, k,
+                                    //k);//nosc
+                                    let x = pkt::smp::Smp::from(x);
+                                    let mut b = bytes::BytesMut::new();
+                                    x.write_to(&mut b).unwrap();
+                                    connection.send(b.freeze()).await.unwrap();
+                                }
+                                pkt::smp::Smp::PairingConfirm(v) => {
+                                    let x = pkt::smp::Smp::from(v);
+                                    let mut b = bytes::BytesMut::new();
+                                    x.write_to(&mut b).unwrap();
+                                    connection.send(b.freeze()).await.unwrap();
+                                }
+                                _ => {}
+                            }
+                        }
+                    });
+                }
+                _ => {}
             })
             .await?;
     }

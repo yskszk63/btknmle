@@ -23,7 +23,7 @@ bitflags! {
         const ACL_CONT = 0x01;
         const ACL_START = 0x02;
         const ACL_ACTIVE_BCAST = 0x04;
-        const ACL_PICO_BCAST = 0x05;
+        const ACL_PICO_BCAST = 0x08;
     }
 }
 
@@ -77,8 +77,8 @@ impl Codec for AclData {
 
         let handle = buf.get_u16_le();
         let dlen = buf.get_u16_le() as usize;
-        let handle = acl_handle(handle);
         let flags = acl_flags(handle);
+        let handle = acl_handle(handle);
         let flags = AclFlags::from_bits(flags).unwrap();
         if buf.remaining() < dlen {
             return Err(CodecError::Underflow);

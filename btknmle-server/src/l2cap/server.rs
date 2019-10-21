@@ -61,14 +61,24 @@ async fn on_acldata(
     connection_infos: &mut HashMap<(u16, u16), ConnectionInfo>,
     sender: &mpsc::Sender<AclData>,
     on_accept: impl Fn(L2capConnection),
+    pending_channel: &mut HashMap<u16, u16>,
 ) -> Result<(), ServeError> {
     let handle = data.handle();
-    let info = if data.flags().contains(AclFlags::ACL_START_NO_FLUSH) {
+
+    let cid = if data.flags().contains(AclFlags::ACL_START) {
         let cid = cid(data.data());
-        let info = connection_infos.get_mut(&(handle, cid));
-        if let Some(info) = info {
-            info
-        } else {
+        pending_channel.insert(handle, cid);
+        cid
+    } else if data.flags().contains(AclFlags::ACL_CONT) {
+        *(pending_channel.get(&handle).unwrap())
+    } else {
+        pending_channel.remove(&handle);
+        cid(data.data())
+    };
+
+    let info = match connection_infos.get_mut(&(handle, cid)) {
+        Some(info) => info,
+        None => {
             let (tx, rx) = channel(2);
             let connection = L2capConnection::new(handle, cid, rx, sender.clone());
             on_accept(connection);
@@ -82,12 +92,6 @@ async fn on_acldata(
             );
             connection_infos.get_mut(&(handle, cid)).unwrap()
         }
-    } else if data.flags().contains(AclFlags::ACL_START)
-        || data.flags().contains(AclFlags::ACL_CONT)
-    {
-        panic!()
-    } else {
-        panic!()
     };
 
     info.send.send(data).await?;
@@ -104,6 +108,7 @@ where
 
     pub async fn serve(&mut self, on_accept: impl Fn(L2capConnection)) -> Result<(), ServeError> {
         let mut connection_infos = HashMap::new();
+        let mut pending_channel = HashMap::new();
         let (tx, rx) = channel(2);
         let mut io = EitherStream::new(&mut self.io, rx);
 
@@ -112,7 +117,14 @@ where
                 Left(packet) => match packet? {
                     HciPacket::Event(Event::DisconnComplete(..)) => break,
                     HciPacket::Acldata(acldata) => {
-                        on_acldata(acldata, &mut connection_infos, &tx, &on_accept).await?
+                        on_acldata(
+                            acldata,
+                            &mut connection_infos,
+                            &tx,
+                            &on_accept,
+                            &mut pending_channel,
+                        )
+                        .await?
                     }
                     x => debug!("unimplemented {:?}", x),
                 },

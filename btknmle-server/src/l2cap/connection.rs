@@ -27,6 +27,7 @@ pub struct L2capConnection {
     cid: u16,
     rx: mpsc::Receiver<AclData>,
     tx: mpsc::Sender<AclData>,
+    pending: Option<(usize, BytesMut)>,
 }
 
 impl L2capConnection {
@@ -47,6 +48,7 @@ impl L2capConnection {
             cid,
             rx,
             tx,
+            pending: None,
         }
     }
 }
@@ -55,30 +57,64 @@ impl Stream for L2capConnection {
     type Item = io::Result<Bytes>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match ready!(Pin::new(&mut self.rx).poll_next(cx)) {
-            Some(acl) => {
-                if acl.flags().contains(AclFlags::ACL_START_NO_FLUSH) {
-                    let mut data = acl.data().into_buf();
-                    let len = data.get_u16_le() as usize;
-                    let cid = data.get_u16_le();
-                    let data = data.take(len).collect::<Bytes>();
+        loop {
+            match ready!(Pin::new(&mut self.rx).poll_next(cx)) {
+                Some(acl) => {
+                    if acl.flags().contains(AclFlags::ACL_START) {
+                        let mut data = acl.data().into_buf();
+                        let len = data.get_u16_le() as usize;
+                        let cid = data.get_u16_le();
+                        let mut pending = BytesMut::with_capacity(len);
+                        pending.extend(data.take(len).collect::<Bytes>());
 
-                    if self.handle != acl.handle() {
-                        panic!("{} != {}", self.handle, acl.handle())
-                    }
-                    if self.cid != cid {
-                        panic!("{} != {}", self.cid, cid)
-                    }
-                    if len != data.len() {
-                        panic!("{} != {}", len, data.len())
-                    }
+                        if self.handle != acl.handle() {
+                            panic!("{} != {}", self.handle, acl.handle())
+                        }
+                        if self.cid != cid {
+                            panic!("{} != {}", self.cid, cid)
+                        }
 
-                    Poll::Ready(Some(Ok(data)))
-                } else {
-                    unimplemented!()
+                        if pending.len() < len {
+                            self.pending = Some((len, pending));
+                        } else {
+                            return Poll::Ready(Some(Ok(pending.freeze())));
+                        }
+                    } else if acl.flags().contains(AclFlags::ACL_CONT) {
+                        let needmore = match self.pending.as_mut() {
+                            Some((len, buf)) => {
+                                buf.extend(acl.data());
+                                buf.len() < *len
+                            }
+                            None => panic!(),
+                        };
+
+                        if !needmore {
+                            let mut result = None;
+                            std::mem::swap(&mut self.pending, &mut result);
+                            return Poll::Ready(Some(Ok(result.unwrap().1.freeze())));
+                        }
+                    } else {
+                        let mut data = acl.data().into_buf();
+                        let len = data.get_u16_le() as usize;
+                        let cid = data.get_u16_le();
+                        let data = data.take(len).collect::<Bytes>();
+                        self.pending = None;
+
+                        if self.handle != acl.handle() {
+                            panic!("{} != {}", self.handle, acl.handle())
+                        }
+                        if self.cid != cid {
+                            panic!("{} != {}", self.cid, cid)
+                        }
+                        if len != data.len() {
+                            panic!("{} != {}", len, data.len())
+                        }
+
+                        return Poll::Ready(Some(Ok(data)));
+                    }
                 }
-            }
-            None => Poll::Ready(None),
+                None => return Poll::Ready(None),
+            };
         }
     }
 }

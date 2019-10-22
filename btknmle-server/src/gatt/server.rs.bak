@@ -1,9 +1,12 @@
 use std::io;
 
+use bytes::Bytes;
 use futures::{Sink, SinkExt as _, Stream, StreamExt as _};
 
 use super::Database;
+use crate::att::AttConnection;
 use crate::gatt;
+use crate::l2cap::SendError;
 use crate::pkt::att::{self, Att};
 
 #[derive(Debug)]
@@ -19,10 +22,10 @@ impl GattService {
     async fn on_read_by_group_type<T>(
         &mut self,
         item: att::ReadByGroupTypeRequest,
-        io: &mut T,
+        io: &mut AttConnection<T>,
     ) -> Result<(), ()>
     where
-        T: Sink<Att, Error = io::Error> + Stream + Unpin,
+        T: Sink<Bytes, Error = SendError> + Stream + Unpin,
     {
         let response = self.db.read_by_group_type(
             item.starting_handle(),
@@ -70,10 +73,10 @@ impl GattService {
     async fn on_read_by_type<T>(
         &mut self,
         item: att::ReadByTypeRequest,
-        io: &mut T,
+        io: &mut AttConnection<T>,
     ) -> Result<(), ()>
     where
-        T: Sink<Att, Error = io::Error> + Stream + Unpin,
+        T: Sink<Bytes, Error = SendError> + Stream + Unpin,
     {
         let response = self.db.read_by_type(
             item.starting_handle(),
@@ -113,10 +116,10 @@ impl GattService {
     async fn on_findinformation<T>(
         &mut self,
         item: att::FindInformationRequest,
-        io: &mut T,
+        io: &mut AttConnection<T>,
     ) -> Result<(), ()>
     where
-        T: Sink<Att, Error = io::Error> + Stream + Unpin,
+        T: Sink<Bytes, Error = SendError> + Stream + Unpin,
     {
         let response = self
             .db
@@ -152,9 +155,13 @@ impl GattService {
         Ok(())
     }
 
-    async fn on_read<T>(&mut self, item: att::ReadRequest, io: &mut T) -> Result<(), ()>
+    async fn on_read<T>(
+        &mut self,
+        item: att::ReadRequest,
+        io: &mut AttConnection<T>,
+    ) -> Result<(), ()>
     where
-        T: Sink<Att, Error = io::Error> + Stream + Unpin,
+        T: Sink<Bytes, Error = SendError> + Stream + Unpin,
     {
         let response = self.db.read(item.attribute_handle());
 
@@ -183,9 +190,13 @@ impl GattService {
         Ok(())
     }
 
-    async fn on_read_blob<T>(&mut self, item: att::ReadBlobRequest, io: &mut T) -> Result<(), ()>
+    async fn on_read_blob<T>(
+        &mut self,
+        item: att::ReadBlobRequest,
+        io: &mut AttConnection<T>,
+    ) -> Result<(), ()>
     where
-        T: Sink<Att, Error = io::Error> + Stream + Unpin,
+        T: Sink<Bytes, Error = SendError> + Stream + Unpin,
     {
         let response = self
             .db
@@ -216,9 +227,13 @@ impl GattService {
         Ok(())
     }
 
-    async fn on_write<T>(&mut self, item: att::WriteRequest, io: &mut T) -> Result<(), ()>
+    async fn on_write<T>(
+        &mut self,
+        item: att::WriteRequest,
+        io: &mut AttConnection<T>,
+    ) -> Result<(), ()>
     where
-        T: Sink<Att, Error = io::Error> + Stream + Unpin,
+        T: Sink<Bytes, Error = SendError> + Stream + Unpin,
     {
         let response = self
             .db
@@ -244,10 +259,10 @@ impl GattService {
     async fn on_exchange_mtu<T>(
         &mut self,
         item: att::ExchangeMtuRequest,
-        io: &mut T,
+        io: &mut AttConnection<T>,
     ) -> Result<(), ()>
     where
-        T: Sink<Att, Error = io::Error> + Stream + Unpin,
+        T: Sink<Bytes, Error = SendError> + Stream + Unpin,
     {
         let response = self.db.exchange_mtu(item.client_rx_mtu());
 
@@ -268,10 +283,11 @@ impl GattService {
         Ok(())
     }
 
-    pub async fn run<T>(mut self, mut io: T) -> Result<(), ()>
+    pub async fn run<T>(mut self, io: T) -> Result<(), ()>
     where
-        T: Sink<Att, Error = io::Error> + Stream<Item = io::Result<Att>> + Unpin,
+        T: Sink<Bytes, Error = SendError> + Stream<Item = io::Result<Bytes>> + Unpin,
     {
+        let mut io = AttConnection::new(io);
         while let Some(pkt) = io.next().await {
             match pkt.unwrap() {
                 Att::ReadByGroupTypeRequest(item) => {

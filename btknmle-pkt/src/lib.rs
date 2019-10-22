@@ -4,6 +4,7 @@ use failure::Fail;
 pub mod adv;
 pub mod att;
 pub mod hci;
+pub mod mgmt;
 pub mod smp;
 
 #[derive(Debug, Fail)]
@@ -16,6 +17,8 @@ pub enum CodecError {
     UnknownEvent(u8),
     #[fail(display = "Unknown attribute {:x}", _0)]
     UnknownAtt(u8),
+    #[fail(display = "Unknown management packet {:x}", _0)]
+    UnknownMgmt(u16),
     #[fail(display = "invalid format")]
     Invalid,
 }

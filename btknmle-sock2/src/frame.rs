@@ -21,7 +21,10 @@ pub struct Framed<S, C> {
     flushed: bool,
 }
 
-impl<C> Stream for Framed<MgmtSocket, C> where C: Decoder + Unpin {
+impl<C> Stream for Framed<MgmtSocket, C>
+where
+    C: Decoder + Unpin,
+{
     type Item = Result<C::Item, C::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -41,7 +44,10 @@ impl<C> Stream for Framed<MgmtSocket, C> where C: Decoder + Unpin {
     }
 }
 
-impl<C> Stream for Framed<L2Stream, C> where C: Decoder + Unpin {
+impl<C> Stream for Framed<L2Stream, C>
+where
+    C: Decoder + Unpin,
+{
     type Item = Result<C::Item, C::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -61,7 +67,10 @@ impl<C> Stream for Framed<L2Stream, C> where C: Decoder + Unpin {
     }
 }
 
-impl<C> Sink<C::Item> for Framed<MgmtSocket, C> where C: Encoder + Unpin {
+impl<C> Sink<C::Item> for Framed<MgmtSocket, C>
+where
+    C: Encoder + Unpin,
+{
     type Error = C::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
@@ -120,7 +129,10 @@ impl<C> Sink<C::Item> for Framed<MgmtSocket, C> where C: Encoder + Unpin {
     }
 }
 
-impl<C> Sink<C::Item> for Framed<L2Stream, C> where C: Encoder + Unpin {
+impl<C> Sink<C::Item> for Framed<L2Stream, C>
+where
+    C: Encoder + Unpin,
+{
     type Error = C::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {

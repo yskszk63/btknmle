@@ -14,6 +14,7 @@ either = "1.5"
 bitflags = "1.2"
 failure = "0.1.6"
 btknmle-sock = { path="../btknmle-sock" }
+btknmle-sock2 = { path="../btknmle-sock2" }
 btknmle-pkt = { path="../btknmle-pkt" }
 log = "0.4"
 env_logger = "0.7"

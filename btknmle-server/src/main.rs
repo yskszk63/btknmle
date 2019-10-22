@@ -1,14 +1,57 @@
-use std::convert::TryInto as _;
-
-use failure::Error;
+use bytes::{BytesMut, IntoBuf};
+use tokio::codec::{Decoder, Encoder};
+use tokio::prelude::*;
 
 use btknmle_pkt as pkt;
+use pkt::att::Att;
+use pkt::mgmt::{self, MgmtCommand, MgmtEvent};
+use pkt::{Codec as _, CodecError};
 
-mod att;
 mod gatt;
-mod hci;
-mod l2cap;
-mod util;
+
+struct MgmtCodec;
+
+impl Encoder for MgmtCodec {
+    type Item = MgmtCommand;
+    type Error = failure::Error; // FIXME
+
+    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        item.write_to(dst)?;
+        Ok(())
+    }
+}
+
+impl Decoder for MgmtCodec {
+    type Item = MgmtEvent;
+    type Error = failure::Error; // FIXME
+
+    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        let result = Self::Item::parse(&mut buf.take().into_buf())?;
+        Ok(Some(result))
+    }
+}
+
+struct AttCodec;
+
+impl Encoder for AttCodec {
+    type Item = Att;
+    type Error = std::io::Error; // FIXME
+
+    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        item.write_to(dst).unwrap();
+        Ok(())
+    }
+}
+
+impl Decoder for AttCodec {
+    type Item = Att;
+    type Error = std::io::Error; // FIXME
+
+    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        let result = Self::Item::parse(&mut buf.take().into_buf()).unwrap();
+        Ok(Some(result))
+    }
+}
 
 fn database() -> gatt::Database {
     let mut builder = gatt::Database::builder();
@@ -63,86 +106,53 @@ fn database() -> gatt::Database {
 }
 
 #[tokio::main(single_thread)]
-async fn main() -> Result<(), Error> {
-    dotenv::dotenv().ok();
-    env_logger::init();
+async fn main() -> Result<(), failure::Error> {
+    let mgmtsock = btknmle_sock2::MgmtSocket::bind()?;
+    let mut mgmtsock = mgmtsock.framed(MgmtCodec);
 
-    let transport = hci::HciTransport::new(0)?;
-    let mut server = l2cap::L2capServer::new(transport);
-
-    server
-        .inner_mut()
-        .invoke(pkt::hci::command::host_ctl::Reset::new())
+    mgmtsock
+        .send(mgmt::SetPoweredCommand::new(0, true).into())
         .await?;
+    let res = mgmtsock.next().await.unwrap().unwrap();
+    println!("{:?}", res);
 
-    let adv = pkt::adv::AdvertiseList::new(vec![
-        (pkt::adv::Flags::LE_GENERAL_DISCOVERABLE_MODE | pkt::adv::Flags::BR_EDR_NOT_SUPPORTED)
-            .into(),
-        //pkt::adv::IncompleteListUuid16::new(vec![0x180F]).into(),
-        //pkt::adv::CompleteListUuid16::new(vec![0x180A]).into(),
-        //pkt::adv::IncompleteListUuid128::new(vec![0x180F]).into(),
-        //pkt::adv::CompleteListUuid128::new(vec![0x180A]).into(),
-        pkt::adv::ShortenedLocalName::new("btknmle").into(),
-        pkt::adv::CompleteLocalName::new("btknmle").into(),
-        //pkt::adv::TxPower::new(127).into(),
-        pkt::adv::Appearance::new(0x03C2).into(),
-    ]);
-    let (n, b) = adv.try_into().unwrap();
+    mgmtsock
+        .send(mgmt::SetLocalNameCommand::new(0, "my name", "mnm").into())
+        .await?;
+    let res = mgmtsock.next().await.unwrap().unwrap();
+    println!("{:?}", res);
 
-    let adv_data = pkt::hci::command::le_ctl::LeSetAdvertisingData::new(n, b);
-    server.inner_mut().invoke(adv_data).await?;
+    mgmtsock
+        .send(mgmt::SetConnectableCommand::new(0, true).into())
+        .await?;
+    let res = mgmtsock.next().await.unwrap().unwrap();
+    println!("{:?}", res);
 
-    loop {
-        server
-            .inner_mut()
-            .invoke(pkt::hci::command::le_ctl::LeSetAdvertiseEnable::new(true))
-            .await?;
-        server
-            .serve(|mut connection| match connection.cid() {
-                0x0004 => {
-                    tokio::spawn(async move {
-                        let db = database();
-                        let svc = gatt::GattService::new(db);
-                        svc.run(connection).await.unwrap();
-                    });
-                }
+    mgmtsock
+        .send(mgmt::SetBondableCommand::new(0, true).into())
+        .await?;
+    let res = mgmtsock.next().await.unwrap().unwrap();
+    println!("{:?}", res);
 
-                0x0006 => {
-                    tokio::spawn(async move {
-                        use bytes::IntoBuf;
-                        use futures::SinkExt;
-                        use futures::StreamExt;
-                        use pkt::Codec;
-                        while let Some(v) = connection.next().await {
-                            log::debug!("{:?}", v);
-                            let x = pkt::smp::Smp::parse(&mut v.unwrap().into_buf()).unwrap();
-                            log::debug!("{:?}", x);
-                            match x {
-                                pkt::smp::Smp::PairingRequest(_v) => {
-                                    let k = pkt::smp::LeKeyDistribution::from_bits_truncate(7);
-                                    //let x = pkt::smp::PairingResponse::new(0x00, 0x00, 33, 16, k, k);
-                                    let x =
-                                        pkt::smp::PairingResponse::new(0x03, 0x00, 33, 16, k, k);
-                                    //let x = pkt::smp::PairingResponse::new(0x04, 0x00, 45, 16, k,
-                                    //k);//nosc
-                                    let x = pkt::smp::Smp::from(x);
-                                    let mut b = bytes::BytesMut::new();
-                                    x.write_to(&mut b).unwrap();
-                                    connection.send(b.freeze()).await.unwrap();
-                                }
-                                pkt::smp::Smp::PairingConfirm(v) => {
-                                    let x = pkt::smp::Smp::from(v);
-                                    let mut b = bytes::BytesMut::new();
-                                    x.write_to(&mut b).unwrap();
-                                    connection.send(b.freeze()).await.unwrap();
-                                }
-                                _ => {}
-                            }
-                        }
-                    });
-                }
-                _ => {}
-            })
-            .await?;
+    mgmtsock
+        .send(mgmt::SetLowEnergyCommand::new(0, true).into())
+        .await?;
+    let res = mgmtsock.next().await.unwrap().unwrap();
+    println!("{:?}", res);
+
+    mgmtsock
+        .send(mgmt::SetAdvertisingCommand::new(0, mgmt::Advertising::Connectable).into())
+        .await?;
+    let res = mgmtsock.next().await.unwrap().unwrap();
+    println!("{:?}", res);
+
+    let mut l2server = btknmle_sock2::L2Listener::bind(0x0004)?.incoming();
+    while let Some(sock) = l2server.next().await {
+        let mut connection = sock?.framed(AttCodec);
+        let db = database();
+        let svc = gatt::GattService::new(db);
+        svc.run(connection).await.unwrap();
     }
+
+    Ok(())
 }

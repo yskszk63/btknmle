@@ -5,8 +5,8 @@ use futures::future::poll_fn;
 use futures::ready;
 use tokio_net::util::PollEvented;
 
-use crate::raw::RawSocket;
 use crate::frame::Framed;
+use crate::raw::RawSocket;
 
 #[derive(Debug)]
 pub struct MgmtSocket {
@@ -70,7 +70,7 @@ impl MgmtSocket {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::{BytesMut, BufMut};
+    use bytes::{BufMut, BytesMut};
 
     #[tokio::test]
     async fn test() {
@@ -166,7 +166,7 @@ mod tests {
 
         let result = sock.next().await.unwrap();
         println!("{:?}", result);
- 
+
         // Bondable
         let mut command = BytesMut::new();
         command.put_u16_le(0x0009);

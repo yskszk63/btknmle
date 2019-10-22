@@ -54,7 +54,8 @@ impl RawSocket {
             libc::socket(
                 libc::AF_BLUETOOTH,
                 libc::SOCK_RAW | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK,
-                BTPROTO_HCI)
+                BTPROTO_HCI,
+            )
         };
         if r < 0 {
             Err(io::Error::last_os_error())
@@ -68,7 +69,8 @@ impl RawSocket {
             libc::socket(
                 libc::AF_BLUETOOTH,
                 libc::SOCK_SEQPACKET | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK,
-                BTPROTO_L2CAP)
+                BTPROTO_L2CAP,
+            )
         };
         if r < 0 {
             Err(io::Error::last_os_error())
@@ -135,17 +137,23 @@ impl RawSocket {
     pub(crate) fn accept(&self) -> io::Result<RawSocket> {
         let mut addr = socketaddr_l2::default();
         let mut len = size_of::<socketaddr_l2>() as libc::socklen_t;
-        let r = unsafe { libc::accept(self.0, &mut addr as *mut _ as *mut libc::sockaddr, &mut len as *mut _) };
+        let r = unsafe {
+            libc::accept(
+                self.0,
+                &mut addr as *mut _ as *mut libc::sockaddr,
+                &mut len as *mut _,
+            )
+        };
         if r < 0 {
             Err(io::Error::last_os_error())
         } else {
             unsafe {
                 let n = libc::fcntl(r, libc::F_GETFL);
                 if n < 0 {
-                    return Err(io::Error::last_os_error())
+                    return Err(io::Error::last_os_error());
                 }
                 if libc::fcntl(r, libc::F_SETFL, n | libc::O_NONBLOCK) < 0 {
-                    return Err(io::Error::last_os_error())
+                    return Err(io::Error::last_os_error());
                 }
             }
             Ok(RawSocket(r))

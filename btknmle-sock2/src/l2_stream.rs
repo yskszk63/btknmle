@@ -5,8 +5,8 @@ use futures::future::poll_fn;
 use futures::ready;
 use tokio_net::util::PollEvented;
 
-use crate::raw::RawSocket;
 use crate::frame::Framed;
+use crate::raw::RawSocket;
 //use crate::split::{split, HciSocketRecvHalf, HciSocketSendHalf};
 
 #[derive(Debug)]
@@ -77,6 +77,5 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test() {
-    }
+    async fn test() {}
 }

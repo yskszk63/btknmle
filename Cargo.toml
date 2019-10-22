@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "btknmle-sock",
-    "btknmle-sock2",
     "btknmle-pkt",
     "btknmle-server",
 ]

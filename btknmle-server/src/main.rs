@@ -5,7 +5,7 @@ use tokio::prelude::*;
 use btknmle_pkt as pkt;
 use pkt::att::Att;
 use pkt::mgmt::{self, MgmtCommand, MgmtEvent};
-use pkt::{Codec as _, CodecError};
+use pkt::{Codec as _};
 
 mod gatt;
 
@@ -107,7 +107,7 @@ fn database() -> gatt::Database {
 
 #[tokio::main(single_thread)]
 async fn main() -> Result<(), failure::Error> {
-    let mgmtsock = btknmle_sock2::MgmtSocket::bind()?;
+    let mgmtsock = btknmle_sock::MgmtSocket::bind()?;
     let mut mgmtsock = mgmtsock.framed(MgmtCodec);
 
     mgmtsock
@@ -146,9 +146,9 @@ async fn main() -> Result<(), failure::Error> {
     let res = mgmtsock.next().await.unwrap().unwrap();
     println!("{:?}", res);
 
-    let mut l2server = btknmle_sock2::L2Listener::bind(0x0004)?.incoming();
+    let mut l2server = btknmle_sock::L2Listener::bind(0x0004)?.incoming();
     while let Some(sock) = l2server.next().await {
-        let mut connection = sock?.framed(AttCodec);
+        let connection = sock?.framed(AttCodec);
         let db = database();
         let svc = gatt::GattService::new(db);
         svc.run(connection).await.unwrap();

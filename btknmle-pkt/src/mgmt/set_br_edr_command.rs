@@ -7,34 +7,37 @@ use super::CurrentSettings;
 
 
 #[derive(Debug)]
-pub struct SetBondableCommand {
+pub struct SetBrEdrCommand {
     ctrl_idx: u16,
-    bondable: bool,
+    br_edr: bool,
 }
 
-impl SetBondableCommand {
-    pub fn new(ctrl_idx: u16, bondable: bool) -> Self {
-        Self { ctrl_idx, bondable }
+impl SetBrEdrCommand {
+    pub fn new(ctrl_idx: u16, br_edr: bool) -> Self {
+        Self {
+            ctrl_idx,
+            br_edr,
+        }
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetBondableCommand {
+impl ManagementCommand<CurrentSettings> for SetBrEdrCommand {
     fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings> {
         Ok(CurrentSettings::parse(buf)?)
     }
 }
 
-impl CommandItem for SetBondableCommand {
-    const CODE: Code = Code(0x0009);
+impl CommandItem for SetBrEdrCommand {
+    const CODE: Code = Code(0x002A);
 
     fn controller_index(&self) -> ControlIndex {
         self.ctrl_idx.into()
     }
 }
 
-impl Codec for SetBondableCommand {
+impl Codec for SetBrEdrCommand {
     fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        buf.put_u8(if self.bondable { 0x01 } else { 0x00 });
+        buf.put_u8(if self.br_edr { 0x01 } else { 0x00 });
         Ok(())
     }
 
@@ -43,8 +46,8 @@ impl Codec for SetBondableCommand {
     }
 }
 
-impl From<SetBondableCommand> for MgmtCommand {
-    fn from(v: SetBondableCommand) -> Self {
-        Self::SetBondableCommand(v)
+impl From<SetBrEdrCommand> for MgmtCommand {
+    fn from(v: SetBrEdrCommand) -> Self {
+        Self::SetBrEdrCommand(v)
     }
 }

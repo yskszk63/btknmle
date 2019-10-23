@@ -2,6 +2,8 @@ use bytes::{Buf, BufMut as _, BytesMut};
 
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
 use super::{Codec, Result};
+use super::ManagementCommand;
+use super::CurrentSettings;
 
 #[derive(Debug)]
 pub enum Advertising {
@@ -22,6 +24,12 @@ impl SetAdvertisingCommand {
             ctrl_idx,
             advertising,
         }
+    }
+}
+
+impl ManagementCommand<CurrentSettings> for SetAdvertisingCommand {
+    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings> {
+        Ok(CurrentSettings::parse(buf)?)
     }
 }
 

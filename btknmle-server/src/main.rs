@@ -1,59 +1,14 @@
-use bytes::{BytesMut, IntoBuf};
-use tokio::codec::{Decoder, Encoder};
 use tokio::prelude::*;
 
 use btknmle_pkt as pkt;
-use pkt::att::Att;
-use pkt::mgmt::{self, MgmtCommand, MgmtEvent};
-use pkt::{Codec as _};
+use btknmle_sock as sock;
 
+mod att;
 mod gatt;
+mod mgmt;
+mod util;
 
-struct MgmtCodec;
-
-impl Encoder for MgmtCodec {
-    type Item = MgmtCommand;
-    type Error = failure::Error; // FIXME
-
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        item.write_to(dst)?;
-        Ok(())
-    }
-}
-
-impl Decoder for MgmtCodec {
-    type Item = MgmtEvent;
-    type Error = failure::Error; // FIXME
-
-    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let result = Self::Item::parse(&mut buf.take().into_buf())?;
-        Ok(Some(result))
-    }
-}
-
-struct AttCodec;
-
-impl Encoder for AttCodec {
-    type Item = Att;
-    type Error = std::io::Error; // FIXME
-
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        item.write_to(dst).unwrap();
-        Ok(())
-    }
-}
-
-impl Decoder for AttCodec {
-    type Item = Att;
-    type Error = std::io::Error; // FIXME
-
-    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let result = Self::Item::parse(&mut buf.take().into_buf()).unwrap();
-        Ok(Some(result))
-    }
-}
-
-fn database() -> gatt::Database {
+fn database() -> (gatt::Database, pkt::att::Handle, pkt::att::Handle) {
     let mut builder = gatt::Database::builder();
 
     builder.begin_service(pkt::att::Uuid::Uuid16(0x1800));
@@ -88,70 +43,83 @@ fn database() -> gatt::Database {
         pkt::att::Uuid::Uuid16(0x2A24),
         "1234",
     );
-    builder.with_characteristic(
+    let zzz = builder.with_characteristic(
         gatt::CharacteristicProperties::READ,
         pkt::att::Uuid::Uuid16(0x2A24),
         "9999",
     );
 
     builder.begin_service(pkt::att::Uuid::Uuid16(0x180F));
-    let _bash = builder.with_characteristic(
+    let bash = builder.with_characteristic(
         gatt::CharacteristicProperties::INDICATE,
         pkt::att::Uuid::Uuid16(0x2A19),
         vec![100],
     );
     builder.with_cccd(gatt::CCCD::empty());
 
-    builder.build()
+    (builder.build(), bash, zzz)
 }
 
 #[tokio::main(single_thread)]
 async fn main() -> Result<(), failure::Error> {
-    let mgmtsock = btknmle_sock::MgmtSocket::bind()?;
-    let mut mgmtsock = mgmtsock.framed(MgmtCodec);
+    dotenv::dotenv().ok();
+    env_logger::init();
 
-    mgmtsock
-        .send(mgmt::SetPoweredCommand::new(0, true).into())
-        .await?;
-    let res = mgmtsock.next().await.unwrap().unwrap();
-    println!("{:?}", res);
+    let mut mgmt = mgmt::Mgmt::new(0).await?;
+    mgmt.powered(false).await?;
+    mgmt.low_energy(true).await?;
+    mgmt.br_edr(false).await?;
+    mgmt.powered(true).await?;
+    mgmt.local_name("my ble device", "mbd").await?;
+    mgmt.connectable(true).await?;
+    mgmt.bondable(true).await?;
+    mgmt.advertising(pkt::mgmt::Advertising::Enabled).await?;
 
-    mgmtsock
-        .send(mgmt::SetLocalNameCommand::new(0, "my name", "mnm").into())
-        .await?;
-    let res = mgmtsock.next().await.unwrap().unwrap();
-    println!("{:?}", res);
-
-    mgmtsock
-        .send(mgmt::SetConnectableCommand::new(0, true).into())
-        .await?;
-    let res = mgmtsock.next().await.unwrap().unwrap();
-    println!("{:?}", res);
-
-    mgmtsock
-        .send(mgmt::SetBondableCommand::new(0, true).into())
-        .await?;
-    let res = mgmtsock.next().await.unwrap().unwrap();
-    println!("{:?}", res);
-
-    mgmtsock
-        .send(mgmt::SetLowEnergyCommand::new(0, true).into())
-        .await?;
-    let res = mgmtsock.next().await.unwrap().unwrap();
-    println!("{:?}", res);
-
-    mgmtsock
-        .send(mgmt::SetAdvertisingCommand::new(0, mgmt::Advertising::Connectable).into())
-        .await?;
-    let res = mgmtsock.next().await.unwrap().unwrap();
-    println!("{:?}", res);
-
-    let mut l2server = btknmle_sock::L2Listener::bind(0x0004)?.incoming();
+    let mut l2server = btknmle_sock::L2Listener::bind(pkt::att::ATT_CID)?.incoming();
     while let Some(sock) = l2server.next().await {
-        let connection = sock?.framed(AttCodec);
-        let db = database();
-        let svc = gatt::GattService::new(db);
-        svc.run(connection).await.unwrap();
+        match sock {
+            Ok(sock) => {
+                tokio::spawn(async move {
+                    log::debug!("connected");
+                    let connection = sock.framed(att::AttCodec);
+                    let (db, _handle, _h2) = database();
+
+                    let svc = gatt::GattService::new(db, connection);
+
+                    /*
+                    let mut h2 = svc.writed_for(&h2).unwrap();
+                    tokio::spawn(async move {
+                        while let Some(b) = h2.next().await {
+                            log::debug!("{:?}", b);
+                        }
+                    });
+                    */
+
+                    /*
+                    let mut battery_level = svc.notify_for(&handle).unwrap();
+                    tokio::spawn(async move {
+                        let mut n = 0u8;
+                        loop {
+                            let when = tokio::clock::now() + std::time::Duration::from_secs(1);
+                            tokio::timer::delay(when).await;
+                            if let Err(e) = battery_level.send(vec![n]).await {
+                                log::warn!("{}", e);
+                                break
+                            }
+                            n = (n + 1) % 100;
+                        }
+                    });
+                    */
+
+                    match svc.run().await {
+                        Ok(()) => {}
+                        Err(e) => log::warn!("{}", e),
+                    }
+                    log::debug!("done");
+                });
+            }
+            Err(e) => log::warn!("{}", e),
+        }
     }
 
     Ok(())

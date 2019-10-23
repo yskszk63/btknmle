@@ -2,6 +2,9 @@ use bytes::{Buf, BufMut as _, BytesMut};
 
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
 use super::{Codec, Result};
+use super::ManagementCommand;
+use super::CurrentSettings;
+
 
 #[derive(Debug)]
 pub struct SetPoweredCommand {
@@ -12,6 +15,12 @@ pub struct SetPoweredCommand {
 impl SetPoweredCommand {
     pub fn new(ctrl_idx: u16, powered: bool) -> Self {
         Self { ctrl_idx, powered }
+    }
+}
+
+impl ManagementCommand<CurrentSettings> for SetPoweredCommand {
+    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings> {
+        Ok(CurrentSettings::parse(buf)?)
     }
 }
 

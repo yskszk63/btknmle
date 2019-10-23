@@ -38,6 +38,8 @@ mod read_response;
 mod write_request;
 mod write_response;
 
+pub const ATT_CID: u16 = 0x0004;
+
 trait AttItem: Codec + Into<Att> {
     const OPCODE: u8;
 }
@@ -159,7 +161,7 @@ impl fmt::Display for Uuid128 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Handle(pub u16);
 
 impl Codec for Handle {

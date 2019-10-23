@@ -5,22 +5,30 @@ use bytes::{Buf, BufMut as _, BytesMut};
 use super::{Codec, CodecError, Result};
 
 pub use command_complete_event::*;
+pub use command_status_event::*;
 pub use set_advertising_command::*;
 pub use set_bondable_command::*;
 pub use set_connectable_command::*;
 pub use set_local_name_command::*;
 pub use set_low_energy_command::*;
 pub use set_powered_command::*;
+pub use set_br_edr_command::*;
+pub use current_settings::*;
+pub use status::*;
 
 mod command_complete_event;
+mod command_status_event;
 mod set_advertising_command;
 mod set_bondable_command;
 mod set_connectable_command;
 mod set_local_name_command;
 mod set_low_energy_command;
 mod set_powered_command;
+mod set_br_edr_command;
+mod current_settings;
+mod status;
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Code(u16);
 
 impl fmt::Debug for Code {
@@ -41,7 +49,7 @@ impl From<Code> for u16 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ControlIndex {
     ControllerId(u16),
     NonController,
@@ -72,6 +80,10 @@ impl Default for ControlIndex {
     }
 }
 
+pub trait ManagementCommand<T>: Into<MgmtCommand> {
+    fn parse_result(buf: &mut impl Buf) -> Result<T>;
+}
+
 trait CommandItem: Codec + Into<MgmtCommand> {
     const CODE: Code;
 
@@ -100,6 +112,7 @@ pub enum MgmtCommand {
     SetLowEnergyCommand(SetLowEnergyCommand),
     SetLocalNameCommand(SetLocalNameCommand),
     SetAdvertisingCommand(SetAdvertisingCommand),
+    SetBrEdrCommand(SetBrEdrCommand),
 }
 
 impl Codec for MgmtCommand {
@@ -111,6 +124,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::SetLowEnergyCommand(v) => v.code(),
             MgmtCommand::SetLocalNameCommand(v) => v.code(),
             MgmtCommand::SetAdvertisingCommand(v) => v.code(),
+            MgmtCommand::SetBrEdrCommand(v) => v.code(),
         };
         buf.put_u16_le(code.into());
 
@@ -122,6 +136,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::SetLowEnergyCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::SetLocalNameCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::SetAdvertisingCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::SetBrEdrCommand(v) => v.write_to(&mut b)?,
         };
         let b = b.freeze();
 
@@ -133,6 +148,7 @@ impl Codec for MgmtCommand {
                 MgmtCommand::SetLowEnergyCommand(v) => v.controller_index(),
                 MgmtCommand::SetLocalNameCommand(v) => v.controller_index(),
                 MgmtCommand::SetAdvertisingCommand(v) => v.controller_index(),
+                MgmtCommand::SetBrEdrCommand(v) => v.controller_index(),
             }
             .into(),
         );
@@ -150,6 +166,7 @@ impl Codec for MgmtCommand {
 #[derive(Debug)]
 pub enum MgmtEvent {
     CommandCompleteEvent(CommandCompleteEvent),
+    CommandStatusEvent(CommandStatusEvent),
 }
 
 impl Codec for MgmtEvent {
@@ -161,6 +178,9 @@ impl Codec for MgmtEvent {
         let mut data = buf.take(len);
         Ok(match code {
             CommandCompleteEvent::CODE => CommandCompleteEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            CommandStatusEvent::CODE => CommandStatusEvent::parse(&mut data)?
                 .with_controller_index(controller_index)
                 .into(),
             x => return Err(CodecError::UnknownMgmt(x.into())),

@@ -7,7 +7,7 @@ use tokio::codec::{Decoder, Encoder};
 use crate::pkt::att::Att;
 use crate::pkt::Codec as _;
 
-pub(crate) struct AttCodec;
+pub struct AttCodec;
 
 impl Encoder for AttCodec {
     type Item = Att;

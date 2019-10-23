@@ -1,58 +1,52 @@
 use tokio::prelude::*;
 
-use btknmle_pkt as pkt;
-use btknmle_sock as sock;
+use btknmle_server::{gatt, mgmt};
 
-mod att;
-mod gatt;
-mod mgmt;
-mod util;
-
-fn database() -> (gatt::Database, pkt::att::Handle, pkt::att::Handle) {
+fn database() -> (gatt::Database, gatt::model::Handle, gatt::model::Handle) {
     let mut builder = gatt::Database::builder();
 
-    builder.begin_service(pkt::att::Uuid::Uuid16(0x1800));
+    builder.begin_service(gatt::model::Uuid::Uuid16(0x1800));
     builder.with_characteristic(
         gatt::CharacteristicProperties::READ,
-        pkt::att::Uuid::Uuid16(0x2A00),
+        gatt::model::Uuid::Uuid16(0x2A00),
         "MYDEVICENAME0123456789ABCDEF",
     );
     builder.with_characteristic(
         gatt::CharacteristicProperties::READ,
-        pkt::att::Uuid::Uuid16(0x2A01),
+        gatt::model::Uuid::Uuid16(0x2A01),
         vec![0xC2, 0x03],
     ); // HID mouse
 
-    builder.begin_service(pkt::att::Uuid::Uuid16(0x1801));
+    builder.begin_service(gatt::model::Uuid::Uuid16(0x1801));
     builder.with_characteristic(
         gatt::CharacteristicProperties::INDICATE,
-        pkt::att::Uuid::Uuid16(0x2A05),
+        gatt::model::Uuid::Uuid16(0x2A05),
         "",
     );
     builder.with_user_description("HELLO WORLD!".into());
     builder.with_cccd(gatt::CCCD::empty());
 
-    builder.begin_service(pkt::att::Uuid::Uuid16(0x180A));
+    builder.begin_service(gatt::model::Uuid::Uuid16(0x180A));
     builder.with_characteristic(
         gatt::CharacteristicProperties::READ,
-        pkt::att::Uuid::Uuid16(0x2A29),
+        gatt::model::Uuid::Uuid16(0x2A29),
         "MYMANUFACTURE",
     );
     builder.with_characteristic(
         gatt::CharacteristicProperties::READ,
-        pkt::att::Uuid::Uuid16(0x2A24),
+        gatt::model::Uuid::Uuid16(0x2A24),
         "1234",
     );
     let zzz = builder.with_characteristic(
         gatt::CharacteristicProperties::READ,
-        pkt::att::Uuid::Uuid16(0x2A24),
+        gatt::model::Uuid::Uuid16(0x2A24),
         "9999",
     );
 
-    builder.begin_service(pkt::att::Uuid::Uuid16(0x180F));
+    builder.begin_service(gatt::model::Uuid::Uuid16(0x180F));
     let bash = builder.with_characteristic(
         gatt::CharacteristicProperties::INDICATE,
-        pkt::att::Uuid::Uuid16(0x2A19),
+        gatt::model::Uuid::Uuid16(0x2A19),
         vec![100],
     );
     builder.with_cccd(gatt::CCCD::empty());
@@ -73,19 +67,14 @@ async fn main() -> Result<(), failure::Error> {
     mgmt.local_name("my ble device", "mbd").await?;
     mgmt.connectable(true).await?;
     mgmt.bondable(true).await?;
-    mgmt.advertising(pkt::mgmt::Advertising::Enabled).await?;
+    mgmt.advertising(mgmt::model::Advertising::Enabled).await?;
 
-    let mut l2server = btknmle_sock::L2Listener::bind(pkt::att::ATT_CID)?.incoming();
-    while let Some(sock) = l2server.next().await {
+    let (db, _handle, _h2) = database();
+    let mut listener = gatt::GattListener::new(db)?;
+    while let Some(sock) = listener.next().await {
         match sock {
-            Ok(sock) => {
+            Ok(svc) => {
                 tokio::spawn(async move {
-                    log::debug!("connected");
-                    let connection = sock.framed(att::AttCodec);
-                    let (db, _handle, _h2) = database();
-
-                    let svc = gatt::GattService::new(db, connection);
-
                     /*
                     let mut h2 = svc.writed_for(&h2).unwrap();
                     tokio::spawn(async move {

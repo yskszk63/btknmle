@@ -4,38 +4,14 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
-use failure::Fail;
 use futures::channel::mpsc;
 use futures::future::Either;
 use futures::{Sink, SinkExt as _, Stream, StreamExt as _};
 
-use super::Database;
+use super::{Database, Result};
 use crate::gatt;
 use crate::pkt::att::{self, Att};
 use crate::util::EitherStream;
-
-#[derive(Debug, Fail)]
-pub enum GattError {
-    #[fail(display = "IO Error occurred {}", _0)]
-    Io(#[fail(cause)] io::Error),
-
-    #[fail(display = "Send Error occurred {}", _0)]
-    Send(#[fail(cause)] mpsc::SendError),
-}
-
-impl From<io::Error> for GattError {
-    fn from(v: io::Error) -> Self {
-        Self::Io(v)
-    }
-}
-
-impl From<mpsc::SendError> for GattError {
-    fn from(v: mpsc::SendError) -> Self {
-        Self::Send(v)
-    }
-}
-
-pub type Result<T> = std::result::Result<T, GattError>;
 
 #[derive(Debug)]
 pub struct Notify {
@@ -65,14 +41,14 @@ impl Stream for Writed {
 }
 
 #[derive(Debug)]
-pub struct GattService<IO> {
+pub struct GattConnection<IO> {
     db: Database,
     io: EitherStream<IO, mpsc::Receiver<Att>>,
     tx: mpsc::Sender<Att>,
     listeners: HashMap<att::Handle, mpsc::Sender<Bytes>>,
 }
 
-impl<IO> GattService<IO>
+impl<IO> GattConnection<IO>
 where
     IO: Stream,
 {
@@ -88,7 +64,7 @@ where
     }
 }
 
-impl<IO> GattService<IO>
+impl<IO> GattConnection<IO>
 where
     IO: Sink<Att, Error = io::Error> + Stream<Item = io::Result<Att>> + Unpin,
 {

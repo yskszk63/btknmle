@@ -13,6 +13,8 @@ use crate::pkt::mgmt::{
 use crate::pkt::{Codec as _, CodecError};
 use crate::sock::{Framed, MgmtSocket};
 
+pub use crate::pkt::mgmt as model;
+
 #[derive(Debug, Fail)]
 pub enum Error {
     #[fail(display = "CodecError {}", _0)]

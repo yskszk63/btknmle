@@ -159,7 +159,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Database {
     mtu: usize,
     attrs: BTreeMap<Handle, Attribute>,

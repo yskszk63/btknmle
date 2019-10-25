@@ -1,5 +1,5 @@
 [package]
-name = "btknmle-server"
+name = "btknmle"
 version = "0.1.0"
 authors = ["yskszk63 <yskszk63@gamil.com>"]
 edition = "2018"
@@ -13,10 +13,7 @@ bytes = "0.4"
 either = "1.5"
 bitflags = "1.2"
 failure = "0.1.6"
-btknmle-sock = { path="../btknmle-sock" }
-btknmle-pkt = { path="../btknmle-pkt" }
+btknmle-server = { path="../btknmle-server" }
 log = "0.4"
-
-[dev-dependencies]
 env_logger = "0.7"
 dotenv = "0.14"

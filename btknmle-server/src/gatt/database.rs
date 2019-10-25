@@ -424,6 +424,18 @@ impl DatabaseBuilder {
         };
         self.attrs.insert(handle, att);
     }
+
+    pub fn with_descriptor(&mut self, uuid: impl Into<Uuid>, value: impl Into<Bytes>) {
+        let handle = Handle::from(self.next);
+        self.next += 1;
+        let att = Attribute {
+            att_handle: handle.clone(),
+            att_type: uuid.into(),
+            att_value: AttributeValue::Value(value.into()),
+            att_perm: Permissions::READABLE | Permissions::WRITABLE, // FIXME
+        };
+        self.attrs.insert(handle, att);
+    }
 }
 
 #[cfg(test)]

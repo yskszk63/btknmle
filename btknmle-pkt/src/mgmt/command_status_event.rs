@@ -1,8 +1,8 @@
 use bytes::{Buf, BytesMut};
 
+use super::Status;
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
 use super::{Codec, Result};
-use super::Status;
 
 #[derive(Debug)]
 pub struct CommandStatusEvent {

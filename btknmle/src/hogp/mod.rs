@@ -1,10 +1,10 @@
-use btknmle_server::gatt::{Database, DatabaseBuilder};
 use btknmle_server::gatt::model::Handle;
+use btknmle_server::gatt::{Database, DatabaseBuilder};
 
-mod gatt;
-mod gap;
-mod dis;
 mod bas;
+mod dis;
+mod gap;
+mod gatt;
 mod hids;
 
 pub fn new() -> (Database, Handle, Handle) {

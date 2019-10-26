@@ -7,7 +7,7 @@ use log::debug;
 use tokio::codec::{Decoder, Encoder};
 
 use crate::pkt::mgmt::{
-    self, Advertising, CurrentSettings, ManagementCommand, MgmtCommand, MgmtEvent,
+    self, Advertising, CurrentSettings, Discoverable, ManagementCommand, MgmtCommand, MgmtEvent,
     SetLocalNameCommandResult, Status,
 };
 use crate::pkt::{Codec as _, CodecError};
@@ -120,6 +120,14 @@ where
         advertising: Advertising,
     ) -> Result<CurrentSettings, Error> {
         self.invoke(mgmt::SetAdvertisingCommand::new(self.index, advertising))
+            .await
+    }
+
+    pub async fn discoverable(
+        &mut self,
+        discoverable: Discoverable,
+    ) -> Result<CurrentSettings, Error> {
+        self.invoke(mgmt::SetDiscoverableCommand::new(self.index, discoverable))
             .await
     }
 

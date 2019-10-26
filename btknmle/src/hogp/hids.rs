@@ -1,6 +1,6 @@
 use super::DatabaseBuilder;
+use crate::gatt::model::{Handle, Uuid};
 use crate::gatt::{CharacteristicProperties, CCCD};
-use crate::gatt::model::{Uuid, Handle};
 
 pub(crate) fn add(builder: &mut DatabaseBuilder) -> (Handle, Handle) {
     builder.begin_service(Uuid::Uuid16(0x1812));
@@ -20,7 +20,7 @@ pub(crate) fn add(builder: &mut DatabaseBuilder) -> (Handle, Handle) {
             0x05, 0x07, // Usage Page (Keyboard/Keypad)
             0x19, 0xe0, // UsageMin (0xE0)
             0x29, 0xe7, // UsageMax (0xE7)
-            0x14,       // LogicalMin (0)
+            0x14, // LogicalMin (0)
             0x25, 0x01, // LogicalMax (1)
             0x75, 0x01, // Report Size (1)
             0x95, 0x08, // Report Count (8)
@@ -36,23 +36,22 @@ pub(crate) fn add(builder: &mut DatabaseBuilder) -> (Handle, Handle) {
             0x91, 0x01, // Output (Array)
             0x95, 0x06, // Report Count (1)
             0x75, 0x08, // Report Size (8)
-            0x14,       // LogicalMin (0)
+            0x14, // LogicalMin (0)
             0x26, 0xa4, 0x00, // LogicalMax(0xA400)
             0x05, 0x07, // Usage Page (Keyboard/Keypad)
-            0x18,       // UsageMin (0)
+            0x18, // UsageMin (0)
             0x29, 0xa4, // UsageMax (0xA4)
-            0x80,       // ?
-            0xc0,       // End Collection
+            0x80, // ?
+            0xc0, // End Collection
             0x05, 0x01, // Usage Page (Generic Desktop)
             0x09, 0x02, // Usage (Mouse)
             0xa1, 0x01, // Collection (Application)
             0x85, 0x02, // Report ID
             0x09, 0x01, // Usage (Pointer)
-            0xa0,
-            0x05, 0x09, // Usage Page (?)
+            0xa0, 0x05, 0x09, // Usage Page (?)
             0x19, 0x01, // UsageMin (1)
             0x29, 0x03, // UsageMax (3)
-            0x14,       // LogicalMin (0)
+            0x14, // LogicalMin (0)
             0x25, 0x01, // UsageMax (1)
             0x95, 0x03, // Report Count
             0x75, 0x01, // Report Size

@@ -1,18 +1,18 @@
 use std::io;
 
-use futures::channel::mpsc;
 use failure::Fail;
+use futures::channel::mpsc;
 
+pub use connection::*;
 pub use database::*;
 pub use listener::*;
-pub use connection::*;
 
+mod connection;
 mod database;
 mod listener;
-mod connection;
 
 pub mod model {
-    pub use crate::pkt::att::{Handle, Uuid, Uuid16, Uuid128};
+    pub use crate::pkt::att::{Handle, Uuid, Uuid128, Uuid16};
 }
 
 #[derive(Debug, Fail)]

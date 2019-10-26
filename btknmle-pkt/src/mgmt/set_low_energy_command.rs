@@ -1,10 +1,9 @@
 use bytes::{Buf, BufMut as _, BytesMut};
 
+use super::CurrentSettings;
+use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
 use super::{Codec, Result};
-use super::ManagementCommand;
-use super::CurrentSettings;
-
 
 #[derive(Debug)]
 pub struct SetLowEnergyCommand {

@@ -1,8 +1,8 @@
 use bytes::{Buf, BytesMut};
 
+use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
 use super::{Codec, Result};
-use super::ManagementCommand;
 
 #[derive(Debug)]
 pub struct SetLocalNameCommandResult {
@@ -26,19 +26,21 @@ impl Codec for SetLocalNameCommandResult {
     }
 
     fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let name = buf.take(249)
+        let name = buf
+            .take(249)
             .iter()
             .take_while(|c| c != &0)
             .map(char::from)
             .collect();
 
-        let short_name = buf.take(11)
+        let short_name = buf
+            .take(11)
             .iter()
             .take_while(|c| c != &0)
             .map(char::from)
             .collect();
 
-        Ok(Self {name, short_name})
+        Ok(Self { name, short_name })
     }
 }
 

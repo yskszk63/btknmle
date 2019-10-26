@@ -23,10 +23,15 @@ async fn main() -> Result<(), failure::Error> {
                 let mut kbd_notify = svc.notify_for(&kbd).unwrap();
                 tokio::spawn(async move {
                     let stdin = tokio::io::stdin();
-                    let mut lines = tokio::codec::FramedRead::new(stdin, tokio::codec::LinesCodec::new());
+                    let mut lines =
+                        tokio::codec::FramedRead::new(stdin, tokio::codec::LinesCodec::new());
                     while let Some(_) = lines.next().await {
-                        let _ = kbd_notify.send(vec![0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00]).await;
-                        let _ = kbd_notify.send(vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]).await;
+                        let _ = kbd_notify
+                            .send(vec![0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00])
+                            .await;
+                        let _ = kbd_notify
+                            .send(vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+                            .await;
                     }
                 });
 
@@ -42,7 +47,6 @@ async fn main() -> Result<(), failure::Error> {
             Err(e) => log::warn!("{}", e),
         }
     }
-
 
     Ok(())
 }

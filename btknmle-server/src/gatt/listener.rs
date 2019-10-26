@@ -3,10 +3,10 @@ use std::task::{Context, Poll};
 
 use futures::{ready, Stream};
 
-use crate::sock::{L2Listener, L2Incoming, L2Stream, Framed};
+use super::{Database, GattConnection, Result};
 use crate::att::AttCodec;
 use crate::pkt::att::ATT_CID;
-use super::{Database, GattConnection, Result};
+use crate::sock::{Framed, L2Incoming, L2Listener, L2Stream};
 
 #[derive(Debug)]
 pub struct GattListener {
@@ -30,7 +30,7 @@ impl Stream for GattListener {
             Some(sock) => {
                 let sock = sock?.framed(AttCodec);
                 Poll::Ready(Some(Ok(GattConnection::new(self.db.clone(), sock))))
-            },
+            }
             None => Poll::Ready(None),
         }
     }

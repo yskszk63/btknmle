@@ -1,6 +1,6 @@
 use super::DatabaseBuilder;
-use crate::gatt::CharacteristicProperties;
 use crate::gatt::model::Uuid;
+use crate::gatt::CharacteristicProperties;
 
 pub(crate) fn add(builder: &mut DatabaseBuilder) {
     builder.begin_service(Uuid::Uuid16(0x1800));

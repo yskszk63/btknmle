@@ -4,6 +4,7 @@ use btknmle_server::{gatt, mgmt};
 
 mod gap;
 mod hogp;
+pub mod kbstat;
 
 #[tokio::main(single_thread)]
 async fn main() -> Result<(), failure::Error> {

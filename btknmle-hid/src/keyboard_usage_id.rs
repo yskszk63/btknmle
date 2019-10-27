@@ -232,7 +232,7 @@ const KEY_COFFEE: u8 = 0xF9;
 const KEY_REFRESH: u8 = 0xFA;
 const KEY_CALC: u8 = 0xFB;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum KeyboardUsageId {
     KEY_ERROR_ROLLOVER,
     KEY_POST_FAIL,
@@ -677,14 +677,14 @@ impl KeyboardUsageId {
             //KeyCodes::KEY_KPOCTAL => Self::KEY_KPOCTAL,
             //KeyCodes::KEY_KPDECIMAL => Self::KEY_KPDECIMAL,
             //KeyCodes::KEY_KPHEX => Self::KEY_KPHEX,
-            //KeyCodes::KEY_LEFT_CTRL => Self::KEY_LEFT_CTRL,
-            //KeyCodes::KEY_LEFT_SHIFT => Self::KEY_LEFT_SHIFT,
-            //KeyCodes::KEY_LEFT_ALT => Self::KEY_LEFT_ALT,
-            //KeyCodes::KEY_LEFT_GUI => Self::KEY_LEFT_GUI,
-            //KeyCodes::KEY_RIGHT_CTRL => Self::KEY_RIGHT_CTRL,
-            //KeyCodes::KEY_RIGHT_SHIFT => Self::KEY_RIGHT_SHIFT,
-            //KeyCodes::KEY_RIGHT_ALT => Self::KEY_RIGHT_ALT,
-            //KeyCodes::KEY_RIGHT_GUI => Self::KEY_RIGHT_GUI,
+            KeyCodes::KEY_LEFTCTRL => Self::KEY_LEFT_CTRL,
+            KeyCodes::KEY_LEFTSHIFT => Self::KEY_LEFT_SHIFT,
+            KeyCodes::KEY_LEFTALT => Self::KEY_LEFT_ALT,
+            KeyCodes::KEY_LEFTMETA => Self::KEY_LEFT_GUI,
+            KeyCodes::KEY_RIGHTCTRL => Self::KEY_RIGHT_CTRL,
+            KeyCodes::KEY_RIGHTSHIFT => Self::KEY_RIGHT_SHIFT,
+            KeyCodes::KEY_RIGHTALT => Self::KEY_RIGHT_ALT,
+            KeyCodes::KEY_RIGHTMETA => Self::KEY_RIGHT_GUI,
             KeyCodes::KEY_PLAYPAUSE => Self::KEY_PLAYPAUSE,
             KeyCodes::KEY_STOPCD => Self::KEY_STOPCD,
             KeyCodes::KEY_PREVIOUSSONG => Self::KEY_PREVIOUSSONG,

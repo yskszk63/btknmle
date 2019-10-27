@@ -4,4 +4,5 @@ members = [
     "btknmle-sock",
     "btknmle-pkt",
     "btknmle-server",
+    "btknmle-input",
 ]

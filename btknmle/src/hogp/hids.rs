@@ -91,7 +91,7 @@ pub(crate) fn add(builder: &mut DatabaseBuilder) -> (Handle, Handle) {
         Uuid::Uuid16(0x2A4D), // Report
         vec![0x10, 0x01, 0x00, 0x00, 0x02],
     );
-    builder.with_descriptor(Uuid::Uuid16(0x2908), vec![0x02, 0x02]);
+    builder.with_descriptor(Uuid::Uuid16(0x2908), vec![0x02, 0x01]);
     builder.with_cccd(CCCD::empty());
 
     builder.with_characteristic(

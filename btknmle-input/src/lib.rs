@@ -65,6 +65,7 @@ impl LibinputStream {
         let udevcx = udev::Context::new()?;
         let mut libinput = Libinput::new_from_udev(Env, &udevcx);
         libinput.udev_assign_seat(udev_seat).unwrap();
+        libinput.dispatch()?;
         Ok(LibinputStream(PollEvented::new(EventedLibinput(libinput))))
     }
 }
@@ -79,11 +80,9 @@ impl Stream for LibinputStream {
                 ready!(self.0.poll_read_ready(cx, Ready::readable()))?;
                 match (self.0).get_mut().0.dispatch() {
                     Ok(..) => {
-                        match (self.0).get_mut().0.next() {
-                            Some(evt) => Poll::Ready(Some(Ok(evt))),
-                            None => Poll::Pending,
-                        }
-                    },
+                        self.0.clear_read_ready(cx, Ready::readable())?;
+                        Poll::Pending
+                    }
                     Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                         self.0.clear_read_ready(cx, Ready::readable())?;
                         Poll::Pending

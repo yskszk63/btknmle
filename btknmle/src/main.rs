@@ -1,4 +1,5 @@
 use tokio::prelude::*;
+use futures::future::FutureExt as _;
 
 use btknmle::{gap, hogp};
 use btknmle_server::{gatt, mgmt};
@@ -21,7 +22,7 @@ async fn main() -> Result<(), failure::Error> {
                 let mut kbd_notify = svc.notify_for(&kbd).unwrap();
                 let mut mouse_notify = svc.notify_for(&mouse).unwrap();
 
-                tokio::runtime::current_thread::spawn(async move {
+                tokio::runtime::current_thread::spawn((async move {
                     use btknmle_input::LibinputStream;
                     use btknmle_input::event::Event;
                     use btknmle_input::event::PointerEvent;
@@ -29,31 +30,36 @@ async fn main() -> Result<(), failure::Error> {
                     let mut kbstat = btknmle::kbstat::KbStat::new();
                     let mut mousestat = btknmle::mousestat::MouseStat::new();
 
-                    let mut stream = LibinputStream::new_from_udev("seat0").unwrap();
+                    let mut stream = LibinputStream::new_from_udev("seat0")?;
                     while let Some(evt) = stream.next().await {
                         match evt.unwrap() {
                             Event::Keyboard(kbd) => {
                                 kbstat.recv(&kbd);
-                                kbd_notify.send(kbstat.to_bytes()).await.unwrap();
+                                kbd_notify.send(kbstat.to_bytes()).await?;
                             },
                             Event::Pointer(PointerEvent::Motion(motion)) => {
                                 mousestat.recv_motion(&motion);
-                                mouse_notify.send(mousestat.to_bytes()).await.unwrap();
+                                mouse_notify.send(mousestat.to_bytes()).await?;
                             }
                             Event::Pointer(PointerEvent::Button(button)) => {
                                 mousestat.recv_button(&button);
-                                mouse_notify.send(mousestat.to_bytes()).await.unwrap();
+                                mouse_notify.send(mousestat.to_bytes()).await?;
                             }
                             Event::Pointer(PointerEvent::Axis(axis)) => {
                                 mousestat.recv_axis(&axis);
-                                mouse_notify.send(mousestat.to_bytes()).await.unwrap();
+                                mouse_notify.send(mousestat.to_bytes()).await?;
                             }
                             _ => {},
                         }
                     }
-                });
+                    Ok(())
+                }).map(|e: Result<_, failure::Error>| {
+                    if let Err(e) = e {
+                        log::warn!("{}", e)
+                    }
+                }));
 
-                tokio::spawn(async move {
+                tokio::runtime::current_thread::spawn(async move {
                     log::debug!("begin");
                     match svc.run().await {
                         Ok(()) => {}

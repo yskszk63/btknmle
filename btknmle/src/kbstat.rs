@@ -1,12 +1,12 @@
 use std::collections::HashSet;
 
-use bytes::{Bytes, BytesMut, BufMut as _};
 use bitflags::bitflags;
+use bytes::{BufMut as _, Bytes, BytesMut};
 
-use btknmle_input::event::KeyboardEvent;
-use btknmle_input::event::keyboard::KeyboardEventTrait as _;
-use btknmle_input::event::keyboard::KeyState;
 use btknmle_hid::KeyboardUsageId;
+use btknmle_input::event::keyboard::KeyState;
+use btknmle_input::event::keyboard::KeyboardEventTrait as _;
+use btknmle_input::event::KeyboardEvent;
 
 bitflags! {
     struct MetaKeys: u8 {
@@ -62,14 +62,14 @@ impl KbStat {
                     } else {
                         self.keys.insert(code);
                     }
-                },
+                }
                 KeyState::Released => {
                     if let Some(meta) = MetaKeys::from_keycodes(&code) {
                         self.meta -= meta;
                     } else {
                         self.keys.remove(&code);
                     }
-                },
+                }
             }
         }
     }

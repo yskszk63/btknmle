@@ -79,15 +79,13 @@ impl Stream for LibinputStream {
             None => {
                 ready!(self.0.poll_read_ready(cx, Ready::readable()))?;
                 match (self.0).get_mut().0.dispatch() {
-                    Ok(..) => {
-                        match (self.0).get_mut().0.next() {
-                            Some(evt) => Poll::Ready(Some(Ok(evt))),
-                            None => {
-                                self.0.clear_read_ready(cx, Ready::readable())?;
-                                Poll::Pending
-                            }
+                    Ok(..) => match (self.0).get_mut().0.next() {
+                        Some(evt) => Poll::Ready(Some(Ok(evt))),
+                        None => {
+                            self.0.clear_read_ready(cx, Ready::readable())?;
+                            Poll::Pending
                         }
-                    }
+                    },
                     Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                         self.0.clear_read_ready(cx, Ready::readable())?;
                         Poll::Pending

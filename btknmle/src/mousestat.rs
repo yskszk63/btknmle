@@ -1,7 +1,9 @@
 use bitflags::bitflags;
-use bytes::{Bytes, BytesMut, BufMut};
+use bytes::{BufMut, Bytes, BytesMut};
 
-use btknmle_input::event::pointer::{PointerMotionEvent, PointerButtonEvent, PointerAxisEvent, ButtonState, Axis};
+use btknmle_input::event::pointer::{
+    Axis, ButtonState, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
+};
 use btknmle_input::ButtonCodes;
 
 bitflags! {
@@ -42,16 +44,12 @@ impl MouseStat {
             ButtonCodes::BTN_LEFT => Button::LEFT,
             ButtonCodes::BTN_RIGHT => Button::RIGHT,
             ButtonCodes::BTN_MIDDLE => Button::MIDDLE,
-            _ => return
+            _ => return,
         };
 
         match evt.button_state() {
-            ButtonState::Pressed => {
-                self.button |= button
-            }
-            ButtonState::Released => {
-                self.button -= button
-            }
+            ButtonState::Pressed => self.button |= button,
+            ButtonState::Released => self.button -= button,
         }
     }
 

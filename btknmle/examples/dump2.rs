@@ -1,7 +1,7 @@
 use tokio::prelude::*;
 
 use btknmle;
-use btknmle_input::event as event;
+use btknmle_input::event;
 use btknmle_input::LibinputStream;
 
 #[tokio::main(single_thread)]

@@ -11,28 +11,53 @@ use input::{Event, Libinput, LibinputInterface};
 use mio::unix::EventedFd;
 use mio::{Evented, Poll as MioPoll, PollOpt, Ready, Token};
 use tokio_net::util::PollEvented;
-use log::debug;
+use log::{debug, warn};
 
 pub use codes::{ButtonCodes, KeyCodes};
 
 mod codes;
 
-struct Env;
+mod native {
+    #[link(name="native", kind="static")]
+    extern {
+        pub static eviocgrab: libc::c_ulong;
+    }
+}
+
+fn grab(fd: RawFd, grab: bool) -> io::Result<()> {
+    let v = if grab { 1 } else { 0 };
+    match unsafe { libc::ioctl(fd, native::eviocgrab, v) } {
+        err if err < 0 => Err(io::Error::last_os_error()),
+        _ => Ok(())
+    }
+}
+
+struct Env(bool);
 
 impl LibinputInterface for Env {
     fn open_restricted(&mut self, path: &Path, flags: i32) -> Result<RawFd, i32> {
         let cpath = std::ffi::CString::new(path.as_os_str().as_bytes()).map_err(|_| -1)?;
         match unsafe { libc::open(cpath.as_ptr(), flags) } {
-            x if x < 0 => Err(io::Error::last_os_error().raw_os_error().unwrap_or(x)),
-            x => {
-                debug!("open {:?} {}", path, x);
-                Ok(x)
+            err if err < 0 => Err(io::Error::last_os_error().raw_os_error().unwrap_or(err)),
+            fd => {
+                debug!("open {:?} {}", path, fd);
+                if self.0 {
+                    if let Err(e) = grab(fd, true) {
+                        warn!("grab failed {:?} {}", path, e)
+                    }
+                }
+                Ok(fd)
             }
         }
     }
 
     fn close_restricted(&mut self, fd: RawFd) {
         debug!("close {}", fd);
+        if self.0 {
+            if let Err(e) = grab(fd, false) {
+                warn!("ungrab failed {}", e)
+            }
+        }
         unsafe { libc::close(fd) };
     }
 }
@@ -66,9 +91,9 @@ impl Evented for EventedLibinput {
 pub struct LibinputStream(PollEvented<EventedLibinput>);
 
 impl LibinputStream {
-    pub fn new_from_udev(udev_seat: &str) -> io::Result<LibinputStream> {
+    pub fn new_from_udev(udev_seat: &str, grab: bool) -> io::Result<LibinputStream> {
         let udevcx = udev::Context::new()?;
-        let mut libinput = Libinput::new_from_udev(Env, &udevcx);
+        let mut libinput = Libinput::new_from_udev(Env(grab), &udevcx);
         libinput.udev_assign_seat(udev_seat).unwrap();
         libinput.dispatch()?;
         Ok(LibinputStream(PollEvented::new(EventedLibinput(libinput))))

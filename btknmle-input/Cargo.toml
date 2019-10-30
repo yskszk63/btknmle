@@ -16,3 +16,8 @@ bytes = "0.4"
 mio = "0.6"
 failure = "0.1.6"
 libc = "0.2"
+log = "0.4"
+
+[dev-dependencies]
+dotenv = "0.14"
+env_logger = "0.7"

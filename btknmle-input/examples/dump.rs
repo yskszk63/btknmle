@@ -5,6 +5,9 @@ use btknmle_input::{ButtonCodes, KeyCodes};
 
 #[tokio::main(single_thread)]
 async fn main() -> Result<(), failure::Error> {
+    dotenv::dotenv().ok();
+    env_logger::init();
+
     use input::event::pointer::PointerEvent;
     use input::Event;
 

@@ -11,6 +11,7 @@ use input::{Event, Libinput, LibinputInterface};
 use mio::unix::EventedFd;
 use mio::{Evented, Poll as MioPoll, PollOpt, Ready, Token};
 use tokio_net::util::PollEvented;
+use log::debug;
 
 pub use codes::{ButtonCodes, KeyCodes};
 
@@ -20,14 +21,18 @@ struct Env;
 
 impl LibinputInterface for Env {
     fn open_restricted(&mut self, path: &Path, flags: i32) -> Result<RawFd, i32> {
-        let path = std::ffi::CString::new(path.as_os_str().as_bytes()).map_err(|_| -1)?;
-        match unsafe { libc::open(path.as_ptr(), flags) } {
+        let cpath = std::ffi::CString::new(path.as_os_str().as_bytes()).map_err(|_| -1)?;
+        match unsafe { libc::open(cpath.as_ptr(), flags) } {
             x if x < 0 => Err(io::Error::last_os_error().raw_os_error().unwrap_or(x)),
-            x => Ok(x),
+            x => {
+                debug!("open {:?} {}", path, x);
+                Ok(x)
+            }
         }
     }
 
     fn close_restricted(&mut self, fd: RawFd) {
+        debug!("close {}", fd);
         unsafe { libc::close(fd) };
     }
 }

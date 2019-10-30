@@ -1,10 +1,10 @@
+use std::marker::PhantomData;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::marker::PhantomData;
 
-use futures::{ready, Stream, TryStream, SinkExt as _};
-use tokio::sync::watch;
 use failure::Fail;
+use futures::{ready, SinkExt as _, Stream, TryStream};
+use tokio::sync::watch;
 
 #[derive(Debug)]
 pub struct CancelableStreamController {
@@ -62,15 +62,20 @@ pub struct CancelableStream<S, E> {
 }
 
 impl<S, E> Stream for CancelableStream<S, E>
-where S: TryStream + Unpin,
-      E: From<<S as TryStream>::Error> + From<Canceled> + Unpin {
-
+where
+    S: TryStream + Unpin,
+    E: From<<S as TryStream>::Error> + From<Canceled> + Unpin,
+{
     type Item = Result<<S as TryStream>::Ok, E>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Result<<S as TryStream>::Ok, E>>> {
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<<S as TryStream>::Ok, E>>> {
         match Pin::new(&mut self.receiver).poll_next(cx) {
-            Poll::Ready(Some(Message::Canceled)) | Poll::Ready(None) =>
-                return Poll::Ready(Some(Err(Canceled.into()))),
+            Poll::Ready(Some(Message::Canceled)) | Poll::Ready(None) => {
+                return Poll::Ready(Some(Err(Canceled.into())))
+            }
             Poll::Ready(Some(Message::Running)) | Poll::Pending => (),
         }
 

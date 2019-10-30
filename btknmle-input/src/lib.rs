@@ -8,18 +8,18 @@ use std::task::{Context, Poll};
 use futures::{ready, Stream};
 pub use input::event;
 use input::{Event, Libinput, LibinputInterface};
+use log::{debug, warn};
 use mio::unix::EventedFd;
 use mio::{Evented, Poll as MioPoll, PollOpt, Ready, Token};
 use tokio_net::util::PollEvented;
-use log::{debug, warn};
 
 pub use codes::{ButtonCodes, KeyCodes};
 
 mod codes;
 
 mod native {
-    #[link(name="native", kind="static")]
-    extern {
+    #[link(name = "native", kind = "static")]
+    extern "C" {
         pub static eviocgrab: libc::c_ulong;
     }
 }
@@ -28,7 +28,7 @@ fn grab(fd: RawFd, grab: bool) -> io::Result<()> {
     let v = if grab { 1 } else { 0 };
     match unsafe { libc::ioctl(fd, native::eviocgrab, v) } {
         err if err < 0 => Err(io::Error::last_os_error()),
-        _ => Ok(())
+        _ => Ok(()),
     }
 }
 

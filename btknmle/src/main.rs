@@ -1,17 +1,20 @@
 use futures::future::FutureExt as _;
 use tokio::prelude::*;
 
-use btknmle::{gap, hogp};
-use btknmle::util::{CancelableStreamController, CancelableStreamFactory};
 use btknmle::kbstat::KbStat;
 use btknmle::mousestat::MouseStat;
-use btknmle_server::{gatt, mgmt};
+use btknmle::util::{CancelableStreamController, CancelableStreamFactory};
+use btknmle::{gap, hogp};
 use btknmle_input::event::Event;
 use btknmle_input::event::PointerEvent;
 use btknmle_input::LibinputStream;
+use btknmle_server::{gatt, mgmt};
 
-
-async fn input_loop(mut kb: gatt::Notify, mut mouse: gatt::Notify, factory: CancelableStreamFactory) -> Result<(), failure::Error> {
+async fn input_loop(
+    mut kb: gatt::Notify,
+    mut mouse: gatt::Notify,
+    factory: CancelableStreamFactory,
+) -> Result<(), failure::Error> {
     let mut kbstat = KbStat::new();
     let mut mousestat = MouseStat::new();
     let stream = LibinputStream::new_from_udev("seat0", true)?; // FIXME seat
@@ -62,13 +65,13 @@ async fn main() -> Result<(), failure::Error> {
                 let kbd_notify = svc.notify_for(&kbd).unwrap();
                 let mouse_notify = svc.notify_for(&mouse).unwrap();
 
-                spawn(input_loop(kbd_notify, mouse_notify, cancel.factory())
-                    .map(|e: Result<_, failure::Error>| {
+                spawn(input_loop(kbd_notify, mouse_notify, cancel.factory()).map(
+                    |e: Result<_, failure::Error>| {
                         if let Err(e) = e {
                             log::warn!("{}", e)
                         }
-                    }),
-                );
+                    },
+                ));
 
                 spawn(async move {
                     log::debug!("begin");

@@ -76,6 +76,7 @@ const KEY_PAUSE: u8 = 0x48;
 const KEY_INSERT: u8 = 0x49;
 const KEY_HOME: u8 = 0x4A;
 const KEY_PAGEUP: u8 = 0x4B;
+const KEY_DELETE_FORWARD: u8 = 0x4C;
 const KEY_END: u8 = 0x4D;
 const KEY_PAGEDOWN: u8 = 0x4E;
 const KEY_RIGHT: u8 = 0x4F;
@@ -309,6 +310,7 @@ pub enum KeyboardUsageId {
     KEY_INSERT,
     KEY_HOME,
     KEY_PAGEUP,
+    KEY_DELETE_FORWARD,
     KEY_END,
     KEY_PAGEDOWN,
     KEY_RIGHT,
@@ -511,7 +513,7 @@ impl KeyboardUsageId {
             KeyCodes::KEY_0 => Self::KEY_0,
             KeyCodes::KEY_ENTER => Self::KEY_ENTER,
             KeyCodes::KEY_ESC => Self::KEY_ESC,
-            KeyCodes::KEY_DELETE => Self::KEY_DELETE,
+            KeyCodes::KEY_BACKSPACE => Self::KEY_DELETE,
             KeyCodes::KEY_TAB => Self::KEY_TAB,
             KeyCodes::KEY_SPACE => Self::KEY_SPACE,
             KeyCodes::KEY_MINUS => Self::KEY_MINUS,
@@ -545,6 +547,7 @@ impl KeyboardUsageId {
             KeyCodes::KEY_INSERT => Self::KEY_INSERT,
             KeyCodes::KEY_HOME => Self::KEY_HOME,
             KeyCodes::KEY_PAGEUP => Self::KEY_PAGEUP,
+            KeyCodes::KEY_DELETE => Self::KEY_DELETE_FORWARD,
             KeyCodes::KEY_END => Self::KEY_END,
             KeyCodes::KEY_PAGEDOWN => Self::KEY_PAGEDOWN,
             KeyCodes::KEY_RIGHT => Self::KEY_RIGHT,
@@ -783,6 +786,7 @@ impl From<KeyboardUsageId> for u8 {
             KeyboardUsageId::KEY_INSERT => KEY_INSERT,
             KeyboardUsageId::KEY_HOME => KEY_HOME,
             KeyboardUsageId::KEY_PAGEUP => KEY_PAGEUP,
+            KeyboardUsageId::KEY_DELETE_FORWARD => KEY_DELETE_FORWARD,
             KeyboardUsageId::KEY_END => KEY_END,
             KeyboardUsageId::KEY_PAGEDOWN => KEY_PAGEDOWN,
             KeyboardUsageId::KEY_RIGHT => KEY_RIGHT,

@@ -22,7 +22,7 @@ impl L2Incoming {
 impl Stream for L2Incoming {
     type Item = io::Result<L2Stream>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let socket = ready!(self.inner.poll_accept(cx))?;
         Poll::Ready(Some(Ok(socket)))
     }

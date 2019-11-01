@@ -41,9 +41,9 @@ const HCI_DEV_NONE: libc::c_ushort = 0xffff;
 const HCI_CHANNEL_CONTROL: libc::c_ushort = 3;
 //const HCI_CHANNEL_LOGGING: libc::c_ushort = 4;
 
-const BDADDR_BREDR: u8 = 0x00;
+//const BDADDR_BREDR: u8 = 0x00;
 const BDADDR_LE_PUBLIC: u8 = 0x01;
-const BDADDR_LE_RANDOM: u8 = 0x02;
+//const BDADDR_LE_RANDOM: u8 = 0x02;
 
 #[derive(Debug)]
 pub(crate) struct RawSocket(RawFd);

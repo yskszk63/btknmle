@@ -1,14 +1,26 @@
 use futures::future::FutureExt as _;
 use tokio::prelude::*;
 
+use input::{Device, DeviceCapability};
+
 use btknmle::kbstat::KbStat;
 use btknmle::mousestat::MouseStat;
 use btknmle::util::{CancelableStreamController, CancelableStreamFactory};
 use btknmle::{gap, hogp};
+use btknmle_input::event::DeviceEvent;
 use btknmle_input::event::Event;
+use btknmle_input::event::EventTrait as _;
 use btknmle_input::event::PointerEvent;
 use btknmle_input::LibinputStream;
 use btknmle_server::{gatt, mgmt};
+
+fn configure_device(device: &mut Device) {
+    if device.has_capability(DeviceCapability::Gesture) {
+        if let Err(e) = device.config_tap_set_enabled(true) {
+            log::warn!("failed to set clickfinger {:?}", e);
+        }
+    }
+}
 
 async fn input_loop(
     mut kb: gatt::Notify,
@@ -22,6 +34,10 @@ async fn input_loop(
 
     while let Some(evt) = stream.next().await {
         match evt? {
+            Event::Device(DeviceEvent::Added(evt)) => {
+                let mut device = evt.device();
+                configure_device(&mut device);
+            }
             Event::Keyboard(kbd) => {
                 kbstat.recv(&kbd);
                 kb.send(kbstat.to_bytes()).await?;

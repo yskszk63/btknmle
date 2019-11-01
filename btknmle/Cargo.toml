@@ -13,6 +13,7 @@ bytes = "0.4"
 either = "1.5"
 bitflags = "1.2"
 failure = "0.1.6"
+input = "0.4"
 btknmle-server = { path="../btknmle-server" }
 btknmle-input = { path="../btknmle-input" }
 btknmle-hid = { path="../btknmle-hid" }

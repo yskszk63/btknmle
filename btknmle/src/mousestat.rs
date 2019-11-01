@@ -55,7 +55,7 @@ impl MouseStat {
 
     pub fn recv_axis(&mut self, evt: &PointerAxisEvent) {
         if evt.has_axis(Axis::Vertical) {
-            self.value = Value::Wheel(evt.axis_value(Axis::Vertical))
+            self.value = Value::Wheel(evt.axis_value(Axis::Vertical) * 0.1)
         }
     }
 

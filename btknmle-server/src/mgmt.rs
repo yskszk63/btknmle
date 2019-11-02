@@ -1,4 +1,6 @@
 use std::io;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use bytes::{BytesMut, IntoBuf};
 use failure::Fail;
@@ -28,6 +30,9 @@ pub enum Error {
 
     #[fail(display = "Command Error {:?}", _0)]
     CommandError(Status),
+
+    #[fail(display = "Invalid event {:?}", _0)]
+    InvalidEvent(MgmtEvent),
 }
 
 impl From<CodecError> for Error {
@@ -155,9 +160,21 @@ where
                     Ok(I::parse_result(&mut evt.parameters().into_buf())?)
                 }
                 MgmtEvent::CommandStatusEvent(evt) => Err(Error::CommandError(evt.status())),
+                evt => Err(Error::InvalidEvent(evt)),
             }
         } else {
             Err(Error::InvalidState)
         }
+    }
+}
+
+impl<IO> Stream for Mgmt<IO>
+where
+    IO: Stream<Item = Result<MgmtEvent, Error>> + Unpin,
+{
+    type Item = Result<MgmtEvent, Error>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.io).poll_next(cx)
     }
 }

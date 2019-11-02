@@ -4,9 +4,18 @@ use bytes::{Buf, BufMut as _, BytesMut};
 
 use super::{Codec, CodecError, Result};
 
+pub use address::*;
+pub use address_type::*;
 pub use command_complete_event::*;
 pub use command_status_event::*;
 pub use current_settings::*;
+pub use device_connected_event::*;
+pub use device_disconnected_event::*;
+pub use device_found_event::*;
+pub use extended_controller_information_changed_event::*;
+pub use key::*;
+pub use new_long_term_key_event::*;
+pub use new_signature_resolving_key_event::*;
 pub use set_advertising_command::*;
 pub use set_bondable_command::*;
 pub use set_br_edr_command::*;
@@ -16,10 +25,20 @@ pub use set_local_name_command::*;
 pub use set_low_energy_command::*;
 pub use set_powered_command::*;
 pub use status::*;
+pub use user_passkey_request_event::*;
 
+mod address;
+mod address_type;
 mod command_complete_event;
 mod command_status_event;
 mod current_settings;
+mod device_connected_event;
+mod device_disconnected_event;
+mod device_found_event;
+mod extended_controller_information_changed_event;
+mod key;
+mod new_long_term_key_event;
+mod new_signature_resolving_key_event;
 mod set_advertising_command;
 mod set_bondable_command;
 mod set_br_edr_command;
@@ -29,6 +48,7 @@ mod set_local_name_command;
 mod set_low_energy_command;
 mod set_powered_command;
 mod status;
+mod user_passkey_request_event;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Code(u16);
@@ -173,6 +193,13 @@ impl Codec for MgmtCommand {
 pub enum MgmtEvent {
     CommandCompleteEvent(CommandCompleteEvent),
     CommandStatusEvent(CommandStatusEvent),
+    DeviceConnectedEvent(DeviceConnectedEvent),
+    DeviceFoundEvent(DeviceFoundEvent),
+    DeviceDisconnectedEvent(DeviceDisconnectedEvent),
+    NewLongTermKeyEvent(NewLongTermKeyEvent),
+    NewSignatureResolvingKeyEvent(NewSignatureResolvingKeyEvent),
+    ExtendedControllerInformationChangedEvent(ExtendedControllerInformationChangedEvent),
+    UserPasskeyRequestEvent(UserPasskeyRequestEvent),
 }
 
 impl Codec for MgmtEvent {
@@ -187,6 +214,29 @@ impl Codec for MgmtEvent {
                 .with_controller_index(controller_index)
                 .into(),
             CommandStatusEvent::CODE => CommandStatusEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            DeviceConnectedEvent::CODE => DeviceConnectedEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            DeviceFoundEvent::CODE => DeviceFoundEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            DeviceDisconnectedEvent::CODE => DeviceDisconnectedEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            NewLongTermKeyEvent::CODE => NewLongTermKeyEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            NewSignatureResolvingKeyEvent::CODE => NewSignatureResolvingKeyEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            ExtendedControllerInformationChangedEvent::CODE => {
+                ExtendedControllerInformationChangedEvent::parse(&mut data)?
+                    .with_controller_index(controller_index)
+                    .into()
+            }
+            UserPasskeyRequestEvent::CODE => UserPasskeyRequestEvent::parse(&mut data)?
                 .with_controller_index(controller_index)
                 .into(),
             x => return Err(CodecError::UnknownMgmt(x.into())),

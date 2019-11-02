@@ -67,9 +67,25 @@ async fn main() -> Result<(), failure::Error> {
     dotenv::dotenv().ok();
     env_logger::init();
 
-    let devid = 0; // FIXME
-    let mut mgmt = mgmt::Mgmt::new(devid).await?;
-    gap::setup(&mut mgmt).await?;
+    spawn(
+        (async {
+            let devid = 0; // FIXME
+            let mut mgmt = mgmt::Mgmt::new(devid).await?;
+            gap::setup(&mut mgmt).await?;
+
+            while let Some(evt) = mgmt.next().await {
+                //let evt = evt?;
+                println!("{:?}", evt);
+            }
+
+            Ok(())
+        })
+        .map(|e: Result<_, failure::Error>| {
+            if let Err(e) = e {
+                log::warn!("{}", e)
+            }
+        }),
+    );
 
     let (db, kbd, mouse) = hogp::new();
     let mut listener = gatt::GattListener::new(db)?;

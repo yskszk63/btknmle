@@ -1,4 +1,5 @@
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, BufMut as _, Bytes, BytesMut};
+use std::convert::TryFrom;
 
 use super::{Address, AddressType};
 use super::{Codec, CodecError, Result};
@@ -15,9 +16,9 @@ impl Codec for Type {
     fn parse(buf: &mut impl Buf) -> Result<Self> {
         Ok(match buf.get_u8() {
             0x00 => Self::UnauthenticatedLocalCsrk,
-            0x01 => Self::UnauthenticatedLocalCsrk,
-            0x02 => Self::UnauthenticatedLocalCsrk,
-            0x03 => Self::UnauthenticatedLocalCsrk,
+            0x01 => Self::UnauthenticatedRemoteCsrk,
+            0x02 => Self::AuthenticatedLocalCsrk,
+            0x03 => Self::AuthenticatedRemoteCsrk,
             _ => return Err(CodecError::Invalid),
         })
     }
@@ -27,12 +28,63 @@ impl Codec for Type {
     }
 }
 
+impl From<Type> for u8 {
+    fn from(v: Type) -> Self {
+        match v {
+            Type::UnauthenticatedLocalCsrk => 0x00,
+            Type::UnauthenticatedRemoteCsrk => 0x01,
+            Type::AuthenticatedLocalCsrk => 0x02,
+            Type::AuthenticatedRemoteCsrk => 0x03,
+        }
+    }
+}
+
+impl TryFrom<u8> for Type {
+    type Error = u8;
+    fn try_from(v: u8) -> std::result::Result<Self, Self::Error> {
+        Ok(match v {
+            0x00 => Type::UnauthenticatedLocalCsrk,
+            0x01 => Type::UnauthenticatedRemoteCsrk,
+            0x02 => Type::AuthenticatedLocalCsrk,
+            0x03 => Type::AuthenticatedRemoteCsrk,
+            v => return Err(v),
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct Key {
     address: Address,
     address_type: AddressType,
     r#type: Type,
     value: Bytes,
+}
+
+impl Key {
+    pub fn new(address: Address, address_type: AddressType, r#type: Type, value: Bytes) -> Self {
+        Self {
+            address,
+            address_type,
+            r#type,
+            value,
+        }
+    }
+
+    pub fn address(&self) -> Address {
+        self.address.clone()
+    }
+
+    pub fn address_type(&self) -> AddressType {
+        self.address_type.clone()
+    }
+
+    pub fn r#type(&self) -> Type {
+        self.r#type.clone()
+    }
+
+    pub fn value(&self) -> Bytes {
+        self.value.clone()
+    }
 }
 
 impl Codec for Key {
@@ -66,6 +118,62 @@ pub struct LongTermKey {
     value: [u8; 16],
 }
 
+impl LongTermKey {
+    pub fn new(
+        address: Address,
+        address_type: AddressType,
+        key_type: u8,
+        master: u8,
+        encryption_size: u8,
+        encryption_diversifier: [u8; 2],
+        random_number: [u8; 8],
+        value: [u8; 16],
+    ) -> Self {
+        Self {
+            address,
+            address_type,
+            key_type,
+            master,
+            encryption_size,
+            encryption_diversifier,
+            random_number,
+            value,
+        }
+    }
+
+    pub fn address(&self) -> Address {
+        self.address.clone()
+    }
+
+    pub fn address_type(&self) -> AddressType {
+        self.address_type.clone()
+    }
+
+    pub fn key_type(&self) -> u8 {
+        self.key_type
+    }
+
+    pub fn master(&self) -> u8 {
+        self.master
+    }
+
+    pub fn encryption_size(&self) -> u8 {
+        self.encryption_size
+    }
+
+    pub fn encryption_diversifier(&self) -> [u8; 2] {
+        self.encryption_diversifier.clone()
+    }
+
+    pub fn random_number(&self) -> [u8; 8] {
+        self.random_number
+    }
+
+    pub fn value(&self) -> [u8; 16] {
+        self.value
+    }
+}
+
 impl Codec for LongTermKey {
     fn parse(buf: &mut impl Buf) -> Result<Self> {
         let address = Address::parse(buf)?;
@@ -92,7 +200,66 @@ impl Codec for LongTermKey {
         })
     }
 
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
-        unimplemented!()
+    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
+        self.address.write_to(buf)?;
+        self.address_type.write_to(buf)?;
+        buf.put_u8(self.key_type);
+        buf.put_u8(self.master);
+        buf.put_u8(self.encryption_size);
+        buf.extend_from_slice(&self.encryption_diversifier);
+        buf.extend_from_slice(&self.random_number);
+        buf.extend_from_slice(&self.value);
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct IdentityResolvingKey {
+    address: Address,
+    address_type: AddressType,
+    value: [u8; 16],
+}
+
+impl IdentityResolvingKey {
+    pub fn new(address: Address, address_type: AddressType, value: [u8; 16]) -> Self {
+        Self {
+            address,
+            address_type,
+            value,
+        }
+    }
+
+    pub fn address(&self) -> Address {
+        self.address.clone()
+    }
+
+    pub fn address_type(&self) -> AddressType {
+        self.address_type.clone()
+    }
+
+    pub fn value(&self) -> [u8; 16] {
+        self.value
+    }
+}
+
+impl Codec for IdentityResolvingKey {
+    fn parse(buf: &mut impl Buf) -> Result<Self> {
+        let address = Address::parse(buf)?;
+        let address_type = AddressType::parse(buf)?;
+        let mut value = [0; 16];
+        buf.copy_to_slice(&mut value);
+
+        Ok(Self {
+            address,
+            address_type,
+            value,
+        })
+    }
+
+    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
+        self.address.write_to(buf)?;
+        self.address_type.write_to(buf)?;
+        buf.extend_from_slice(&self.value);
+        Ok(())
     }
 }

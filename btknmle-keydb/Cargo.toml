@@ -1,5 +1,5 @@
 [package]
-name = "btknmle"
+name = "btknmle-keydb"
 version = "0.1.0"
 authors = ["yskszk63 <yskszk63@gamil.com>"]
 edition = "2018"
@@ -10,14 +10,6 @@ edition = "2018"
 tokio = "0.2.0-alpha"
 futures-preview = "0.3.0-alpha"
 bytes = "0.4"
-either = "1.5"
-bitflags = "1.2"
 failure = "0.1.6"
-input = "0.4"
-btknmle-server = { path="../btknmle-server" }
-btknmle-input = { path="../btknmle-input" }
-btknmle-hid = { path="../btknmle-hid" }
-btknmle-keydb = { path="../btknmle-keydb" }
-log = "0.4"
-env_logger = "0.7"
-dotenv = "0.14"
+toml = "0.5"
+btknmle-pkt = { path="../btknmle-pkt" }

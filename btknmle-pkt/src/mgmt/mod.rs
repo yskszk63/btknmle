@@ -14,17 +14,27 @@ pub use device_disconnected_event::*;
 pub use device_found_event::*;
 pub use extended_controller_information_changed_event::*;
 pub use key::*;
+pub use load_identity_resolving_keys_command::*;
+pub use load_long_term_keys_command::*;
+pub use new_identity_resolving_key_event::*;
 pub use new_long_term_key_event::*;
 pub use new_signature_resolving_key_event::*;
+pub use passkey_notify_event::*;
 pub use set_advertising_command::*;
 pub use set_bondable_command::*;
 pub use set_br_edr_command::*;
 pub use set_connectable_command::*;
 pub use set_discoverable_command::*;
+pub use set_io_capability_command::*;
 pub use set_local_name_command::*;
 pub use set_low_energy_command::*;
 pub use set_powered_command::*;
+pub use set_privacy_command::*;
+pub use set_secure_connections_command::*;
 pub use status::*;
+pub use user_confirmation_negative_reply_command::*;
+pub use user_confirmation_reply_command::*;
+pub use user_confirmation_request_event::*;
 pub use user_passkey_request_event::*;
 
 mod address;
@@ -37,17 +47,27 @@ mod device_disconnected_event;
 mod device_found_event;
 mod extended_controller_information_changed_event;
 mod key;
+mod load_identity_resolving_keys_command;
+mod load_long_term_keys_command;
+mod new_identity_resolving_key_event;
 mod new_long_term_key_event;
 mod new_signature_resolving_key_event;
+mod passkey_notify_event;
 mod set_advertising_command;
 mod set_bondable_command;
 mod set_br_edr_command;
 mod set_connectable_command;
 mod set_discoverable_command;
+mod set_io_capability_command;
 mod set_local_name_command;
 mod set_low_energy_command;
 mod set_powered_command;
+mod set_privacy_command;
+mod set_secure_connections_command;
 mod status;
+mod user_confirmation_negative_reply_command;
+mod user_confirmation_reply_command;
+mod user_confirmation_request_event;
 mod user_passkey_request_event;
 
 #[derive(Clone, PartialEq, Eq)]
@@ -136,6 +156,13 @@ pub enum MgmtCommand {
     SetAdvertisingCommand(SetAdvertisingCommand),
     SetBrEdrCommand(SetBrEdrCommand),
     SetDiscoverableCommand(SetDiscoverableCommand),
+    UserConfirmationReplyCommand(UserConfirmationReplyCommand),
+    UserConfirmationNegativeReplyCommand(UserConfirmationNegativeReplyCommand),
+    SetSecureConnectionsCommand(SetSecureConnectionsCommand),
+    SetPrivacyCommand(SetPrivacyCommand),
+    SetIoCapabilityCommand(SetIoCapabilityCommand),
+    LoadIdentityResolvingKeysCommand(LoadIdentityResolvingKeysCommand),
+    LoadLongTermKeysCommand(LoadLongTermKeysCommand),
 }
 
 impl Codec for MgmtCommand {
@@ -149,6 +176,13 @@ impl Codec for MgmtCommand {
             MgmtCommand::SetAdvertisingCommand(v) => v.code(),
             MgmtCommand::SetBrEdrCommand(v) => v.code(),
             MgmtCommand::SetDiscoverableCommand(v) => v.code(),
+            MgmtCommand::UserConfirmationReplyCommand(v) => v.code(),
+            MgmtCommand::UserConfirmationNegativeReplyCommand(v) => v.code(),
+            MgmtCommand::SetSecureConnectionsCommand(v) => v.code(),
+            MgmtCommand::SetPrivacyCommand(v) => v.code(),
+            MgmtCommand::SetIoCapabilityCommand(v) => v.code(),
+            MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.code(),
+            MgmtCommand::LoadLongTermKeysCommand(v) => v.code(),
         };
         buf.put_u16_le(code.into());
 
@@ -162,6 +196,13 @@ impl Codec for MgmtCommand {
             MgmtCommand::SetAdvertisingCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::SetBrEdrCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::SetDiscoverableCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::UserConfirmationReplyCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::UserConfirmationNegativeReplyCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::SetSecureConnectionsCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::SetPrivacyCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::SetIoCapabilityCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::LoadLongTermKeysCommand(v) => v.write_to(&mut b)?,
         };
         let b = b.freeze();
 
@@ -175,6 +216,13 @@ impl Codec for MgmtCommand {
                 MgmtCommand::SetAdvertisingCommand(v) => v.controller_index(),
                 MgmtCommand::SetBrEdrCommand(v) => v.controller_index(),
                 MgmtCommand::SetDiscoverableCommand(v) => v.controller_index(),
+                MgmtCommand::UserConfirmationReplyCommand(v) => v.controller_index(),
+                MgmtCommand::UserConfirmationNegativeReplyCommand(v) => v.controller_index(),
+                MgmtCommand::SetSecureConnectionsCommand(v) => v.controller_index(),
+                MgmtCommand::SetPrivacyCommand(v) => v.controller_index(),
+                MgmtCommand::SetIoCapabilityCommand(v) => v.controller_index(),
+                MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.controller_index(),
+                MgmtCommand::LoadLongTermKeysCommand(v) => v.controller_index(),
             }
             .into(),
         );
@@ -200,6 +248,9 @@ pub enum MgmtEvent {
     NewSignatureResolvingKeyEvent(NewSignatureResolvingKeyEvent),
     ExtendedControllerInformationChangedEvent(ExtendedControllerInformationChangedEvent),
     UserPasskeyRequestEvent(UserPasskeyRequestEvent),
+    UserConfirmationRequestEvent(UserConfirmationRequestEvent),
+    PasskeyNotifyEvent(PasskeyNotifyEvent),
+    NewIdentityResolvingKeyEvent(NewIdentityResolvingKeyEvent),
 }
 
 impl Codec for MgmtEvent {
@@ -237,6 +288,15 @@ impl Codec for MgmtEvent {
                     .into()
             }
             UserPasskeyRequestEvent::CODE => UserPasskeyRequestEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            UserConfirmationRequestEvent::CODE => UserConfirmationRequestEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            PasskeyNotifyEvent::CODE => PasskeyNotifyEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            NewIdentityResolvingKeyEvent::CODE => NewIdentityResolvingKeyEvent::parse(&mut data)?
                 .with_controller_index(controller_index)
                 .into(),
             x => return Err(CodecError::UnknownMgmt(x.into())),

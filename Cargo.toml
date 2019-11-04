@@ -6,4 +6,5 @@ members = [
     "btknmle-server",
     "btknmle-input",
     "btknmle-hid",
+    "btknmle-keydb",
 ]

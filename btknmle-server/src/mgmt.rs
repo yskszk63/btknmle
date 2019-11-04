@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -9,7 +10,8 @@ use log::debug;
 use tokio::codec::{Decoder, Encoder};
 
 use crate::pkt::mgmt::{
-    self, Advertising, CurrentSettings, Discoverable, ManagementCommand, MgmtCommand, MgmtEvent,
+    self, Address, AddressType, Advertising, CurrentSettings, Discoverable, IdentityResolvingKey,
+    IoCapability, LongTermKey, ManagementCommand, MgmtCommand, MgmtEvent, SecureConnections,
     SetLocalNameCommandResult, Status,
 };
 use crate::pkt::{Codec as _, CodecError};
@@ -75,11 +77,16 @@ impl Decoder for MgmtCodec {
 pub struct Mgmt<IO> {
     index: u16,
     io: IO,
+    pending: VecDeque<MgmtEvent>,
 }
 
 impl<IO> Mgmt<IO> {
     fn new_internal(index: u16, io: IO) -> Self {
-        Self { index, io }
+        Self {
+            index,
+            io,
+            pending: VecDeque::new(),
+        }
     }
 }
 
@@ -120,6 +127,61 @@ where
             .await
     }
 
+    pub async fn user_confirmation(
+        &mut self,
+        address: Address,
+        address_type: AddressType,
+    ) -> Result<(Address, AddressType), Error> {
+        self.invoke(mgmt::UserConfirmationReplyCommand::new(
+            self.index,
+            address,
+            address_type,
+        ))
+        .await
+    }
+
+    pub async fn user_confirmation_negative(
+        &mut self,
+        address: Address,
+        address_type: AddressType,
+    ) -> Result<(Address, AddressType), Error> {
+        self.invoke(mgmt::UserConfirmationNegativeReplyCommand::new(
+            self.index,
+            address,
+            address_type,
+        ))
+        .await
+    }
+
+    pub async fn secure_connections(
+        &mut self,
+        secure_connections: SecureConnections,
+    ) -> Result<CurrentSettings, Error> {
+        self.invoke(mgmt::SetSecureConnectionsCommand::new(
+            self.index,
+            secure_connections,
+        ))
+        .await
+    }
+
+    pub async fn privacy(
+        &mut self,
+        privacy: bool,
+        identity_resolving_key: [u8; 16],
+    ) -> Result<CurrentSettings, Error> {
+        self.invoke(mgmt::SetPrivacyCommand::new(
+            self.index,
+            privacy,
+            identity_resolving_key,
+        ))
+        .await
+    }
+
+    pub async fn io_capability(&mut self, io_capability: IoCapability) -> Result<(), Error> {
+        self.invoke(mgmt::SetIoCapabilityCommand::new(self.index, io_capability))
+            .await
+    }
+
     pub async fn advertising(
         &mut self,
         advertising: Advertising,
@@ -134,6 +196,18 @@ where
     ) -> Result<CurrentSettings, Error> {
         self.invoke(mgmt::SetDiscoverableCommand::new(self.index, discoverable))
             .await
+    }
+
+    pub async fn load_ltks(&mut self, keys: Vec<LongTermKey>) -> Result<(), Error> {
+        self.invoke(mgmt::LoadLongTermKeysCommand::new(self.index, keys))
+            .await
+    }
+
+    pub async fn load_irks(&mut self, keys: Vec<IdentityResolvingKey>) -> Result<(), Error> {
+        self.invoke(mgmt::LoadIdentityResolvingKeysCommand::new(
+            self.index, keys,
+        ))
+        .await
     }
 
     pub async fn local_name(

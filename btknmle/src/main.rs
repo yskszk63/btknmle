@@ -69,13 +69,43 @@ async fn main() -> Result<(), failure::Error> {
 
     spawn(
         (async {
-            let devid = 0; // FIXME
-            let mut mgmt = mgmt::Mgmt::new(devid).await?;
-            gap::setup(&mut mgmt).await?;
+            use btknmle_keydb::KeyDb;
+            let db = "/tmp/e0dfa780-416c-446c-b621-c66ffeaebbee";
+            let mut db = KeyDb::new(db).await?;
 
-            while let Some(evt) = mgmt.next().await {
-                //let evt = evt?;
-                println!("{:?}", evt);
+            let devid = 0; // FIXME
+            let mut sock = mgmt::Mgmt::new(devid).await?;
+            gap::setup(&mut sock).await?;
+
+            sock.load_irks(db.load_irks().await?).await?;
+            sock.load_ltks(db.load_ltks().await?).await?;
+
+            while let Some(evt) = sock.next().await {
+                use mgmt::model::MgmtEvent;
+
+                match evt {
+                    Ok(MgmtEvent::NewLongTermKeyEvent(evt)) => {
+                        if evt.store_hint() {
+                            let key = evt.key();
+                            println!("{:?}", key);
+                            db.store_ltks(key).await?;
+                        }
+                    }
+                    Ok(MgmtEvent::NewIdentityResolvingKeyEvent(evt)) => {
+                        if evt.store_hint() {
+                            let key = evt.key();
+                            println!("{:?}", key);
+                            db.store_irks(key).await?;
+                        }
+                    }
+                    Ok(MgmtEvent::UserConfirmationRequestEvent(evt)) => {
+                        println!("{:?}", evt);
+                        sock.user_confirmation(evt.address(), evt.address_type())
+                            .await?;
+                        //sock.user_confirmation_negative(evt.address(), evt.address_type()).await?;
+                    }
+                    evt => println!("{:?}", evt),
+                }
             }
 
             Ok(())

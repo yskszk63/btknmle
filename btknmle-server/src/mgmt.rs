@@ -210,6 +210,11 @@ where
         .await
     }
 
+    pub async fn appearance(&mut self, appearance: u16) -> Result<(), Error> {
+        self.invoke(mgmt::SetAppearanceCommand::new(self.index, appearance))
+            .await
+    }
+
     pub async fn local_name(
         &mut self,
         name: impl ToString,

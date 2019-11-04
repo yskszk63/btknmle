@@ -204,13 +204,12 @@ where
     }
 
     async fn on_find_by_type_value(&mut self, item: att::FindByTypeValueRequest) -> Result<()> {
-        let response = self
-            .db
-            .find_by_type_value(
-                item.starting_handle(),
-                item.ending_handle(),
-                item.attribute_type(),
-                item.attribute_value());
+        let response = self.db.find_by_type_value(
+            item.starting_handle(),
+            item.ending_handle(),
+            item.attribute_type(),
+            item.attribute_value(),
+        );
 
         match response {
             Ok(response) => {

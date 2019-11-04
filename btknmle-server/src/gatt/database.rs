@@ -255,11 +255,9 @@ impl Database {
         att_val: Bytes,
     ) -> Result<Vec<(Handle, Handle)>> {
         // TODO test
-        let mut iter = self
-            .attrs
-            .range(begin..)
-            .map(|(_, v)| v)
-            .skip_while(|v| v.att_type != att_type.clone().into() || Bytes::from(v.att_value.clone()) != att_val);
+        let mut iter = self.attrs.range(begin..).map(|(_, v)| v).skip_while(|v| {
+            v.att_type != att_type.clone().into() || Bytes::from(v.att_value.clone()) != att_val
+        });
 
         let mut group = match iter.next() {
             Some(item) => item,
@@ -277,7 +275,9 @@ impl Database {
                     Ok(result)
                 };
             };
-            if item.att_type == att_type.clone().into() && Bytes::from(item.att_value.clone()) == att_val {
+            if item.att_type == att_type.clone().into()
+                && Bytes::from(item.att_value.clone()) == att_val
+            {
                 result.push((group.att_handle.clone(), last.clone()));
                 size += 2 + 2;
                 if self.mtu < size + 2 + 2 {

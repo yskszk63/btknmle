@@ -7,6 +7,8 @@ use super::{Codec, CodecError};
 pub use error_response::*;
 pub use exchange_mtu_request::*;
 pub use exchange_mtu_response::*;
+pub use find_by_type_value_request::*;
+pub use find_by_type_value_response::*;
 pub use find_information_request::*;
 pub use find_information_response::*;
 pub use handle_value_notification::*;
@@ -20,12 +22,12 @@ pub use read_request::*;
 pub use read_response::*;
 pub use write_request::*;
 pub use write_response::*;
-pub use find_by_type_value_request::*;
-pub use find_by_type_value_response::*;
 
 mod error_response;
 mod exchange_mtu_request;
 mod exchange_mtu_response;
+mod find_by_type_value_request;
+mod find_by_type_value_response;
 mod find_information_request;
 mod find_information_response;
 mod handle_value_notification;
@@ -39,8 +41,6 @@ mod read_request;
 mod read_response;
 mod write_request;
 mod write_response;
-mod find_by_type_value_request;
-mod find_by_type_value_response;
 
 pub const ATT_CID: u16 = 0x0004;
 

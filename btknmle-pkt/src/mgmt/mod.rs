@@ -21,6 +21,7 @@ pub use new_long_term_key_event::*;
 pub use new_signature_resolving_key_event::*;
 pub use passkey_notify_event::*;
 pub use set_advertising_command::*;
+pub use set_appearance_command::*;
 pub use set_bondable_command::*;
 pub use set_br_edr_command::*;
 pub use set_connectable_command::*;
@@ -54,6 +55,7 @@ mod new_long_term_key_event;
 mod new_signature_resolving_key_event;
 mod passkey_notify_event;
 mod set_advertising_command;
+mod set_appearance_command;
 mod set_bondable_command;
 mod set_br_edr_command;
 mod set_connectable_command;
@@ -163,6 +165,7 @@ pub enum MgmtCommand {
     SetIoCapabilityCommand(SetIoCapabilityCommand),
     LoadIdentityResolvingKeysCommand(LoadIdentityResolvingKeysCommand),
     LoadLongTermKeysCommand(LoadLongTermKeysCommand),
+    SetAppearanceCommand(SetAppearanceCommand),
 }
 
 impl Codec for MgmtCommand {
@@ -183,6 +186,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::SetIoCapabilityCommand(v) => v.code(),
             MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.code(),
             MgmtCommand::LoadLongTermKeysCommand(v) => v.code(),
+            MgmtCommand::SetAppearanceCommand(v) => v.code(),
         };
         buf.put_u16_le(code.into());
 
@@ -203,6 +207,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::SetIoCapabilityCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::LoadLongTermKeysCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::SetAppearanceCommand(v) => v.write_to(&mut b)?,
         };
         let b = b.freeze();
 
@@ -223,6 +228,7 @@ impl Codec for MgmtCommand {
                 MgmtCommand::SetIoCapabilityCommand(v) => v.controller_index(),
                 MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.controller_index(),
                 MgmtCommand::LoadLongTermKeysCommand(v) => v.controller_index(),
+                MgmtCommand::SetAppearanceCommand(v) => v.controller_index(),
             }
             .into(),
         );

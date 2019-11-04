@@ -1,7 +1,7 @@
 use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
-use super::{Att, AttItem, Codec, CodecError, Handle};
 use super::Uuid16;
+use super::{Att, AttItem, Codec, CodecError, Handle};
 
 #[derive(Debug)]
 pub struct FindByTypeValueRequest {

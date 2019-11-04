@@ -8,7 +8,8 @@ pub struct FindByTypeValueResponseBuilder {
 }
 
 impl FindByTypeValueResponseBuilder {
-    pub fn add(&mut self,
+    pub fn add(
+        &mut self,
         found_attribute_handle: impl Into<Handle>,
         group_end_handle: impl Into<Handle>,
     ) -> &mut Self {

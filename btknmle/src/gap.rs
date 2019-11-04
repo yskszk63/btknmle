@@ -24,6 +24,7 @@ where
     )
     .await?;
     mgmt.powered(true).await?;
+    mgmt.appearance(960).await?;
     mgmt.local_name("my ble device", "mbd").await?;
     mgmt.connectable(true).await?;
     mgmt.bondable(true).await?;

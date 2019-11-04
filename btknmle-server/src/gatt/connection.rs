@@ -203,6 +203,45 @@ where
         Ok(())
     }
 
+    async fn on_find_by_type_value(&mut self, item: att::FindByTypeValueRequest) -> Result<()> {
+        let response = self
+            .db
+            .find_by_type_value(
+                item.starting_handle(),
+                item.ending_handle(),
+                item.attribute_type(),
+                item.attribute_value());
+
+        match response {
+            Ok(response) => {
+                let mut iter = response.iter();
+                let head = iter.next().unwrap();
+                let mut b = att::FindByTypeValueResponse::builder(head.0.clone(), head.1.clone());
+                while let Some(item) = iter.next() {
+                    b.add(item.0.clone(), item.1.clone());
+                }
+                self.send(b.build()).await?
+            }
+            Err(gatt::Error::AttError(e)) => {
+                let d = att::ErrorResponse::new(
+                    0x07, //pkt::att::FindInformationResponse::OPCODE,
+                    item.starting_handle(),
+                    e,
+                );
+                self.send(d).await?
+            }
+            Err(..) => {
+                let d = att::ErrorResponse::new(
+                    0x07, //pkt::att::FindInformationResponse::OPCODE,
+                    item.starting_handle(),
+                    att::ErrorCode::UnlikelyError,
+                );
+                self.send(d).await?
+            }
+        };
+        Ok(())
+    }
+
     async fn on_read(&mut self, item: att::ReadRequest) -> Result<()> {
         let response = self.db.read(item.attribute_handle());
 
@@ -314,6 +353,7 @@ where
                     Att::ReadByGroupTypeRequest(item) => self.on_read_by_group_type(item).await?,
                     Att::ReadByTypeRequest(item) => self.on_read_by_type(item).await?,
                     Att::FindInformationRequest(item) => self.on_findinformation(item).await?,
+                    Att::FindByTypeValueRequest(item) => self.on_find_by_type_value(item).await?,
                     Att::ReadRequest(item) => self.on_read(item).await?,
                     Att::ReadBlobRequest(item) => self.on_read_blob(item).await?,
                     Att::WriteRequest(item) => self.on_write(item).await?,

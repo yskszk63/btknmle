@@ -20,6 +20,8 @@ pub use read_request::*;
 pub use read_response::*;
 pub use write_request::*;
 pub use write_response::*;
+pub use find_by_type_value_request::*;
+pub use find_by_type_value_response::*;
 
 mod error_response;
 mod exchange_mtu_request;
@@ -37,6 +39,8 @@ mod read_request;
 mod read_response;
 mod write_request;
 mod write_response;
+mod find_by_type_value_request;
+mod find_by_type_value_response;
 
 pub const ATT_CID: u16 = 0x0004;
 
@@ -192,6 +196,8 @@ pub enum Att {
     ExchangeMtuResponse(ExchangeMtuResponse),
     FindInformationRequest(FindInformationRequest),
     FindInformationResponse(FindInformationResponse),
+    FindByTypeValueRequest(FindByTypeValueRequest),
+    FindByTypeValueResponse(FindByTypeValueResponse),
     ReadByTypeRequest(ReadByTypeRequest),
     ReadByTypeResponse(ReadByTypeResponse),
     ReadByGroupTypeRequest(ReadByGroupTypeRequest),
@@ -218,6 +224,8 @@ impl Codec for Att {
             ExchangeMtuResponse::OPCODE => ExchangeMtuResponse::parse(buf)?.into(),
             FindInformationRequest::OPCODE => FindInformationRequest::parse(buf)?.into(),
             FindInformationResponse::OPCODE => FindInformationResponse::parse(buf)?.into(),
+            FindByTypeValueRequest::OPCODE => FindByTypeValueRequest::parse(buf)?.into(),
+            FindByTypeValueResponse::OPCODE => FindByTypeValueResponse::parse(buf)?.into(),
             ReadByTypeRequest::OPCODE => ReadByTypeRequest::parse(buf)?.into(),
             ReadByTypeResponse::OPCODE => ReadByTypeResponse::parse(buf)?.into(),
             ReadByGroupTypeRequest::OPCODE => ReadByGroupTypeRequest::parse(buf)?.into(),
@@ -241,6 +249,8 @@ impl Codec for Att {
             Att::ExchangeMtuResponse(..) => buf.put_u8(ExchangeMtuResponse::OPCODE),
             Att::FindInformationRequest(..) => buf.put_u8(FindInformationRequest::OPCODE),
             Att::FindInformationResponse(..) => buf.put_u8(FindInformationResponse::OPCODE),
+            Att::FindByTypeValueRequest(..) => buf.put_u8(FindByTypeValueRequest::OPCODE),
+            Att::FindByTypeValueResponse(..) => buf.put_u8(FindByTypeValueResponse::OPCODE),
             Att::ReadByTypeRequest(..) => buf.put_u8(ReadByTypeRequest::OPCODE),
             Att::ReadByTypeResponse(..) => buf.put_u8(ReadByTypeResponse::OPCODE),
             Att::ReadByGroupTypeRequest(..) => buf.put_u8(ReadByGroupTypeRequest::OPCODE),
@@ -260,6 +270,8 @@ impl Codec for Att {
             Att::ExchangeMtuResponse(item) => item.write_to(buf)?,
             Att::FindInformationRequest(item) => item.write_to(buf)?,
             Att::FindInformationResponse(item) => item.write_to(buf)?,
+            Att::FindByTypeValueRequest(item) => item.write_to(buf)?,
+            Att::FindByTypeValueResponse(item) => item.write_to(buf)?,
             Att::ReadByTypeRequest(item) => item.write_to(buf)?,
             Att::ReadByTypeResponse(item) => item.write_to(buf)?,
             Att::ReadByGroupTypeRequest(item) => item.write_to(buf)?,

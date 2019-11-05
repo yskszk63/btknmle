@@ -1,9 +1,12 @@
 use std::convert::TryInto as _;
+use std::fs::Permissions;
 use std::io;
 use std::num::ParseIntError;
-use std::path::PathBuf;
+use std::os::unix::fs::PermissionsExt as _;
+use std::path::{Path, PathBuf};
 
 use bytes::Bytes;
+use futures::TryStreamExt as _;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use toml::value::{Table, Value};
@@ -21,45 +24,52 @@ fn from_hex(s: &str) -> Result<Bytes, ParseIntError> {
         .collect()
 }
 
+async fn ensure_dir(path: impl AsRef<Path>) -> io::Result<()> {
+    let metadata = match fs::metadata(&path).await {
+        Ok(metadata) => Ok(metadata),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            fs::create_dir_all(&path).await?;
+            fs::set_permissions(&path, Permissions::from_mode(0o700)).await?;
+            fs::metadata(&path).await
+        }
+        Err(e) => Err(e),
+    }?;
+
+    if !metadata.is_dir() || (metadata.permissions().mode() & 0o777) != 0o700 {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!(
+                "{:?} is not a directory or invalid permissions",
+                path.as_ref()
+            ),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct KeyDb {
     path: PathBuf,
 }
 
 impl KeyDb {
-    pub async fn new(path: impl Into<PathBuf>) -> io::Result<Self> {
-        let path = path.into();
-        match fs::create_dir(&path).await {
-            Ok(..) => {}
-            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
-            Err(e) => return Err(e),
-        };
-        if !fs::metadata(&path).await?.is_dir() {
-            return Err(io::ErrorKind::AlreadyExists.into());
-        }
+    pub async fn new(path: impl AsRef<Path>) -> io::Result<Self> {
+        let path = path.as_ref();
 
-        let mut p = path.clone();
-        p.push("irks");
-        fs::OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(p)
-            .await?;
-        let mut p = path.clone();
-        p.push("ltks");
-        fs::OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(p)
-            .await?;
+        ensure_dir(&path).await?;
+        ensure_dir(path.join("irks")).await?;
+        ensure_dir(path.join("ltks")).await?;
 
-        Ok(KeyDb { path })
+        Ok(KeyDb { path: path.into() })
     }
 
     async fn load(&mut self, name: &str) -> io::Result<Value> {
-        let mut path = self.path.clone();
-        path.push(name);
-        let content = fs::read(path).await?;
+        let content = fs::read_dir(self.path.join(name))
+            .await?
+            .and_then(|f| fs::read(f.path()))
+            .try_concat()
+            .await?;
         let content = String::from_utf8_lossy(&content).to_owned();
         let content =
             toml::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -69,7 +79,7 @@ impl KeyDb {
 
     pub async fn load_irks(&mut self) -> io::Result<Vec<IdentityResolvingKey>> {
         let toml = self.load("irks").await?;
-        let elements = match toml.get("irks").and_then(|e| e.as_array()) {
+        let elements = match toml.get("irks").and_then(Value::as_array) {
             Some(e) => e,
             None => return Ok(vec![]),
         };
@@ -78,8 +88,7 @@ impl KeyDb {
             .map(|entry| {
                 let address = entry
                     .get("address")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_str()
+                    .and_then(Value::as_str)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?
                     .to_string()
                     .try_into()
@@ -87,8 +96,7 @@ impl KeyDb {
 
                 let address_type = entry
                     .get("address_type")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_integer()
+                    .and_then(Value::as_integer)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?
                     as u8;
                 let address_type = address_type
@@ -97,8 +105,7 @@ impl KeyDb {
 
                 let value = entry
                     .get("value")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_str()
+                    .and_then(Value::as_str)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?;
                 let v = from_hex(&value).map_err(|_| io::ErrorKind::InvalidData)?;
                 let mut value = [0; 16];
@@ -121,8 +128,7 @@ impl KeyDb {
             .map(|entry| {
                 let address = entry
                     .get("address")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_str()
+                    .and_then(Value::as_str)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?
                     .to_string()
                     .try_into()
@@ -130,8 +136,7 @@ impl KeyDb {
 
                 let address_type = entry
                     .get("address_type")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_integer()
+                    .and_then(Value::as_integer)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?
                     as u8;
                 let address_type = address_type
@@ -140,28 +145,24 @@ impl KeyDb {
 
                 let key_type = entry
                     .get("key_type")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_integer()
+                    .and_then(Value::as_integer)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?
                     as u8;
 
                 let master = entry
                     .get("master")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_integer()
+                    .and_then(Value::as_integer)
                     .ok_or_else(|| io::ErrorKind::InvalidData)? as u8;
 
                 let encryption_size = entry
                     .get("encryption_size")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_integer()
+                    .and_then(Value::as_integer)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?
                     as u8;
 
                 let encryption_diversifier = entry
                     .get("encryption_diversifier")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_str()
+                    .and_then(Value::as_str)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?;
                 let v =
                     from_hex(&encryption_diversifier).map_err(|_| io::ErrorKind::InvalidData)?;
@@ -170,8 +171,7 @@ impl KeyDb {
 
                 let random_number = entry
                     .get("random_number")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_str()
+                    .and_then(Value::as_str)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?;
                 let v = from_hex(&random_number).map_err(|_| io::ErrorKind::InvalidData)?;
                 let mut random_number = [0; 8];
@@ -179,8 +179,7 @@ impl KeyDb {
 
                 let value = entry
                     .get("value")
-                    .ok_or_else(|| io::ErrorKind::InvalidData)?
-                    .as_str()
+                    .and_then(Value::as_str)
                     .ok_or_else(|| io::ErrorKind::InvalidData)?;
                 let v = from_hex(&value).map_err(|_| io::ErrorKind::InvalidData)?;
                 let mut value = [0; 16];
@@ -211,7 +210,7 @@ impl KeyDb {
         outer.insert("irks".into(), Value::Array(vec![Value::Table(entry)]));
         let outer = Value::Table(outer);
 
-        self.write(&outer, "irks").await
+        self.write(&outer, "irks", &key.address().to_string()).await
     }
 
     pub async fn store_ltks(&mut self, key: &LongTermKey) -> io::Result<()> {
@@ -235,14 +234,18 @@ impl KeyDb {
         outer.insert("ltks".into(), Value::Array(vec![Value::Table(entry)]));
         let outer = Value::Table(outer);
 
-        self.write(&outer, "ltks").await
+        self.write(&outer, "ltks", &key.address().to_string()).await
     }
 
-    async fn write(&mut self, v: &Value, name: &str) -> io::Result<()> {
-        let mut path = self.path.clone();
-        path.push(name);
-        let mut file = fs::OpenOptions::new().append(true).open(path).await?;
+    async fn write(&mut self, v: &Value, name: &str, addr: &str) -> io::Result<()> {
+        let path = self.path.join(name).join(addr);
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(path)
+            .await?;
         file.write(v.to_string().as_bytes()).await?;
+        file.set_permissions(Permissions::from_mode(0o600)).await?;
         Ok(())
     }
 }
@@ -270,7 +273,7 @@ mod tests {
             0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10,
         ];
         let k = IdentityResolvingKey::parse(&mut k.into_buf()).unwrap();
-        db.store_irks(k).await.unwrap();
+        db.store_irks(&k).await.unwrap();
 
         let k = vec![
             0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x02, 0x01, 0x00, 0x16, 0x11, 0x22, 0x01, 0x23,
@@ -278,7 +281,7 @@ mod tests {
             0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10,
         ];
         let k = LongTermKey::parse(&mut k.into_buf()).unwrap();
-        db.store_ltks(k).await.unwrap();
+        db.store_ltks(&k).await.unwrap();
 
         let r = db.load_irks().await.unwrap();
         println!("{:?}", r);

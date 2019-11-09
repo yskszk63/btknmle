@@ -1,9 +1,5 @@
 #!/bin/bash
 
-base=$(dirname $0)
-base=$(cd $base && pwd)
-cd $base
-
 # archlinuxarm-rpi
 docker build ci/archlinuxarm-rpi -t archlinuxarm-rpi-build
 

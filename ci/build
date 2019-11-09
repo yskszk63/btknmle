@@ -1,0 +1,19 @@
+#!/bin/bash
+
+base=$(dirname $0)
+base=$(cd $base && pwd)
+cd $base
+
+# archlinuxarm-rpi
+docker build ci/archlinuxarm-rpi -t archlinuxarm-rpi-build
+
+cp Cargo.toml{,.bak}
+# https://github.com/rust-lang/rust/issues/62896
+cat << EOF >> Cargo.toml
+[profile.release]
+codegen-units = 1
+EOF
+docker run --rm -v $(pwd):/build -u $(id -u):$(id -g) archlinuxarm-rpi-build
+mv Cargo.toml{.bak,}
+
+ls -l target/arm-unknown-linux-gnueabihf/release/btknmle

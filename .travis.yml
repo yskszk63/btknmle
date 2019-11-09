@@ -1,0 +1,3 @@
+language: bash
+services: docker
+script: ci/build

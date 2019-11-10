@@ -1,4 +1,10 @@
 language: bash
 dist: bionic
 services: docker
-script: ci/build
+addons:
+  apt:
+    packages:
+      - docker-ce
+script: 
+  - docker --version
+  - ci/build

@@ -1,4 +1,4 @@
-language: bash
+language: rust
 dist: bionic
 services: docker
 before_install:

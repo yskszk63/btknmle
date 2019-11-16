@@ -14,6 +14,6 @@ script:
 deploy:
   provider: script
   script: bash ci/deploy
-  on
+  on:
     tags: false
     all_branches: true

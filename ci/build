@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# workaround
+# https://github.com/rust-lang/cargo/issues/7451
+docker volume create --driver local --opt type=nfs --opt device="$127.0.0.1:(pwd)" build
+docker volume create --driver local --opt type=nfs --opt device="$127.0.0.1:~/.cargo" cargo
+
 # archlinuxarm-rpi
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 docker build ci/archlinuxarm-rpi -t archlinuxarm-rpi-build
@@ -13,7 +18,7 @@ cat << EOF >> Cargo.toml
 codegen-units = 1
 EOF
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-docker run --rm -v $(pwd):/build -v cargo:/opt/cargo -u $(id -u):$(id -g) archlinuxarm-rpi-build
+docker run --rm -v build:/build -v cargo:/opt/cargo -u $(id -u):$(id -g) archlinuxarm-rpi-build
 mv Cargo.toml{.bak,}
 
 ls -l target/arm-unknown-linux-gnueabihf/release/btknmle

@@ -6,7 +6,9 @@ before_install:
   - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
   - sudo apt-get update
   - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+  - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install nfs-common nfs-kernel-server
+  - echo "$(PWD) 127.0.0.0/8(rw,sync,no_root_squash,no_subtree_check)" | sudo tee /etc/exports
+  - sudo exportfs -ra
 script:
   - docker --version
-  - mount
   - ci/build

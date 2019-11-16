@@ -2,8 +2,8 @@
 
 # workaround
 # https://github.com/rust-lang/cargo/issues/7451
-docker volume create --driver local --opt type=nfs --opt device="$127.0.0.1:(pwd)" build
-docker volume create --driver local --opt type=nfs --opt device="$127.0.0.1:~/.cargo" cargo
+docker volume create --driver local --opt type=nfs --opt device="127.0.0.1:$(pwd)" build
+docker volume create --driver local --opt type=nfs --opt device="127.0.0.1:$HOME/.cargo" cargo
 
 # archlinuxarm-rpi
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes

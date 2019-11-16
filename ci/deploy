@@ -1,0 +1,9 @@
+#!/bin/bash
+
+sudo curl -L "https://github.com/timvisee/ffsend/releases/download/v0.2.55/ffsend-v0.2.55-linux-x64-static" -o /usr/local/bin/ffsend
+sudo chmod +x /usr/local/bin/ffsend
+
+for bin in target/*/release/btknmle; do
+  echo $bin
+  ffsend -iI $bin --timeout $((60*60*60))
+done

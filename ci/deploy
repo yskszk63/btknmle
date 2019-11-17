@@ -5,5 +5,5 @@ sudo chmod +x /usr/local/bin/ffsend
 
 for bin in target/*/release/btknmle; do
   echo $bin
-  ffsend -iI $bin --timeout $((60*60*60))
+  ffsend upload -iI $bin --timeout $((60*60*60))
 done

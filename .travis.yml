@@ -13,6 +13,7 @@ script:
   - ci/build
 deploy:
   provider: script
+  skip_cleanup: true
   script: bash ci/deploy
   on:
     tags: false

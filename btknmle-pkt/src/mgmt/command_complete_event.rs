@@ -1,3 +1,4 @@
+use bytes::buf::BufExt as _;
 use bytes::{Buf, Bytes, BytesMut};
 
 use super::Status;
@@ -44,7 +45,7 @@ impl Codec for CommandCompleteEvent {
         let controller_index = Default::default();
         let command_opcode = buf.get_u16_le().into();
         let status = buf.get_u8().into();
-        let parameters = buf.take(usize::max_value()).collect();
+        let parameters = buf.take(usize::max_value()).to_bytes();
         Ok(Self {
             controller_index,
             command_opcode,

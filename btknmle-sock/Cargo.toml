@@ -7,9 +7,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = "0.2.0-alpah"
-tokio-net = "0.2.0-alpah"
-futures-preview = "0.3.0-alpah"
+tokio = { version="0.2", features=["io-driver"] }
+tokio-util = { version="0.2", features=["codec"] }
+futures = "0.3"
 mio = "0.6"
-bytes = "0.4"
+bytes = "0.5"
 libc = "0.2"
+
+[dev-dependencies]
+tokio = { version="0.2", features=["macros"] }

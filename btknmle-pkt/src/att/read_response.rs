@@ -1,3 +1,4 @@
+use bytes::buf::BufExt as _;
 use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
 use super::{Att, AttItem, Codec, CodecError};
@@ -21,7 +22,7 @@ impl AttItem for ReadResponse {
 
 impl Codec for ReadResponse {
     fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
-        let attribute_value = buf.take(usize::max_value()).collect();
+        let attribute_value = buf.take(usize::max_value()).to_bytes();
         Ok(Self { attribute_value })
     }
 

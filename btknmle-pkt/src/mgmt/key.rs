@@ -1,3 +1,4 @@
+use bytes::buf::BufExt as _;
 use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 use std::convert::TryFrom;
 
@@ -92,7 +93,7 @@ impl Codec for Key {
         let address = Address::parse(buf)?;
         let address_type = AddressType::parse(buf)?;
         let r#type = Type::parse(buf)?;
-        let value = buf.take(usize::max_value()).collect();
+        let value = buf.take(usize::max_value()).to_bytes();
         Ok(Self {
             address,
             address_type,

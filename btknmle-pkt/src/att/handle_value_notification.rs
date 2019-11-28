@@ -1,3 +1,4 @@
+use bytes::buf::BufExt as _;
 use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
 use super::{Att, AttItem, Codec, CodecError, Handle};
@@ -24,7 +25,7 @@ impl AttItem for HandleValueNotification {
 impl Codec for HandleValueNotification {
     fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
         let attribute_handle = Handle::parse(buf)?;
-        let attribute_value = buf.take(usize::max_value()).collect();
+        let attribute_value = buf.take(usize::max_value()).to_bytes();
         Ok(Self {
             attribute_handle,
             attribute_value,

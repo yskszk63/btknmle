@@ -3,7 +3,7 @@ use std::task::{Context, Poll};
 
 use futures::future::poll_fn;
 use futures::ready;
-use tokio_net::util::PollEvented;
+use tokio::io::PollEvented;
 
 use crate::frame::Framed;
 use crate::raw::RawSocket;
@@ -15,10 +15,10 @@ pub struct L2Stream {
 }
 
 impl L2Stream {
-    pub(crate) fn new(io: RawSocket) -> Self {
-        Self {
-            io: PollEvented::new(io),
-        }
+    pub(crate) fn new(io: RawSocket) -> io::Result<Self> {
+        Ok(Self {
+            io: PollEvented::new(io)?,
+        })
     }
 
     /*

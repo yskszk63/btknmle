@@ -12,7 +12,7 @@ jobs:
 
     - run: rustup update
 
-    - run: sudo apt update && sudo apt install libudev-dev -y
+    - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
 
     - name: Build
       run: cargo build --verbose

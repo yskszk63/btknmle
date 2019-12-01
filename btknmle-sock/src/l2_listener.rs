@@ -55,8 +55,9 @@ mod tests {
     async fn _test() {
         use crate::MgmtSocket;
         use bytes::{BufMut, BytesMut};
-        use tokio::prelude::*;
         use tokio_util::codec::BytesCodec;
+        use futures::stream::StreamExt as _;
+        use futures::sink::SinkExt as _;
 
         let mut mgmt = MgmtSocket::bind().unwrap().framed(BytesCodec::new());
         // Advertise

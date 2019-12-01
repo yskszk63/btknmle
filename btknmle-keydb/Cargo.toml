@@ -13,3 +13,6 @@ bytes = "0.5"
 failure = "0.1.6"
 toml = "0.5"
 btknmle-pkt = { path="../btknmle-pkt" }
+
+[dev-dependencies]
+tokio = { version="0.2", features=["macros"] }

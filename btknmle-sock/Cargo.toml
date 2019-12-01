@@ -15,4 +15,4 @@ bytes = "0.5"
 libc = "0.2"
 
 [dev-dependencies]
-tokio = { version="0.2", features=["macros"] }
+tokio = { version="0.2", features=["macros", "rt-core"] }

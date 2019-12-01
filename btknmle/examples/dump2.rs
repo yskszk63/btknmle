@@ -1,10 +1,9 @@
-use tokio::prelude::*;
+use futures::stream::StreamExt as _;
 
-use btknmle;
 use btknmle_input::event;
 use btknmle_input::LibinputStream;
 
-#[tokio::main(single_thread)]
+#[tokio::main(basic_scheduler)]
 async fn main() -> Result<(), failure::Error> {
     use event::pointer::PointerEvent;
     use event::Event;
@@ -12,7 +11,7 @@ async fn main() -> Result<(), failure::Error> {
     let mut kbstat = btknmle::kbstat::KbStat::new();
     let mut mousestat = btknmle::mousestat::MouseStat::new();
 
-    let mut stream = LibinputStream::new_from_udev("seat0")?;
+    let mut stream = LibinputStream::new_from_udev("seat0", false)?;
     while let Some(evt) = stream.next().await {
         match evt? {
             Event::Keyboard(kbd) => {

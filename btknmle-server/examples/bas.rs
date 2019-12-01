@@ -1,4 +1,4 @@
-use tokio::prelude::*;
+use futures::stream::StreamExt as _;
 
 use btknmle_server::{gatt, mgmt};
 
@@ -54,7 +54,7 @@ fn database() -> (gatt::Database, gatt::model::Handle, gatt::model::Handle) {
     (builder.build(), bash, zzz)
 }
 
-#[tokio::main(single_thread)]
+#[tokio::main(basic_scheduler)]
 async fn main() -> Result<(), failure::Error> {
     dotenv::dotenv().ok();
     env_logger::init();

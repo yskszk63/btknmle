@@ -12,6 +12,8 @@ jobs:
 
     - run: rustup update
 
+    - run: apt install libudev-dev
+
     - name: Build
       run: cargo build --verbose
 

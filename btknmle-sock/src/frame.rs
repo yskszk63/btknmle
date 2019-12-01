@@ -4,7 +4,7 @@ use std::task::{Context, Poll};
 
 use bytes::{BufMut as _, BytesMut};
 use futures::{ready, Sink, Stream};
-use tokio::codec::{Decoder, Encoder};
+use tokio_util::codec::{Decoder, Encoder};
 
 use super::{L2Stream, MgmtSocket};
 
@@ -33,7 +33,8 @@ where
         pin.rd.reserve(INITIAL_RD_CAPACITY);
 
         unsafe {
-            let n = ready!(Pin::new(&mut pin.socket).poll_recv_priv(cx, pin.rd.bytes_mut()))?;
+            let bytes = &mut *(pin.rd.bytes_mut() as *mut _ as *mut [u8]);
+            let n = ready!(Pin::new(&mut pin.socket).poll_recv_priv(cx, bytes))?;
             pin.rd.advance_mut(n);
         }
 
@@ -56,7 +57,8 @@ where
         pin.rd.reserve(INITIAL_RD_CAPACITY);
 
         unsafe {
-            let n = ready!(Pin::new(&mut pin.socket).poll_recv_priv(cx, pin.rd.bytes_mut()))?;
+            let bytes = &mut *(pin.rd.bytes_mut() as *mut _ as *mut [u8]);
+            let n = ready!(Pin::new(&mut pin.socket).poll_recv_priv(cx, bytes))?;
             pin.rd.advance_mut(n);
         }
 

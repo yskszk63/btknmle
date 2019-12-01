@@ -1,5 +1,6 @@
 use std::fmt;
 
+use bytes::buf::BufExt as _;
 use bytes::{Buf, BufMut as _, BytesMut};
 
 use super::{Codec, CodecError, Result};

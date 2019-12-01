@@ -1,8 +1,8 @@
 use std::io;
 
-use bytes::{BytesMut, IntoBuf};
+use bytes::BytesMut;
 use log::debug;
-use tokio::codec::{Decoder, Encoder};
+use tokio_util::codec::{Decoder, Encoder};
 
 use crate::pkt::att::Att;
 use crate::pkt::Codec as _;
@@ -26,7 +26,7 @@ impl Decoder for AttCodec {
     type Error = std::io::Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let result = Self::Item::parse(&mut buf.take().into_buf())
+        let result = Self::Item::parse(buf)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, failure::Error::from(e)))?;
         debug!("< {:?}", result);
         Ok(Some(result))

@@ -1,3 +1,4 @@
+use bytes::buf::BufExt;
 use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
 use super::Uuid16;
@@ -38,7 +39,7 @@ impl Codec for FindByTypeValueRequest {
         let starting_handle = Handle::parse(buf)?;
         let ending_handle = Handle::parse(buf)?;
         let attribute_type = Uuid16(buf.get_u16_le());
-        let attribute_value = buf.take(usize::max_value()).collect();
+        let attribute_value = buf.take(usize::max_value()).to_bytes();
 
         Ok(Self {
             starting_handle,

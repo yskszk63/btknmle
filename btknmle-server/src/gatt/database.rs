@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::ops::RangeInclusive;
 
 use bitflags::bitflags;
-use bytes::{Buf as _, BufMut as _, Bytes, BytesMut, IntoBuf as _};
+use bytes::{Buf as _, BufMut as _, Bytes, BytesMut};
 use failure::Fail;
 
 use btknmle_pkt::att::{ErrorCode, Handle, Uuid, Uuid16};
@@ -64,7 +64,7 @@ pub enum AttributeValue {
 }
 
 impl AttributeValue {
-    fn set(&mut self, val: Bytes) -> Option<()> {
+    fn set(&mut self, mut val: Bytes) -> Option<()> {
         match self {
             AttributeValue::Service(..) => unimplemented!(),
             AttributeValue::Characteristic { .. } => unimplemented!(),
@@ -76,7 +76,6 @@ impl AttributeValue {
                 *self = AttributeValue::UTF8(v.to_string());
             }
             AttributeValue::CCCD(..) => {
-                let mut val = val.into_buf();
                 let v = CCCD::from_bits(val.get_u16_le()).unwrap(); // FIXME
                 *self = AttributeValue::CCCD(v);
             }
@@ -191,9 +190,9 @@ impl Database {
 
     pub fn read(&self, handle: Handle) -> Result<Bytes> {
         let val = self.read_raw(handle)?;
-        let val = Bytes::from(val);
+        let mut val = Bytes::from(val);
         Ok(if val.len() > self.mtu - 1 {
-            val.slice_to(self.mtu - 1)
+            val.split_to(self.mtu - 1)
         } else {
             val
         })
@@ -201,9 +200,9 @@ impl Database {
 
     pub fn read_blob(&self, handle: Handle, offset: u16) -> Result<Bytes> {
         let val = self.read_raw(handle)?;
-        let val = Bytes::from(val).slice_from(offset as usize); // FIXME
+        let mut val = Bytes::from(val).split_off(offset as usize); // FIXME
         Ok(if val.len() > self.mtu - 1 {
-            val.slice_to(self.mtu - 1)
+            val.split_to(self.mtu - 1)
         } else {
             val
         })

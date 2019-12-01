@@ -1,3 +1,4 @@
+use bytes::buf::BufExt as _;
 use bytes::{Buf, Bytes, BytesMut};
 
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
@@ -32,7 +33,7 @@ impl Codec for ExtendedControllerInformationChangedEvent {
     fn parse(buf: &mut impl Buf) -> Result<Self> {
         let controller_index = Default::default();
         let len = buf.get_u16_le() as usize;
-        let eir_data = buf.take(len).collect();
+        let eir_data = buf.take(len).to_bytes();
         Ok(Self {
             controller_index,
             eir_data,

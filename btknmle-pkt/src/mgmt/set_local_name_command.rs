@@ -1,3 +1,4 @@
+use bytes::buf::BufExt as _;
 use bytes::{Buf, BytesMut};
 
 use super::ManagementCommand;
@@ -12,12 +13,12 @@ pub struct SetLocalNameCommandResult {
 
 impl Codec for SetLocalNameCommandResult {
     fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        let mut name = BytesMut::from(self.name.clone());
+        let mut name = BytesMut::from(self.name.as_str());
         name.resize(249, 0);
         name[248] = 0;
         buf.extend(name);
 
-        let mut short_name = BytesMut::from(self.short_name.clone());
+        let mut short_name = BytesMut::from(self.short_name.as_str());
         short_name.resize(11, 0);
         short_name[10] = 0;
         buf.extend(short_name);
@@ -28,14 +29,18 @@ impl Codec for SetLocalNameCommandResult {
     fn parse(buf: &mut impl Buf) -> Result<Self> {
         let name = buf
             .take(249)
+            .bytes()
             .iter()
+            .cloned()
             .take_while(|c| c != &0)
             .map(char::from)
             .collect();
 
         let short_name = buf
             .take(11)
+            .bytes()
             .iter()
+            .cloned()
             .take_while(|c| c != &0)
             .map(char::from)
             .collect();
@@ -79,12 +84,12 @@ impl CommandItem for SetLocalNameCommand {
 
 impl Codec for SetLocalNameCommand {
     fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        let mut name = BytesMut::from(self.name.clone());
+        let mut name = BytesMut::from(self.name.as_str());
         name.resize(249, 0);
         name[248] = 0;
         buf.extend(name);
 
-        let mut short_name = BytesMut::from(self.short_name.clone());
+        let mut short_name = BytesMut::from(self.short_name.as_str());
         short_name.resize(11, 0);
         short_name[10] = 0;
         buf.extend(short_name);

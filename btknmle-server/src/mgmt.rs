@@ -3,11 +3,11 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::{BytesMut, IntoBuf};
+use bytes::BytesMut;
 use failure::Fail;
 use futures::{Sink, SinkExt as _, Stream, StreamExt as _};
 use log::debug;
-use tokio::codec::{Decoder, Encoder};
+use tokio_util::codec::{Decoder, Encoder};
 
 use crate::pkt::mgmt::{
     self, Address, AddressType, Advertising, CurrentSettings, Discoverable, IdentityResolvingKey,
@@ -67,7 +67,7 @@ impl Decoder for MgmtCodec {
     type Error = Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let result = Self::Item::parse(&mut buf.take().into_buf())?;
+        let result = Self::Item::parse(buf)?;
         debug!("< {:?}", result);
         Ok(Some(result))
     }
@@ -235,9 +235,7 @@ where
         if let Some(evt) = self.io.next().await {
             let evt = evt?;
             match evt {
-                MgmtEvent::CommandCompleteEvent(evt) => {
-                    Ok(I::parse_result(&mut evt.parameters().into_buf())?)
-                }
+                MgmtEvent::CommandCompleteEvent(evt) => Ok(I::parse_result(&mut evt.parameters())?),
                 MgmtEvent::CommandStatusEvent(evt) => Err(Error::CommandError(evt.status())),
                 evt => Err(Error::InvalidEvent(evt)),
             }

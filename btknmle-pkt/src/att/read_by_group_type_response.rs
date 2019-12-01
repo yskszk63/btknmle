@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use bytes::buf::BufExt as _;
 use bytes::{Buf, BufMut as _, Bytes, BytesMut};
 
 use super::{Att, AttItem, Codec, CodecError, Handle};
@@ -81,7 +82,7 @@ impl Codec for ReadByGroupTypeResponse {
         while buf.has_remaining() {
             let attribute_handle = Handle::parse(buf)?;
             let end_group_handle = Handle::parse(buf)?;
-            let attribute_value = buf.take(len - 4).collect();
+            let attribute_value = buf.take(len - 4).to_bytes();
             attribute_data_list.push(AttributeData {
                 attribute_handle,
                 end_group_handle,

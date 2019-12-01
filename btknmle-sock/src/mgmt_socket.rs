@@ -3,7 +3,7 @@ use std::task::{Context, Poll};
 
 use futures::future::poll_fn;
 use futures::ready;
-use tokio_net::util::PollEvented;
+use tokio::io::PollEvented;
 
 use crate::frame::Framed;
 use crate::raw::RawSocket;
@@ -18,7 +18,7 @@ impl MgmtSocket {
         let inner = RawSocket::new_mgmt()?;
         inner.bind_mgmt()?;
         Ok(Self {
-            io: PollEvented::new(inner),
+            io: PollEvented::new(inner)?,
         })
     }
 
@@ -89,8 +89,8 @@ mod tests {
 
     #[tokio::test]
     async fn test2() {
-        use tokio::codec::BytesCodec;
         use tokio::prelude::*;
+        use tokio_util::codec::BytesCodec;
 
         let mut sock = MgmtSocket::bind().unwrap().framed(BytesCodec::new());
 

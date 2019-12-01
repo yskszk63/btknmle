@@ -1,3 +1,4 @@
+use bytes::buf::BufExt;
 use bytes::{Buf, Bytes, BytesMut};
 
 use super::{Address, AddressType};
@@ -50,7 +51,7 @@ impl Codec for UserConfirmationRequestEvent {
         let address = Address::parse(buf)?;
         let address_type = AddressType::parse(buf)?;
         let confirm_hint = if buf.get_u8() == 0 { false } else { true };
-        let value = buf.take(4).collect();
+        let value = buf.take(4).to_bytes();
         Ok(Self {
             controller_index,
             address,

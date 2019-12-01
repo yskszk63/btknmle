@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use failure::Fail;
-use futures::{ready, SinkExt as _, Stream, TryStream};
+use futures::{ready, Stream, TryStream};
 use tokio::sync::watch;
 
 #[derive(Debug)]
@@ -19,8 +19,8 @@ impl CancelableStreamController {
         Self { sender, factory }
     }
 
-    pub async fn cancel(&mut self) {
-        self.sender.send(Message::Canceled).await.unwrap()
+    pub fn cancel(&mut self) {
+        self.sender.broadcast(Message::Canceled).unwrap() // FIXME
     }
 
     pub fn factory(&self) -> CancelableStreamFactory {

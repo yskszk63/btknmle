@@ -1,3 +1,4 @@
+use bytes::buf::BufExt as _;
 use bytes::{Buf, Bytes, BytesMut};
 
 use super::{Address, AddressType};
@@ -51,7 +52,7 @@ impl Codec for DeviceConnectedEvent {
         let address_type = AddressType::parse(buf)?;
         let flags = buf.get_u32_le();
         let len = buf.get_u16_le() as usize;
-        let eir_data = buf.take(len).collect();
+        let eir_data = buf.take(len).to_bytes();
         Ok(Self {
             controller_index,
             address,

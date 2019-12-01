@@ -1,5 +1,5 @@
 use futures::future::FutureExt as _;
-use tokio::prelude::*;
+use futures::stream::StreamExt as _;
 
 use input::{Device, DeviceCapability};
 
@@ -60,14 +60,18 @@ async fn input_loop(
     Ok(())
 }
 
-#[tokio::main(single_thread)]
-async fn main() -> Result<(), failure::Error> {
-    use tokio::runtime::current_thread::spawn;
+fn main() -> Result<(), failure::Error> {
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    tokio::task::LocalSet::new().block_on(&mut rt, main0())
+}
+
+async fn main0() -> Result<(), failure::Error> {
+    use tokio::task::spawn_local;
 
     dotenv::dotenv().ok();
     env_logger::init();
 
-    spawn(
+    spawn_local(
         (async {
             use btknmle_keydb::KeyDb;
             let db = "/tmp/e0dfa780-416c-446c-b621-c66ffeaebbee";
@@ -110,11 +114,11 @@ async fn main() -> Result<(), failure::Error> {
 
             Ok(())
         })
-        .map(|e: Result<_, failure::Error>| {
-            if let Err(e) = e {
-                log::warn!("{}", e)
-            }
-        }),
+            .map(|e: Result<_, failure::Error>| {
+                if let Err(e) = e {
+                    log::warn!("{}", e)
+                }
+            }),
     );
 
     let (db, kbd, mouse) = hogp::new();
@@ -127,7 +131,7 @@ async fn main() -> Result<(), failure::Error> {
                 let kbd_notify = svc.notify_for(&kbd).unwrap();
                 let mouse_notify = svc.notify_for(&mouse).unwrap();
 
-                spawn(input_loop(kbd_notify, mouse_notify, cancel.factory()).map(
+                spawn_local(input_loop(kbd_notify, mouse_notify, cancel.factory()).map(
                     |e: Result<_, failure::Error>| {
                         if let Err(e) = e {
                             log::warn!("{}", e)
@@ -135,13 +139,13 @@ async fn main() -> Result<(), failure::Error> {
                     },
                 ));
 
-                spawn(async move {
+                spawn_local(async move {
                     log::debug!("begin");
                     match svc.run().await {
                         Ok(()) => {}
                         Err(e) => log::warn!("{}", e),
                     }
-                    cancel.cancel().await;
+                    cancel.cancel();
                     log::debug!("done");
                 });
             }

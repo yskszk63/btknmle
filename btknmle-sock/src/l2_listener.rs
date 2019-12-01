@@ -3,7 +3,7 @@ use std::task::{Context, Poll};
 
 use futures::future::poll_fn;
 use futures::ready;
-use tokio_net::util::PollEvented;
+use tokio::io::PollEvented;
 
 use crate::l2_incoming::L2Incoming;
 use crate::l2_stream::L2Stream;
@@ -21,7 +21,7 @@ impl L2Listener {
         inner.bind_l2cap(cid)?;
         inner.listen(1)?;
         Ok(Self {
-            io: PollEvented::new(inner),
+            io: PollEvented::new(inner)?,
         })
     }
 
@@ -33,7 +33,7 @@ impl L2Listener {
         ready!(self.io.poll_read_ready(cx, mio::Ready::readable()))?;
 
         match self.io.get_ref().accept() {
-            Ok(x) => Poll::Ready(Ok(L2Stream::new(x))),
+            Ok(x) => Poll::Ready(L2Stream::new(x)),
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 self.io.clear_read_ready(cx, mio::Ready::readable())?;
                 Poll::Pending
@@ -55,8 +55,8 @@ mod tests {
     async fn _test() {
         use crate::MgmtSocket;
         use bytes::{BufMut, BytesMut};
-        use tokio::codec::BytesCodec;
         use tokio::prelude::*;
+        use tokio_util::codec::BytesCodec;
 
         let mut mgmt = MgmtSocket::bind().unwrap().framed(BytesCodec::new());
         // Advertise

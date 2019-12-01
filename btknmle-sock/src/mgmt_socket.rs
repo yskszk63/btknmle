@@ -73,6 +73,7 @@ mod tests {
     use bytes::{BufMut, BytesMut};
 
     #[tokio::test]
+    #[ignore]
     async fn test() {
         let mut sock = MgmtSocket::bind().unwrap();
         let mut command = BytesMut::new();
@@ -88,6 +89,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test2() {
         use futures::stream::StreamExt as _;
         use futures::sink::SinkExt as _;
@@ -115,6 +117,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test3() {
         use futures::stream::StreamExt as _;
         use futures::sink::SinkExt as _;

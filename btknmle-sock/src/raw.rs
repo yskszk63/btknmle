@@ -207,9 +207,10 @@ impl Evented for RawSocket {
 
 #[cfg(test)]
 mod tests {
+    /*
     use super::*;
 
-    //#[tokio::test]
+    #[tokio::test]
     async fn test() {
         let sock = RawSocket::new_mgmt().unwrap();
         sock.bind_mgmt().unwrap();
@@ -229,4 +230,5 @@ mod tests {
         assert_eq!(buf[5], 0x0c); // opcode[1]
         assert_eq!(buf[6], 0x00); // status
     }
+    */
 }

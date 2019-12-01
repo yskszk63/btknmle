@@ -9,7 +9,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+
+    - run: cargo --version
+    - run: rustup update
+
     - name: Build
       run: cargo build --verbose
+
     - name: Run tests
       run: sudo -E capsh --caps="cap_setpcap,cap_setuid,cap_setgid+ep cap_net_admin+ip" --keep=1 --user=$USER --addamb=cap_net_admin -- -c 'cargo test'

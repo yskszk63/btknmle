@@ -91,8 +91,8 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test2() {
-        use futures::stream::StreamExt as _;
         use futures::sink::SinkExt as _;
+        use futures::stream::StreamExt as _;
         use tokio_util::codec::BytesCodec;
 
         let mut sock = MgmtSocket::bind().unwrap().framed(BytesCodec::new());
@@ -119,8 +119,8 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test3() {
-        use futures::stream::StreamExt as _;
         use futures::sink::SinkExt as _;
+        use futures::stream::StreamExt as _;
         use tokio_util::codec::BytesCodec;
 
         let mut sock = MgmtSocket::bind().unwrap().framed(BytesCodec::new());

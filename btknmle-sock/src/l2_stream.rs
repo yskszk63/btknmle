@@ -74,8 +74,6 @@ impl L2Stream {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[tokio::test]
     async fn test() {}
 }

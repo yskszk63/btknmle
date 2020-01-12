@@ -7,9 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = "0.2.0-alpha"
-futures-preview = "0.3.0-alpha"
-bytes = "0.4"
+tokio = "0.2"
+tokio-util = { version="0.2", features=["codec"] }
+futures = "0.3"
+bytes = "0.5"
 either = "1.5"
 bitflags = "1.2"
 failure = "0.1.6"
@@ -20,3 +21,4 @@ log = "0.4"
 [dev-dependencies]
 env_logger = "0.7"
 dotenv = "0.14"
+tokio = { version="0.2", features=["macros", "rt-core"] }

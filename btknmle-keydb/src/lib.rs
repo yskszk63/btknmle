@@ -254,7 +254,6 @@ impl KeyDb {
 mod tests {
     use super::*;
     use btknmle_pkt::Codec as _;
-    use bytes::IntoBuf;
 
     #[tokio::test]
     async fn it_works() {
@@ -268,19 +267,19 @@ mod tests {
         let r = db.load_ltks().await.unwrap();
         println!("{:?}", r);
 
-        let k = vec![
+        let mut k: &[u8] = &[
             0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x02, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD,
             0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10,
         ];
-        let k = IdentityResolvingKey::parse(&mut k.into_buf()).unwrap();
+        let k = IdentityResolvingKey::parse(&mut k).unwrap();
         db.store_irks(&k).await.unwrap();
 
-        let k = vec![
+        let mut k: &[u8] = &[
             0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x02, 0x01, 0x00, 0x16, 0x11, 0x22, 0x01, 0x23,
             0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
             0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10,
         ];
-        let k = LongTermKey::parse(&mut k.into_buf()).unwrap();
+        let k = LongTermKey::parse(&mut k).unwrap();
         db.store_ltks(&k).await.unwrap();
 
         let r = db.load_irks().await.unwrap();

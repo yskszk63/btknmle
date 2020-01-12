@@ -3,7 +3,7 @@ use std::task::{Context, Poll};
 
 use futures::future::poll_fn;
 use futures::ready;
-use tokio_net::util::PollEvented;
+use tokio::io::PollEvented;
 
 use crate::frame::Framed;
 use crate::raw::RawSocket;
@@ -18,7 +18,7 @@ impl MgmtSocket {
         let inner = RawSocket::new_mgmt()?;
         inner.bind_mgmt()?;
         Ok(Self {
-            io: PollEvented::new(inner),
+            io: PollEvented::new(inner)?,
         })
     }
 
@@ -72,7 +72,17 @@ mod tests {
     use super::*;
     use bytes::{BufMut, BytesMut};
 
+    #[test]
+    fn test_syncsend() {
+        fn assert_send<T: Send>() {};
+        fn assert_sync<T: Sync>() {};
+
+        assert_send::<MgmtSocket>();
+        assert_sync::<MgmtSocket>();
+    }
+
     #[tokio::test]
+    #[ignore]
     async fn test() {
         let mut sock = MgmtSocket::bind().unwrap();
         let mut command = BytesMut::new();
@@ -88,9 +98,11 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test2() {
-        use tokio::codec::BytesCodec;
-        use tokio::prelude::*;
+        use futures::sink::SinkExt as _;
+        use futures::stream::StreamExt as _;
+        use tokio_util::codec::BytesCodec;
 
         let mut sock = MgmtSocket::bind().unwrap().framed(BytesCodec::new());
 
@@ -114,9 +126,11 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test3() {
-        use tokio::codec::BytesCodec;
-        use tokio::prelude::*;
+        use futures::sink::SinkExt as _;
+        use futures::stream::StreamExt as _;
+        use tokio_util::codec::BytesCodec;
 
         let mut sock = MgmtSocket::bind().unwrap().framed(BytesCodec::new());
 
@@ -136,9 +150,9 @@ mod tests {
         command.put_u16_le(0x000F);
         command.put_u16_le(0x0000);
         command.put_u16_le(0x0104);
-        command.put("ABC");
+        command.put(&b"ABC"[..]);
         command.put(&[0; 246][..]);
-        command.put("ABC");
+        command.put(&b"ABC"[..]);
         command.put(&[0; 8][..]);
         sock.send(command.freeze()).await.unwrap();
 

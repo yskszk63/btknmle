@@ -1,9 +1,9 @@
-use tokio::prelude::*;
+use futures::stream::StreamExt as _;
 
 use btknmle_input::LibinputStream;
 use btknmle_input::{ButtonCodes, KeyCodes};
 
-#[tokio::main(single_thread)]
+#[tokio::main(basic_scheduler)]
 async fn main() -> Result<(), failure::Error> {
     dotenv::dotenv().ok();
     env_logger::init();
@@ -11,7 +11,7 @@ async fn main() -> Result<(), failure::Error> {
     use input::event::pointer::PointerEvent;
     use input::Event;
 
-    let mut stream = LibinputStream::new_from_udev("seat0")?;
+    let mut stream = LibinputStream::new_from_udev("seat0", false)?;
     while let Some(evt) = stream.next().await {
         match evt? {
             Event::Keyboard(kbd) => {

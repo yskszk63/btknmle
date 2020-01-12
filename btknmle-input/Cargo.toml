@@ -9,16 +9,16 @@ edition = "2018"
 [dependencies]
 input = "0.4"
 udev = "0.2"
-tokio = "0.2.0-alpha"
-tokio-net = "0.2.0-alpha"
-futures-preview = "0.3.0-alpha"
-bytes = "0.4"
+tokio = { version="0.2", features=["io-driver"] }
+futures = "0.3"
+bytes = "0.5"
 mio = "0.6"
 failure = "0.1.6"
 libc = "0.2"
 log = "0.4"
 
 [dev-dependencies]
+tokio = { version="0.2", features=["macros", "rt-core"] }
 dotenv = "0.14"
 env_logger = "0.7"
 

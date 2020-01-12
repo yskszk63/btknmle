@@ -88,6 +88,6 @@ impl KbStat {
         b.put_u8(0x00);
         b.put_u8(0x00);
 
-        b.freeze().slice_to(8)
+        b.freeze().split_to(8)
     }
 }

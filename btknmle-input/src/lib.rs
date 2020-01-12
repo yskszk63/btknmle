@@ -11,7 +11,7 @@ use input::{Event, Libinput, LibinputInterface};
 use log::{debug, warn};
 use mio::unix::EventedFd;
 use mio::{Evented, Poll as MioPoll, PollOpt, Ready, Token};
-use tokio_net::util::PollEvented;
+use tokio::io::PollEvented;
 
 pub use codes::{ButtonCodes, KeyCodes};
 
@@ -96,7 +96,7 @@ impl LibinputStream {
         let mut libinput = Libinput::new_from_udev(Env(grab), &udevcx);
         libinput.udev_assign_seat(udev_seat).unwrap();
         libinput.dispatch()?;
-        Ok(LibinputStream(PollEvented::new(EventedLibinput(libinput))))
+        Ok(LibinputStream(PollEvented::new(EventedLibinput(libinput))?))
     }
 }
 
@@ -124,5 +124,22 @@ impl Stream for LibinputStream {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        fn assert_send<T: Send>() {};
+        fn assert_sync<T: Sync>() {};
+
+        assert_send::<Env>();
+        assert_sync::<Env>();
+
+        //assert_send::<EventedLibinput>();
+        //assert_sync::<EventedLibinput>();
     }
 }

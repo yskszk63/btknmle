@@ -1,4 +1,4 @@
-use tokio::prelude::*;
+use futures::{Sink, Stream};
 
 use btknmle_server::mgmt;
 

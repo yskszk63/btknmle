@@ -3,11 +3,10 @@ use std::task::{Context, Poll};
 
 use futures::future::poll_fn;
 use futures::ready;
-use tokio_net::util::PollEvented;
+use tokio::io::PollEvented;
 
 use crate::frame::Framed;
 use crate::raw::RawSocket;
-//use crate::split::{split, HciSocketRecvHalf, HciSocketSendHalf};
 
 #[derive(Debug)]
 pub struct L2Stream {
@@ -15,17 +14,11 @@ pub struct L2Stream {
 }
 
 impl L2Stream {
-    pub(crate) fn new(io: RawSocket) -> Self {
-        Self {
-            io: PollEvented::new(io),
-        }
+    pub(crate) fn new(io: RawSocket) -> io::Result<Self> {
+        Ok(Self {
+            io: PollEvented::new(io)?,
+        })
     }
-
-    /*
-    pub fn split(self) -> (HciSocketRecvHalf, HciSocketSendHalf) {
-        split(self)
-    }
-    */
 
     pub async fn send(&mut self, buf: &[u8]) -> io::Result<usize> {
         poll_fn(|cx| self.poll_send_priv(cx, buf)).await
@@ -76,6 +69,12 @@ impl L2Stream {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test() {}
+    #[test]
+    fn test() {
+        fn assert_send<T: Send>() {};
+        fn assert_sync<T: Sync>() {};
+
+        assert_send::<L2Stream>();
+        assert_sync::<L2Stream>();
+    }
 }

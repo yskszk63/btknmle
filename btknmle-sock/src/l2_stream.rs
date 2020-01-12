@@ -7,7 +7,6 @@ use tokio::io::PollEvented;
 
 use crate::frame::Framed;
 use crate::raw::RawSocket;
-//use crate::split::{split, HciSocketRecvHalf, HciSocketSendHalf};
 
 #[derive(Debug)]
 pub struct L2Stream {
@@ -20,12 +19,6 @@ impl L2Stream {
             io: PollEvented::new(io)?,
         })
     }
-
-    /*
-    pub fn split(self) -> (HciSocketRecvHalf, HciSocketSendHalf) {
-        split(self)
-    }
-    */
 
     pub async fn send(&mut self, buf: &[u8]) -> io::Result<usize> {
         poll_fn(|cx| self.poll_send_priv(cx, buf)).await
@@ -74,6 +67,14 @@ impl L2Stream {
 
 #[cfg(test)]
 mod tests {
-    #[tokio::test]
-    async fn test() {}
+    use super::*;
+
+    #[test]
+    fn test() {
+        fn assert_send<T: Send>() {};
+        fn assert_sync<T: Sync>() {};
+
+        assert_send::<L2Stream>();
+        assert_sync::<L2Stream>();
+    }
 }

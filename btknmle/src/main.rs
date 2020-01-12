@@ -114,11 +114,11 @@ async fn main0() -> Result<(), failure::Error> {
 
             Ok(())
         })
-            .map(|e: Result<_, failure::Error>| {
-                if let Err(e) = e {
-                    log::warn!("{}", e)
-                }
-            }),
+        .map(|e: Result<_, failure::Error>| {
+            if let Err(e) = e {
+                log::warn!("{}", e)
+            }
+        }),
     );
 
     let (db, kbd, mouse) = hogp::new();

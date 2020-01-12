@@ -126,3 +126,20 @@ impl Stream for LibinputStream {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        fn assert_send<T: Send>() {};
+        fn assert_sync<T: Sync>() {};
+
+        assert_send::<Env>();
+        assert_sync::<Env>();
+
+        //assert_send::<EventedLibinput>();
+        //assert_sync::<EventedLibinput>();
+    }
+}

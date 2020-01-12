@@ -27,3 +27,17 @@ impl Stream for L2Incoming {
         Poll::Ready(Some(Ok(socket)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        fn assert_send<T: Send>() {};
+        fn assert_sync<T: Sync>() {};
+
+        assert_send::<L2Incoming>();
+        assert_sync::<L2Incoming>();
+    }
+}

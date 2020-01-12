@@ -207,9 +207,24 @@ impl Evented for RawSocket {
 
 #[cfg(test)]
 mod tests {
-    /*
     use super::*;
 
+    #[test]
+    fn test() {
+        fn assert_send<T: Send>() {};
+        fn assert_sync<T: Sync>() {};
+
+        assert_send::<socketaddr_hci>();
+        assert_sync::<socketaddr_hci>();
+
+        assert_send::<socketaddr_l2>();
+        assert_sync::<socketaddr_l2>();
+
+        assert_send::<RawSocket>();
+        assert_sync::<RawSocket>();
+    }
+
+    /*
     #[tokio::test]
     async fn test() {
         let sock = RawSocket::new_mgmt().unwrap();

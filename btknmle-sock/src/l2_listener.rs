@@ -8,7 +8,6 @@ use tokio::io::PollEvented;
 use crate::l2_incoming::L2Incoming;
 use crate::l2_stream::L2Stream;
 use crate::raw::RawSocket;
-//use crate::split::{split, HciSocketRecvHalf, HciSocketSendHalf};
 
 #[derive(Debug)]
 pub struct L2Listener {
@@ -51,7 +50,17 @@ impl L2Listener {
 mod tests {
     use super::*;
 
-    //#[tokio::test]
+    #[test]
+    fn test() {
+        fn assert_send<T: Send>() {};
+        fn assert_sync<T: Sync>() {};
+
+        assert_send::<L2Listener>();
+        assert_sync::<L2Listener>();
+    }
+
+    #[tokio::test]
+    #[ignore]
     async fn _test() {
         use crate::MgmtSocket;
         use bytes::{BufMut, BytesMut};

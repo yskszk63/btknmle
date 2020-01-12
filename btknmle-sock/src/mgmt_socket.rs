@@ -72,6 +72,15 @@ mod tests {
     use super::*;
     use bytes::{BufMut, BytesMut};
 
+    #[test]
+    fn test_syncsend() {
+        fn assert_send<T: Send>() {};
+        fn assert_sync<T: Sync>() {};
+
+        assert_send::<MgmtSocket>();
+        assert_sync::<MgmtSocket>();
+    }
+
     #[tokio::test]
     #[ignore]
     async fn test() {

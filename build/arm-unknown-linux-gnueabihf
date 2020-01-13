@@ -21,4 +21,13 @@ RUN pacman -Syy systemd-libs libinput pkgconf --noconfirm
 EOF
 
 docker run --rm -v build:/build -v cargo:/opt/cargo -u $(id -u):$(id -g) $image
-ls -l target/arm-unknown-linux-gnueabihf/release
+
+docker build -f - -t yskszk63/btknmle:arm6h . <<EOF
+FROM mydatakeeper/archlinuxarm:armv6h
+ENV RUST_LOG=info
+ADD target/arm-unknown-linux-gnueabihf/release/btknmle /
+CMD ["/btknmle"]
+EOF
+
+echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+docker push yskszk63/btknmle:arm6h

@@ -1,6 +1,17 @@
 #!/bin/bash
 set -eu
 
+sudo apt install nfs-common nfs-kernel-server
+
+# workaround for `error: could not read directory '/build': Value too large for defined data type; class=Os (2)`
+cat << EOF | sudo tee /etc/exports
+$(pwd) 127.0.0.1/8(rw,sync,no_root_squash,no_subtree_check)
+$HOME/.cargo 127.0.0.1/8(rw,sync,no_root_squash,no_subtree_check)
+EOF
+sudo exportfs -ra
+docker volume create --driver local --opt type=nfs --opt o="addr=127.0.0.1,rw" --opt device=":$(pwd)" build
+docker volume create --driver local --opt type=nfs --opt o="addr=127.0.0.1,rw" --opt device=":$HOME/.cargo" cargo
+
 image=arm-unknown-linux-gnueabihf
 
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
@@ -9,5 +20,5 @@ FROM yskszk63/archlinuxarm-rpi-rustbuild
 RUN pacman -Syy systemd-libs libinput pkgconf --noconfirm
 EOF
 
-docker run --rm -v $PWD:/build -v $HOME/.cargo:/opt/cargo -u $(id -u):$(id -g) $image
+docker run --rm -v build:/build -v cargo:/opt/cargo -u $(id -u):$(id -g) $image
 ls -l target/arm-unknown-linux-gnueabihf/release

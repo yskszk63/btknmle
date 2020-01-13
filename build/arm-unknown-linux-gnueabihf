@@ -4,7 +4,7 @@ set -eu
 image=arm-unknown-linux-gnueabihf
 
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-docker build -t $image << EOF
+docker build - -t $image << EOF
 FROM yskszk63/archlinuxarm-rpi-rustbuild
 RUN pacman -Syy systemd-libs libinput pkgconf --noconfirm
 EOF

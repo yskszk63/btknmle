@@ -9,5 +9,5 @@ FROM yskszk63/archlinuxarm-rpi-rustbuild
 RUN pacman -Syy systemd-libs libinput pkgconf --noconfirm
 EOF
 
-docker run --rm -v build:/build -v cargo:/opt/cargo -u $(id -u):$(id -g) $image
+docker run --rm -v .:/build -v cargo:/opt/cargo -u $(id -u):$(id -g) $image
 ls -l target/arm-unknown-linux-gnueabihf/release

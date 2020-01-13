@@ -4,21 +4,16 @@ on: [push]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v1
-
     - run: rustup update
-
     - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
-
     - name: Check format
       run: cargo fmt -- --check
-
     - name: Build
       run: cargo build --verbose
-
     - name: Run tests
       run: cargo test --verbose
+    - name: Build arm-unknown-linux-gnueabihf
+      run: build/arm-unknown-linux-gnueabihf

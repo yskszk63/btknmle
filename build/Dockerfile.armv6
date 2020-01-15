@@ -2,4 +2,4 @@ FROM arm32v6/alpine as builder
 RUN apk add eudev-dev libinput pkgconfig cargo
 RUN mkdir /build
 ADD . /build
-RUN cargo build --release
+RUN cd /build && cargo build --release

@@ -15,8 +15,11 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - run: |
+        docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
+        docker build -f build/Dockerfile.armv6 -t test
     - name: Build arm-unknown-linux-gnueabihf
-      run: build/arm-unknown-linux-gnueabihf
+      run: false && build/arm-unknown-linux-gnueabihf
       env:
         DOCKER_USERNAME: yskszk63
         DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}

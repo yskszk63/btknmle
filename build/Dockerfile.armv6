@@ -5,6 +5,6 @@ ADD . /build
 RUN cd /build && cargo build --release
 
 FROM arm32v6/alpine
-RUN apk add eudev libinput
+RUN apk add eudev libinput libgcc
 COPY --from=builder /build/target/release/btknmle /
 CMD ["/btknmle"]

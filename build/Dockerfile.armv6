@@ -3,3 +3,8 @@ RUN apk add linux-headers eudev-dev libinput-dev pkgconfig cargo
 RUN mkdir /build
 ADD . /build
 RUN cd /build && cargo build --release
+
+FROM arm32v6/alpine
+RUN apk add eudev libinput
+COPY --from=builder /build/target/release/btknmle /
+CMD ["/btknmle"]

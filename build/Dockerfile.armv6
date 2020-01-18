@@ -1,10 +1,13 @@
-FROM yskszk63/alpine-sccache:armv6 as builder
+# syntax = docker/dockerfile:1.0-experimental
+FROM arm32v6/alpine as builder
 RUN apk add linux-headers eudev-dev libinput-dev pkgconfig cargo
-RUN mkdir /build
 ADD . /build
-RUN cd /build && SCCACHE_REDIS=redis://redis cargo build --release --verbose
+RUN --mount=type=cache,target=/build/target \
+    --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    cd /build && cargo build --release && cp target/release/btknmle /
 
 FROM arm32v6/alpine
-RUN apk add eudev libinput libgcc
-COPY --from=builder /build/target/release/btknmle /
+RUN apk add eudev libinput libgcc --no-cache
+COPY --from=builder /btknmle /
 CMD ["/btknmle"]

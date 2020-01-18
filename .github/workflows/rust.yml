@@ -23,7 +23,7 @@ jobs:
           ${{ runner.os }}-dkrcache-
           ${{ runner.os }}-
     - run: |
-        curl -L 'https://github.com/docker/buildx/releases/download/v0.3.1/buildx-v0.3.1.linux-amd64' -o~/.docker/cli-plugins/docker-buildx --create-dirs
+        curl -L 'https://github.com/docker/buildx/releases/download/v0.3.1/buildx-v0.3.1.linux-amd64' -o ~/.docker/cli-plugins/docker-buildx --create-dirs
         chmod +x ~/.docker/cli-plugins/docker-buildx
         mkdir -p ~/.dkrcache
         echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin

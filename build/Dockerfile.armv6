@@ -1,8 +1,8 @@
-FROM arm32v6/alpine as builder
+FROM yskszk63/alpine-sccache:armv6 as builder
 RUN apk add linux-headers eudev-dev libinput-dev pkgconfig cargo
 RUN mkdir /build
 ADD . /build
-RUN cd /build && cargo build --release
+RUN cd /build && SCCACHE_REDIS=redis://redis cargo build --release --verbose
 
 FROM arm32v6/alpine
 RUN apk add eudev libinput libgcc

@@ -18,24 +18,23 @@ jobs:
     - uses: actions/cache@v1
       with:
         path: ~/.dkrcache
-        key: ${{ runner.os }}-dkrcache-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-dkrcache2-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
           ${{ runner.os }}-dkrcache-
           ${{ runner.os }}-
     - run: |
         curl -L 'https://github.com/docker/buildx/releases/download/v0.3.1/buildx-v0.3.1.linux-amd64' -o ~/.docker/cli-plugins/docker-buildx --create-dirs
         chmod +x ~/.docker/cli-plugins/docker-buildx
-        mkdir -p ~/.dkrcache
         echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
         docker buildx create --use
         docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
-        ls ~/.dkrcache
-        cat ~/.dkrcache/index.json
-        if [ -f ~/.dkrcache/index.json ]; then
-          docker buildx build --cache-from=type=local,src=~/.dkrcache --cache-to=type=local,dest=~/.dkrcache -f build/Dockerfile.armv6 -t yskszk63/btknmle:armv6 . --push
+        ls $HOME/.dkrcache
+        if [ -f $HOME/.dkrcache/index.json ]; then
+          docker buildx build --cache-from=type=local,src=$HOME/.dkrcache --cache-to=type=local,dest=$HOME/.dkrcache -f build/Dockerfile.armv6 -t yskszk63/btknmle:armv6 . --push
         else
-          docker buildx build --cache-to=type=local,dest=~/.dkrcache -f build/Dockerfile.armv6 -t yskszk63/btknmle:armv6 . --push
+          docker buildx build --cache-to=type=local,dest=$HOME/.dkrcache -f build/Dockerfile.armv6 -t yskszk63/btknmle:armv6 . --push
         fi
+        ls $HOME/.dkrcache
       env:
         DOCKER_USERNAME: yskszk63
         DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}

@@ -26,7 +26,14 @@ mod native {
 
 fn grab(fd: RawFd, grab: bool) -> io::Result<()> {
     let v = if grab { 1 } else { 0 };
-    match unsafe { libc::ioctl(fd, native::eviocgrab, v) } {
+
+    #[cfg(not(target_env = "musl"))]
+    let eviocgrab = unsafe { native::eviocgrab };
+
+    #[cfg(target_env = "musl")]
+    let eviocgrab = unsafe { native::eviocgrab } as libc::c_long;
+
+    match unsafe { libc::ioctl(fd, eviocgrab, v) } {
         err if err < 0 => Err(io::Error::last_os_error()),
         _ => Ok(()),
     }

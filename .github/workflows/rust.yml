@@ -1,24 +1,58 @@
 name: Rust
 
-on: [push]
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v1
-
     - run: rustup update
-
     - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
-
     - name: Check format
       run: cargo fmt -- --check
-
     - name: Build
       run: cargo build --verbose
-
     - name: Run tests
       run: cargo test --verbose
+
+    - name: Cache for buildx cache mount
+      uses: actions/cache@v1
+      with:
+        path: ~/buildx-cache
+        key: ${{ runner.os }}-buildx-cache-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-cache-
+    - name: Download buildx
+      run: |
+        buildx_url='https://github.com/docker/buildx/releases/download/v0.3.1/buildx-v0.3.1.linux-amd64'
+        curl -sSL $buildx_url -o ~/.docker/cli-plugins/docker-buildx --create-dirs
+        chmod +x ~/.docker/cli-plugins/docker-buildx
+    - name: Bootstrap builder instance
+      run: |
+        docker buildx create --name builder --use
+        docker buildx inspect --bootstrap
+        docker buildx stop builder
+        if [ -f ~/buildx-cache/buildkit.tar.xz ]; then
+          xz -dc ~/buildx-cache/buildkit.tar.xz | docker cp - buildx_buildkit_builder0:/var/lib
+        else
+          mkdir ~/buildx-cache
+        fi
+    - name: Build docker image
+      run: |
+        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+        docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
+        docker buildx build -f build/Dockerfile.armv6 -t yskszk63/btknmle:armv6 . --push
+      env:
+        DOCKER_USERNAME: yskszk63
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
+    - name: Archive buildx cache
+      run: |
+        docker buildx stop builder
+        docker cp buildx_buildkit_builder0:/var/lib/buildkit - | xz - > ~/buildx-cache/buildkit.tar.xz
+
+# vim: set sw=2 ts=2 sts=2:
+

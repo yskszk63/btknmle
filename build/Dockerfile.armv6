@@ -1,0 +1,13 @@
+# syntax = docker/dockerfile:1.0-experimental
+FROM arm32v6/alpine as builder
+RUN apk add linux-headers eudev-dev libinput-dev pkgconfig cargo --no-cache
+RUN --mount=type=bind,target=/build,source=.,rw \
+    --mount=type=cache,target=/build/target \
+    --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    cd /build && cargo build --release && cp target/release/btknmle /
+
+FROM arm32v6/alpine
+RUN apk add eudev libinput libgcc --no-cache
+COPY --from=builder /btknmle /
+CMD ["/btknmle"]

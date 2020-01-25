@@ -1,18 +1,17 @@
 [package]
 name = "btknmle-keydb"
 version = "0.1.0"
-authors = ["yskszk63 <yskszk63@gamil.com>"]
+authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-tokio = { version="0.2", features=["fs", "io-util", "stream"] }
+tokio = { version="0.2", features=["blocking"] }
 futures = "0.3"
 bytes = "0.5"
 failure = "0.1.6"
-toml = "0.5"
 btknmle-pkt = { path="../btknmle-pkt" }
+rusqlite = { version="0.21", features=["bundled"] }
 
 [dev-dependencies]
 tokio = { version="0.2", features=["macros"] }
+mktemp-rs = "0.2"

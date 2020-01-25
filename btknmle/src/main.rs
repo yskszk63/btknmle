@@ -79,10 +79,7 @@ async fn main0() -> Result<(), failure::Error> {
 
             let devid = 0; // FIXME
             let mut sock = mgmt::Mgmt::new(devid).await?;
-            gap::setup(&mut sock).await?;
-
-            sock.load_irks(db.load_irks().await?).await?;
-            sock.load_ltks(db.load_ltks().await?).await?;
+            gap::setup(&mut sock, &mut db).await?;
 
             while let Some(evt) = sock.next().await {
                 use mgmt::model::MgmtEvent;
@@ -92,14 +89,14 @@ async fn main0() -> Result<(), failure::Error> {
                         if evt.store_hint() {
                             let key = evt.key();
                             println!("{:?}", key);
-                            db.store_ltks(key).await?;
+                            db.store_ltks(key.clone()).await?;
                         }
                     }
                     Ok(MgmtEvent::NewIdentityResolvingKeyEvent(evt)) => {
                         if evt.store_hint() {
                             let key = evt.key();
                             println!("{:?}", key);
-                            db.store_irks(key).await?;
+                            db.store_irks(key.clone()).await?;
                         }
                     }
                     Ok(MgmtEvent::UserConfirmationRequestEvent(evt)) => {

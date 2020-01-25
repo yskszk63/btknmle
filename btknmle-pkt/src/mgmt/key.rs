@@ -107,7 +107,7 @@ impl Codec for Key {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LongTermKey {
     address: Address,
     address_type: AddressType,
@@ -214,7 +214,7 @@ impl Codec for LongTermKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IdentityResolvingKey {
     address: Address,
     address_type: AddressType,

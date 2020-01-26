@@ -1,9 +1,9 @@
 use bytes::{Buf, Bytes, BytesMut};
 
-use crate::util::HexDisplay;
 use super::Status;
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
 use super::{Codec, Result};
+use crate::util::HexDisplay;
 
 #[derive(Debug)]
 pub struct CommandCompleteEvent {

@@ -1,5 +1,5 @@
 use btknmle_pkt as pkt;
-use btknmle_sock as sock;
+pub use btknmle_sock as sock;
 
 mod att;
 pub mod gatt;

@@ -4,6 +4,7 @@ use std::convert::TryFrom;
 
 use super::{Address, AddressType};
 use super::{Codec, CodecError, Result};
+use crate::util::HexDisplay;
 
 #[derive(Debug, Clone)]
 pub enum Type {
@@ -114,9 +115,9 @@ pub struct LongTermKey {
     key_type: u8,
     master: u8,
     encryption_size: u8,
-    encryption_diversifier: [u8; 2],
-    random_number: [u8; 8],
-    value: [u8; 16],
+    encryption_diversifier: HexDisplay<[u8; 2]>,
+    random_number: HexDisplay<[u8; 8]>,
+    value: HexDisplay<[u8; 16]>,
 }
 
 impl LongTermKey {
@@ -130,6 +131,9 @@ impl LongTermKey {
         random_number: [u8; 8],
         value: [u8; 16],
     ) -> Self {
+        let encryption_diversifier = HexDisplay::new(encryption_diversifier);
+        let random_number = HexDisplay::new(random_number);
+        let value = HexDisplay::new(value);
         Self {
             address,
             address_type,
@@ -162,16 +166,16 @@ impl LongTermKey {
         self.encryption_size
     }
 
-    pub fn encryption_diversifier(&self) -> [u8; 2] {
-        self.encryption_diversifier.clone()
+    pub fn encryption_diversifier(&self) -> &[u8] {
+        self.encryption_diversifier.as_ref()
     }
 
-    pub fn random_number(&self) -> [u8; 8] {
-        self.random_number
+    pub fn random_number(&self) -> &[u8] {
+        self.random_number.as_ref()
     }
 
-    pub fn value(&self) -> [u8; 16] {
-        self.value
+    pub fn value(&self) -> &[u8] {
+        self.value.as_ref()
     }
 }
 
@@ -184,10 +188,13 @@ impl Codec for LongTermKey {
         let encryption_size = buf.get_u8();
         let mut encryption_diversifier = [0; 2];
         buf.copy_to_slice(&mut encryption_diversifier);
+        let encryption_diversifier = HexDisplay::new(encryption_diversifier);
         let mut random_number = [0; 8];
         buf.copy_to_slice(&mut random_number);
+        let random_number = HexDisplay::new(random_number);
         let mut value = [0; 16];
         buf.copy_to_slice(&mut value);
+        let value = HexDisplay::new(value);
 
         Ok(Self {
             address,
@@ -207,9 +214,9 @@ impl Codec for LongTermKey {
         buf.put_u8(self.key_type);
         buf.put_u8(self.master);
         buf.put_u8(self.encryption_size);
-        buf.extend_from_slice(&self.encryption_diversifier);
-        buf.extend_from_slice(&self.random_number);
-        buf.extend_from_slice(&self.value);
+        buf.extend_from_slice(self.encryption_diversifier.as_ref());
+        buf.extend_from_slice(self.random_number.as_ref());
+        buf.extend_from_slice(self.value.as_ref());
         Ok(())
     }
 }
@@ -218,11 +225,12 @@ impl Codec for LongTermKey {
 pub struct IdentityResolvingKey {
     address: Address,
     address_type: AddressType,
-    value: [u8; 16],
+    value: HexDisplay<[u8; 16]>,
 }
 
 impl IdentityResolvingKey {
     pub fn new(address: Address, address_type: AddressType, value: [u8; 16]) -> Self {
+        let value = HexDisplay::new(value);
         Self {
             address,
             address_type,
@@ -238,8 +246,8 @@ impl IdentityResolvingKey {
         self.address_type.clone()
     }
 
-    pub fn value(&self) -> [u8; 16] {
-        self.value
+    pub fn value(&self) -> &[u8] {
+        self.value.as_ref()
     }
 }
 
@@ -249,6 +257,7 @@ impl Codec for IdentityResolvingKey {
         let address_type = AddressType::parse(buf)?;
         let mut value = [0; 16];
         buf.copy_to_slice(&mut value);
+        let value = HexDisplay::new(value);
 
         Ok(Self {
             address,
@@ -260,7 +269,7 @@ impl Codec for IdentityResolvingKey {
     fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
         self.address.write_to(buf)?;
         self.address_type.write_to(buf)?;
-        buf.extend_from_slice(&self.value);
+        buf.extend_from_slice(self.value.as_ref());
         Ok(())
     }
 }

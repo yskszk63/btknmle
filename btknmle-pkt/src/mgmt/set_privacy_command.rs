@@ -4,16 +4,18 @@ use super::CurrentSettings;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
 use super::{Codec, Result};
+use crate::util::HexDisplay;
 
 #[derive(Debug)]
 pub struct SetPrivacyCommand {
     ctrl_idx: u16,
     privacy: bool,
-    identity_resolving_key: [u8; 16],
+    identity_resolving_key: HexDisplay<[u8; 16]>,
 }
 
 impl SetPrivacyCommand {
     pub fn new(ctrl_idx: u16, privacy: bool, identity_resolving_key: [u8; 16]) -> Self {
+        let identity_resolving_key = HexDisplay::new(identity_resolving_key);
         Self {
             ctrl_idx,
             privacy,
@@ -43,7 +45,7 @@ impl Codec for SetPrivacyCommand {
             true => 0x01,
         };
         buf.put_u8(v);
-        buf.extend_from_slice(&self.identity_resolving_key);
+        buf.extend_from_slice(self.identity_resolving_key.as_ref());
         Ok(())
     }
 

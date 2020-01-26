@@ -3,6 +3,7 @@ use failure::Fail;
 
 pub mod att;
 pub mod mgmt;
+mod util;
 
 #[derive(Debug, Fail)]
 pub enum CodecError {

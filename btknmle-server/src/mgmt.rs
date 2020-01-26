@@ -49,6 +49,7 @@ impl From<io::Error> for Error {
     }
 }
 
+#[derive(Debug)]
 pub struct MgmtCodec;
 
 impl Encoder for MgmtCodec {

@@ -94,10 +94,19 @@ impl From<Code> for u16 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum ControlIndex {
     ControllerId(u16),
     NonController,
+}
+
+impl fmt::Debug for ControlIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ControllerId(v) => v.fmt(f),
+            Self::NonController => "N/A".fmt(f),
+        }
+    }
 }
 
 impl From<u16> for ControlIndex {
@@ -149,7 +158,6 @@ trait EventItem: Codec + Into<MgmtEvent> {
     }
 }
 
-#[derive(Debug)]
 pub enum MgmtCommand {
     SetPoweredCommand(SetPoweredCommand),
     SetConnectableCommand(SetConnectableCommand),
@@ -167,6 +175,29 @@ pub enum MgmtCommand {
     LoadIdentityResolvingKeysCommand(LoadIdentityResolvingKeysCommand),
     LoadLongTermKeysCommand(LoadLongTermKeysCommand),
     SetAppearanceCommand(SetAppearanceCommand),
+}
+
+impl fmt::Debug for MgmtCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MgmtCommand::SetPoweredCommand(v) => v.fmt(f),
+            MgmtCommand::SetConnectableCommand(v) => v.fmt(f),
+            MgmtCommand::SetBondableCommand(v) => v.fmt(f),
+            MgmtCommand::SetLowEnergyCommand(v) => v.fmt(f),
+            MgmtCommand::SetLocalNameCommand(v) => v.fmt(f),
+            MgmtCommand::SetAdvertisingCommand(v) => v.fmt(f),
+            MgmtCommand::SetBrEdrCommand(v) => v.fmt(f),
+            MgmtCommand::SetDiscoverableCommand(v) => v.fmt(f),
+            MgmtCommand::UserConfirmationReplyCommand(v) => v.fmt(f),
+            MgmtCommand::UserConfirmationNegativeReplyCommand(v) => v.fmt(f),
+            MgmtCommand::SetSecureConnectionsCommand(v) => v.fmt(f),
+            MgmtCommand::SetPrivacyCommand(v) => v.fmt(f),
+            MgmtCommand::SetIoCapabilityCommand(v) => v.fmt(f),
+            MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.fmt(f),
+            MgmtCommand::LoadLongTermKeysCommand(v) => v.fmt(f),
+            MgmtCommand::SetAppearanceCommand(v) => v.fmt(f),
+        }
+    }
 }
 
 impl Codec for MgmtCommand {
@@ -244,7 +275,6 @@ impl Codec for MgmtCommand {
     }
 }
 
-#[derive(Debug)]
 pub enum MgmtEvent {
     CommandCompleteEvent(CommandCompleteEvent),
     CommandStatusEvent(CommandStatusEvent),
@@ -258,6 +288,25 @@ pub enum MgmtEvent {
     UserConfirmationRequestEvent(UserConfirmationRequestEvent),
     PasskeyNotifyEvent(PasskeyNotifyEvent),
     NewIdentityResolvingKeyEvent(NewIdentityResolvingKeyEvent),
+}
+
+impl fmt::Debug for MgmtEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MgmtEvent::CommandCompleteEvent(v) => v.fmt(f),
+            MgmtEvent::CommandStatusEvent(v) => v.fmt(f),
+            MgmtEvent::DeviceConnectedEvent(v) => v.fmt(f),
+            MgmtEvent::DeviceFoundEvent(v) => v.fmt(f),
+            MgmtEvent::DeviceDisconnectedEvent(v) => v.fmt(f),
+            MgmtEvent::NewLongTermKeyEvent(v) => v.fmt(f),
+            MgmtEvent::NewSignatureResolvingKeyEvent(v) => v.fmt(f),
+            MgmtEvent::ExtendedControllerInformationChangedEvent(v) => v.fmt(f),
+            MgmtEvent::UserPasskeyRequestEvent(v) => v.fmt(f),
+            MgmtEvent::UserConfirmationRequestEvent(v) => v.fmt(f),
+            MgmtEvent::PasskeyNotifyEvent(v) => v.fmt(f),
+            MgmtEvent::NewIdentityResolvingKeyEvent(v) => v.fmt(f),
+        }
+    }
 }
 
 impl Codec for MgmtEvent {

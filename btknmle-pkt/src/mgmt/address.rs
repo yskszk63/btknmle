@@ -27,7 +27,7 @@ impl fmt::Display for Address {
         write!(
             f,
             "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
-            a[0], a[1], a[2], a[3], a[4], a[5]
+            a[5], a[4], a[3], a[2], a[1], a[0]
         )
     }
 }

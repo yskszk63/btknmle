@@ -1,6 +1,6 @@
-use bytes::buf::BufExt as _;
 use bytes::{Buf, Bytes, BytesMut};
 
+use crate::util::HexDisplay;
 use super::Status;
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
 use super::{Codec, Result};
@@ -10,7 +10,7 @@ pub struct CommandCompleteEvent {
     controller_index: ControlIndex,
     command_opcode: Code,
     status: Status,
-    parameters: Bytes,
+    parameters: HexDisplay<Bytes>,
 }
 
 impl CommandCompleteEvent {
@@ -26,8 +26,8 @@ impl CommandCompleteEvent {
         self.status.clone()
     }
 
-    pub fn parameters(&self) -> Bytes {
-        self.parameters.clone()
+    pub fn parameters(&self) -> &[u8] {
+        self.parameters.as_ref()
     }
 }
 
@@ -45,7 +45,7 @@ impl Codec for CommandCompleteEvent {
         let controller_index = Default::default();
         let command_opcode = buf.get_u16_le().into();
         let status = buf.get_u8().into();
-        let parameters = buf.take(usize::max_value()).to_bytes();
+        let parameters = HexDisplay::new(buf.to_bytes());
         Ok(Self {
             controller_index,
             command_opcode,

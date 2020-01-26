@@ -45,7 +45,7 @@ impl DatabaseItem for IdentityResolvingKey {
             address BLOB NOT NULL,
             address_type INT NOT NULL,
             value BLOB NOT NULL,
-            PRIMARY KEY(address)
+            PRIMARY KEY(address, address_type)
         )
     "#;
 
@@ -67,8 +67,8 @@ impl DatabaseItem for IdentityResolvingKey {
             r#"
             INSERT INTO irks(address, address_type, value)
                 VALUES (?, ?, ?)
-            ON CONFLICT(address) DO
-                UPDATE SET address_type=excluded.address_type, value=excluded.value"#,
+            ON CONFLICT(address, address_type) DO
+                UPDATE SET value=excluded.value"#,
             &[address, address_type, value],
         )?;
         Ok(())
@@ -103,7 +103,7 @@ impl DatabaseItem for LongTermKey {
             encryption_diversifier INT NOT NULL,
             random_number INT NOT NULL,
             value BLOB NOT NULL,
-            PRIMARY KEY(address)
+            PRIMARY KEY(address, address_type, key_type, master)
         )
     "#;
 
@@ -137,12 +137,9 @@ impl DatabaseItem for LongTermKey {
             INSERT INTO ltks(
                     address, address_type, key_type, master, encryption_size, encryption_diversifier, random_number, value)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(address) DO
+            ON CONFLICT(address, address_type, key_type, master) DO
                 UPDATE SET
-                    address_type=excluded.address_type
-                    ,key_type=excluded.key_type
-                    ,master=excluded.master
-                    ,encryption_size=excluded.encryption_size
+                     encryption_size=excluded.encryption_size
                     ,encryption_diversifier=excluded.encryption_diversifier
                     ,random_number=excluded.random_number
                     ,value=excluded.value

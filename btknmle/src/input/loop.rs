@@ -25,10 +25,11 @@ pub async fn input_loop(
     mut kb: gatt::Notify,
     mut mouse: gatt::Notify,
     factory: CancelableStreamFactory,
+    grab: bool,
 ) -> Result<(), failure::Error> {
     let mut kbstat = KbStat::new();
     let mut mousestat = MouseStat::new();
-    let stream = LibinputStream::new_from_udev("seat0", true)?; // FIXME seat
+    let stream = LibinputStream::new_from_udev("seat0", grab)?; // FIXME seat
     let mut stream = factory.with_stream::<_, failure::Error>(stream);
 
     while let Some(evt) = stream.next().await {

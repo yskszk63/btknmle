@@ -10,7 +10,7 @@ fn on_err(e: failure::Error) {
     log::error!("{}", e)
 }
 
-async fn run(devid: u16, varfile: String) -> Result<(), failure::Error> {
+async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Error> {
     use tokio::task::spawn_local;
 
     let gap = gap::Gap::setup(devid, varfile, |p| println!("Please input '{}'", p)).await?;
@@ -31,7 +31,8 @@ async fn run(devid: u16, varfile: String) -> Result<(), failure::Error> {
                 let mouse_notify = svc.notify_for(&mouse)?;
 
                 spawn_local(
-                    input_loop(kbd_notify, mouse_notify, cancel.factory()).unwrap_or_else(on_err),
+                    input_loop(kbd_notify, mouse_notify, cancel.factory(), grab)
+                        .unwrap_or_else(on_err),
                 );
 
                 spawn_local(async move {
@@ -67,11 +68,29 @@ fn main() -> Result<(), failure::Error> {
                 .default_value("/var/lib/btknmle/db")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("device-id")
+                .short("d")
+                .long("device-id")
+                .value_name("DEVID")
+                .env("BTKNMLE_DEVID")
+                .default_value("0")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("grab")
+                .long("grab")
+                .value_name("GRAB")
+                .env("BTKNMLE_GRAB")
+                .default_value("0")
+                .takes_value(true),
+        )
         .get_matches();
 
-    let devid = 0; // FIXME
     let varfile = m.value_of("var-file").unwrap();
+    let devid = m.value_of("device-id").unwrap().parse()?;
+    let grab = m.value_of("grab").unwrap() != "0";
 
     let mut rt = tokio::runtime::Runtime::new().unwrap();
-    tokio::task::LocalSet::new().block_on(&mut rt, run(devid, varfile.into()))
+    tokio::task::LocalSet::new().block_on(&mut rt, run(devid, varfile.into(), grab))
 }

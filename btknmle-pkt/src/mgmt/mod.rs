@@ -5,8 +5,10 @@ use bytes::{Buf, BufMut as _, BytesMut};
 
 use super::{Codec, CodecError, Result};
 
+pub use add_advertising_command::*;
 pub use address::*;
 pub use address_type::*;
+pub use advertising_flags::*;
 pub use command_complete_event::*;
 pub use command_status_event::*;
 pub use current_settings::*;
@@ -39,8 +41,10 @@ pub use user_confirmation_reply_command::*;
 pub use user_confirmation_request_event::*;
 pub use user_passkey_request_event::*;
 
+mod add_advertising_command;
 mod address;
 mod address_type;
+mod advertising_flags;
 mod command_complete_event;
 mod command_status_event;
 mod current_settings;
@@ -175,6 +179,7 @@ pub enum MgmtCommand {
     LoadIdentityResolvingKeysCommand(LoadIdentityResolvingKeysCommand),
     LoadLongTermKeysCommand(LoadLongTermKeysCommand),
     SetAppearanceCommand(SetAppearanceCommand),
+    AddAdvertisingCommand(AddAdvertisingCommand),
 }
 
 impl fmt::Debug for MgmtCommand {
@@ -196,6 +201,7 @@ impl fmt::Debug for MgmtCommand {
             MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.fmt(f),
             MgmtCommand::LoadLongTermKeysCommand(v) => v.fmt(f),
             MgmtCommand::SetAppearanceCommand(v) => v.fmt(f),
+            MgmtCommand::AddAdvertisingCommand(v) => v.fmt(f),
         }
     }
 }
@@ -219,6 +225,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.code(),
             MgmtCommand::LoadLongTermKeysCommand(v) => v.code(),
             MgmtCommand::SetAppearanceCommand(v) => v.code(),
+            MgmtCommand::AddAdvertisingCommand(v) => v.code(),
         };
         buf.put_u16_le(code.into());
 
@@ -240,6 +247,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::LoadLongTermKeysCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::SetAppearanceCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::AddAdvertisingCommand(v) => v.write_to(&mut b)?,
         };
         let b = b.freeze();
 
@@ -261,6 +269,7 @@ impl Codec for MgmtCommand {
                 MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.controller_index(),
                 MgmtCommand::LoadLongTermKeysCommand(v) => v.controller_index(),
                 MgmtCommand::SetAppearanceCommand(v) => v.controller_index(),
+                MgmtCommand::AddAdvertisingCommand(v) => v.controller_index(),
             }
             .into(),
         );

@@ -5,7 +5,9 @@ use futures::{Sink, Stream};
 
 use btknmle_keydb::KeyDb;
 use btknmle_server::mgmt;
-use btknmle_server::mgmt::model::MgmtEvent;
+use btknmle_server::mgmt::model::{
+    AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent, SecureConnections,
+};
 use btknmle_server::mgmt::MgmtCodec;
 use btknmle_server::sock::{Framed, MgmtSocket};
 
@@ -80,8 +82,8 @@ where
 
 async fn setup<IO>(mgmt: &mut mgmt::Mgmt<IO>, db: &mut KeyDb) -> Result<(), mgmt::Error>
 where
-    IO: Sink<mgmt::model::MgmtCommand, Error = mgmt::Error>
-        + Stream<Item = Result<mgmt::model::MgmtEvent, mgmt::Error>>
+    IO: Sink<MgmtCommand, Error = mgmt::Error>
+        + Stream<Item = Result<MgmtEvent, mgmt::Error>>
         + Unpin,
 {
     let local_irk = db.load_local_irk().await?;
@@ -89,20 +91,28 @@ where
     mgmt.powered(false).await?;
     mgmt.low_energy(true).await?;
     mgmt.br_edr(false).await?;
-    mgmt.secure_connections(mgmt::model::SecureConnections::Enabled)
-        .await?;
-    mgmt.io_capability(mgmt::model::IoCapability::DisplayOnly)
-        .await?;
+    mgmt.secure_connections(SecureConnections::Enabled).await?;
+    mgmt.io_capability(IoCapability::DisplayOnly).await?;
     mgmt.privacy(true, local_irk).await?;
-    mgmt.powered(true).await?;
-    mgmt.appearance(960).await?;
     mgmt.local_name("btknmle", "btknmle").await?;
-    mgmt.connectable(true).await?;
     mgmt.bondable(true).await?;
-    mgmt.discoverable(mgmt::model::Discoverable::General)
-        .await?;
-    mgmt.advertising(mgmt::model::Advertising::Connectable)
-        .await?;
+    mgmt.connectable(false).await?;
+
+    mgmt.add_advertising(
+        1,
+        AdvertisingFlags::SWITCH_INTO_CONNECTABLE_MODE
+            | AdvertisingFlags::ADVERTISE_AS_DISCOVERABLE
+            | AdvertisingFlags::ADD_FLAGS_FIELD_TO_ADV_DATA
+            | AdvertisingFlags::ADD_APPEARANCE_FIELD_TO_SCAN_RSP
+            | AdvertisingFlags::ADD_LOCAL_NAME_IN_SCAN_RSP,
+        0,
+        0,
+        [].as_ref(),
+        [0x07, 0x03, 0x0f, 0x18, 0x0a, 0x18, 0x12, 0x18].as_ref(), // complete uuid16 [180f 180a 1812]
+    )
+    .await?;
+
+    mgmt.powered(true).await?;
 
     mgmt.load_irks(db.load_irks().await?).await?;
     mgmt.load_ltks(db.load_ltks().await?).await?;

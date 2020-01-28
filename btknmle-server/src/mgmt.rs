@@ -10,9 +10,9 @@ use log::debug;
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::pkt::mgmt::{
-    self, Address, AddressType, Advertising, CurrentSettings, Discoverable, IdentityResolvingKey,
-    IoCapability, LongTermKey, ManagementCommand, MgmtCommand, MgmtEvent, SecureConnections,
-    SetLocalNameCommandResult, Status,
+    self, Address, AddressType, Advertising, AdvertisingFlags, CurrentSettings, Discoverable,
+    IdentityResolvingKey, IoCapability, LongTermKey, ManagementCommand, MgmtCommand, MgmtEvent,
+    SecureConnections, SetLocalNameCommandResult, Status,
 };
 use crate::pkt::{Codec as _, CodecError};
 use crate::sock::{Framed, MgmtSocket};
@@ -225,6 +225,21 @@ where
         let short_name = short_name.to_string();
         self.invoke(mgmt::SetLocalNameCommand::new(self.index, name, short_name))
             .await
+    }
+
+    pub async fn add_advertising(
+        &mut self,
+        instance: u8,
+        flags: AdvertisingFlags,
+        duration: u16,
+        timeout: u16,
+        adv_data: &[u8],
+        scan_rsp: &[u8],
+    ) -> Result<u8, Error> {
+        self.invoke(mgmt::AddAdvertisingCommand::new(
+            self.index, instance, flags, duration, timeout, adv_data, scan_rsp,
+        ))
+        .await
     }
 
     async fn invoke<I, O>(&mut self, msg: I) -> Result<O, Error>

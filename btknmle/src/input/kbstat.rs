@@ -1,9 +1,11 @@
 use std::collections::HashSet;
+use std::convert::TryFrom;
 
 use bitflags::bitflags;
 use bytes::{BufMut as _, Bytes, BytesMut};
 
 use btknmle_hid::KeyboardUsageId;
+use btknmle_input::KeyCodes;
 use btknmle_input::event::keyboard::KeyState;
 use btknmle_input::event::keyboard::KeyboardEventTrait as _;
 use btknmle_input::event::KeyboardEvent;
@@ -52,9 +54,9 @@ impl KbStat {
     }
 
     pub fn recv(&mut self, evt: &KeyboardEvent) {
-        let code = evt.key().into();
-        let code = KeyboardUsageId::from_keycodes(code);
-        if let Some(code) = code {
+        let code = KeyCodes::from(evt.key());
+        let code = KeyboardUsageId::try_from(code);
+        if let Ok(code) = code {
             match evt.key_state() {
                 KeyState::Pressed => {
                     if let Some(meta) = MetaKeys::from_keycodes(&code) {

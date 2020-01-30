@@ -1,12 +1,9 @@
-name: Rust
+name: build
 
-on:
-  push:
-    branches:
-      - master
+on: [push, pull_request]
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -19,6 +16,12 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
 
+  deploy-image:
+    runs-on: ubuntu-latest
+    needs: check
+    if: github.ref == 'refs/heads/master'
+    steps:
+    - uses: actions/checkout@v1
     - name: Cache for buildx cache mount
       uses: actions/cache@v1
       with:

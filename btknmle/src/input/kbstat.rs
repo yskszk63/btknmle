@@ -5,10 +5,10 @@ use bitflags::bitflags;
 use bytes::{BufMut as _, Bytes, BytesMut};
 
 use btknmle_hid::KeyboardUsageId;
-use btknmle_input::KeyCodes;
 use btknmle_input::event::keyboard::KeyState;
 use btknmle_input::event::keyboard::KeyboardEventTrait as _;
 use btknmle_input::event::KeyboardEvent;
+use btknmle_input::KeyCodes;
 
 bitflags! {
     struct MetaKeys: u8 {

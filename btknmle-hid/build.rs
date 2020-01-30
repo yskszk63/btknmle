@@ -1,8 +1,8 @@
+use std::env;
+use std::fs::File;
 use std::io;
 use std::io::BufRead as _;
-use std::env;
 use std::path::Path;
-use std::fs::File;
 
 #[derive(Debug)]
 struct Entry {
@@ -14,16 +14,10 @@ struct Entry {
 fn parse_line(line: String) -> Entry {
     let mut cols = line.splitn(3, ' ');
     let (name, value, alias) = match (cols.next(), cols.next(), cols.next()) {
-        (Some(name), Some(value), Some("-")) => {
-            (name, value, None)
-        }
-        (Some(name), Some(value), Some(alias)) => {
-            (name, value, Some(alias))
-        }
-        (Some(name), Some(value), None) => {
-            (name.clone(), value, Some(name))
-        }
-        _ => panic!("parse error")
+        (Some(name), Some(value), Some("-")) => (name, value, None),
+        (Some(name), Some(value), Some(alias)) => (name, value, Some(alias)),
+        (Some(name), Some(value), None) => (name.clone(), value, Some(name)),
+        _ => panic!("parse error"),
     };
     let name = format!("KEY_{}", name);
     let value = u8::from_str_radix(value, 16).unwrap();
@@ -54,13 +48,23 @@ fn gen(read: &mut impl io::Read, w: &mut impl io::Write) -> io::Result<()> {
     }
     writeln!(w, r#"}}"#)?;
 
-    writeln!(w, r#"impl std::convert::TryFrom<btknmle_input::KeyCodes> for KeyboardUsageId {{"#)?;
+    writeln!(
+        w,
+        r#"impl std::convert::TryFrom<btknmle_input::KeyCodes> for KeyboardUsageId {{"#
+    )?;
     writeln!(w, r#"type Error = crate::NoMappingFound;"#)?;
-    writeln!(w, r#"fn try_from(v: btknmle_input::KeyCodes) -> Result<Self, <Self as std::convert::TryFrom<btknmle_input::KeyCodes>>::Error> {{"#)?;
+    writeln!(
+        w,
+        r#"fn try_from(v: btknmle_input::KeyCodes) -> Result<Self, <Self as std::convert::TryFrom<btknmle_input::KeyCodes>>::Error> {{"#
+    )?;
     writeln!(w, r#"match v {{"#)?;
     for Entry { name, alias, .. } in &entries {
         if let Some(alias) = alias {
-            writeln!(w, r#"btknmle_input::KeyCodes::{} => Ok(Self::{}),"#, alias, name)?;
+            writeln!(
+                w,
+                r#"btknmle_input::KeyCodes::{} => Ok(Self::{}),"#,
+                alias, name
+            )?;
             writeln!(w, r#""#)?;
         }
     }

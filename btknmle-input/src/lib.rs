@@ -16,22 +16,16 @@ use tokio::io::PollEvented;
 pub use codes::{ButtonCodes, KeyCodes};
 
 mod codes;
-
-mod native {
-    #[link(name = "native", kind = "static")]
-    extern "C" {
-        pub static eviocgrab: libc::c_ulong;
-    }
-}
+mod sys;
 
 fn grab(fd: RawFd, grab: bool) -> io::Result<()> {
     let v = if grab { 1 } else { 0 };
 
     #[cfg(not(target_env = "musl"))]
-    let eviocgrab = unsafe { native::eviocgrab };
+    let eviocgrab = sys::linux_input::_EVIOCGRAB;
 
     #[cfg(target_env = "musl")]
-    let eviocgrab = unsafe { native::eviocgrab } as libc::c_long;
+    let eviocgrab = sys::linux_input::_EVIOCGRAB as libc::c_long;
 
     match unsafe { libc::ioctl(fd, eviocgrab, v) } {
         err if err < 0 => Err(io::Error::last_os_error()),

@@ -1,10 +1,8 @@
 [package]
 name = "btknmle-input"
 version = "0.1.0"
-authors = ["yskszk63 <yskszk63@gamil.com>"]
+authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 input = "0.4"
@@ -23,4 +21,4 @@ dotenv = "0.14"
 env_logger = "0.7"
 
 [build-dependencies]
-cc = "1.0"
+bindgen = "0.52"

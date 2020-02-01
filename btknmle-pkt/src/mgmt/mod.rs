@@ -9,6 +9,7 @@ pub use add_advertising_command::*;
 pub use address::*;
 pub use address_type::*;
 pub use advertising_flags::*;
+pub use authentication_failed_event::*;
 pub use command_complete_event::*;
 pub use command_status_event::*;
 pub use current_settings::*;
@@ -39,12 +40,14 @@ pub use status::*;
 pub use user_confirmation_negative_reply_command::*;
 pub use user_confirmation_reply_command::*;
 pub use user_confirmation_request_event::*;
+pub use user_passkey_reply_command::*;
 pub use user_passkey_request_event::*;
 
 mod add_advertising_command;
 mod address;
 mod address_type;
 mod advertising_flags;
+mod authentication_failed_event;
 mod command_complete_event;
 mod command_status_event;
 mod current_settings;
@@ -75,6 +78,7 @@ mod status;
 mod user_confirmation_negative_reply_command;
 mod user_confirmation_reply_command;
 mod user_confirmation_request_event;
+mod user_passkey_reply_command;
 mod user_passkey_request_event;
 
 #[derive(Clone, PartialEq, Eq)]
@@ -180,6 +184,7 @@ pub enum MgmtCommand {
     LoadLongTermKeysCommand(LoadLongTermKeysCommand),
     SetAppearanceCommand(SetAppearanceCommand),
     AddAdvertisingCommand(AddAdvertisingCommand),
+    UserPasskeyReplyCommand(UserPasskeyReplyCommand),
 }
 
 impl fmt::Debug for MgmtCommand {
@@ -202,6 +207,7 @@ impl fmt::Debug for MgmtCommand {
             MgmtCommand::LoadLongTermKeysCommand(v) => v.fmt(f),
             MgmtCommand::SetAppearanceCommand(v) => v.fmt(f),
             MgmtCommand::AddAdvertisingCommand(v) => v.fmt(f),
+            MgmtCommand::UserPasskeyReplyCommand(v) => v.fmt(f),
         }
     }
 }
@@ -226,6 +232,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::LoadLongTermKeysCommand(v) => v.code(),
             MgmtCommand::SetAppearanceCommand(v) => v.code(),
             MgmtCommand::AddAdvertisingCommand(v) => v.code(),
+            MgmtCommand::UserPasskeyReplyCommand(v) => v.code(),
         };
         buf.put_u16_le(code.into());
 
@@ -248,6 +255,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::LoadLongTermKeysCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::SetAppearanceCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::AddAdvertisingCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::UserPasskeyReplyCommand(v) => v.write_to(&mut b)?,
         };
         let b = b.freeze();
 
@@ -270,6 +278,7 @@ impl Codec for MgmtCommand {
                 MgmtCommand::LoadLongTermKeysCommand(v) => v.controller_index(),
                 MgmtCommand::SetAppearanceCommand(v) => v.controller_index(),
                 MgmtCommand::AddAdvertisingCommand(v) => v.controller_index(),
+                MgmtCommand::UserPasskeyReplyCommand(v) => v.controller_index(),
             }
             .into(),
         );
@@ -285,6 +294,7 @@ impl Codec for MgmtCommand {
 }
 
 pub enum MgmtEvent {
+    AuthenticationFailedEvent(AuthenticationFailedEvent),
     CommandCompleteEvent(CommandCompleteEvent),
     CommandStatusEvent(CommandStatusEvent),
     DeviceConnectedEvent(DeviceConnectedEvent),
@@ -302,6 +312,7 @@ pub enum MgmtEvent {
 impl fmt::Debug for MgmtEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            MgmtEvent::AuthenticationFailedEvent(v) => v.fmt(f),
             MgmtEvent::CommandCompleteEvent(v) => v.fmt(f),
             MgmtEvent::CommandStatusEvent(v) => v.fmt(f),
             MgmtEvent::DeviceConnectedEvent(v) => v.fmt(f),
@@ -326,6 +337,9 @@ impl Codec for MgmtEvent {
 
         let mut data = buf.take(len);
         Ok(match code {
+            AuthenticationFailedEvent::CODE => AuthenticationFailedEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
             CommandCompleteEvent::CODE => CommandCompleteEvent::parse(&mut data)?
                 .with_controller_index(controller_index)
                 .into(),

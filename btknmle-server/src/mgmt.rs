@@ -242,6 +242,18 @@ where
         .await
     }
 
+    pub async fn user_passkey_reply(
+        &mut self,
+        addr: Address,
+        addr_type: AddressType,
+        passkey: u32,
+    ) -> Result<(Address, AddressType), Error> {
+        self.invoke(mgmt::UserPasskeyReplyCommand::new(
+            self.index, addr, addr_type, passkey,
+        ))
+        .await
+    }
+
     async fn invoke<I, O>(&mut self, msg: I) -> Result<O, Error>
     where
         I: ManagementCommand<O>,

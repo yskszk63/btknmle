@@ -11,6 +11,7 @@ use btknmle_server::gatt;
 
 use super::kbstat::KbStat;
 use super::mousestat::MouseStat;
+use super::{NotInterested, PasskeyFilter};
 
 fn configure_device(device: &mut Device) {
     if device.has_capability(DeviceCapability::Gesture) {
@@ -24,6 +25,7 @@ pub async fn input_loop(
     mut kb: gatt::Notify,
     mut mouse: gatt::Notify,
     grab: bool,
+    mut passkey_filter: PasskeyFilter,
 ) -> Result<(), failure::Error> {
     let mut kbstat = KbStat::new();
     let mut mousestat = MouseStat::new();
@@ -36,8 +38,13 @@ pub async fn input_loop(
                 configure_device(&mut device);
             }
             Event::Keyboard(kbd) => {
-                kbstat.recv(&kbd);
-                kb.send(kbstat.to_bytes()).await?;
+                match passkey_filter.send(kbd) {
+                    Ok(..) => {}
+                    Err(NotInterested(kbd)) => {
+                        kbstat.recv(&kbd);
+                        kb.send(kbstat.to_bytes()).await?;
+                    }
+                };
             }
             Event::Pointer(PointerEvent::Motion(motion)) => {
                 mousestat.recv_motion(&motion);

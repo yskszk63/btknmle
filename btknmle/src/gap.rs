@@ -2,6 +2,7 @@ use std::path::Path;
 
 use futures::stream::StreamExt as _;
 use futures::{Sink, Stream};
+use tokio::sync::mpsc;
 
 use btknmle_keydb::KeyDb;
 use btknmle_server::mgmt;
@@ -11,18 +12,21 @@ use btknmle_server::mgmt::model::{
 use btknmle_server::mgmt::MgmtCodec;
 use btknmle_server::sock::{Framed, MgmtSocket};
 
+use crate::input::PasskeyFilter;
+
 #[derive(Debug)]
-pub struct Gap<F> {
+pub struct Gap {
     mgmt: mgmt::Mgmt<Framed<MgmtSocket, MgmtCodec>>,
     db: KeyDb,
-    passkey_notify: F,
+    passkey_filter: PasskeyFilter,
 }
 
-impl<F> Gap<F>
-where
-    F: FnMut(&str),
-{
-    pub async fn setup<P>(devid: u16, varfile: P, passkey_notify: F) -> Result<Self, mgmt::Error>
+impl Gap {
+    pub async fn setup<P>(
+        devid: u16,
+        varfile: P,
+        passkey_filter: PasskeyFilter,
+    ) -> Result<Self, mgmt::Error>
     where
         P: AsRef<Path>,
     {
@@ -35,7 +39,7 @@ where
         Ok(Gap {
             mgmt,
             db,
-            passkey_notify,
+            passkey_filter,
         })
     }
 
@@ -43,10 +47,14 @@ where
         let Self {
             mut mgmt,
             mut db,
-            mut passkey_notify,
+            passkey_filter,
         } = self;
 
-        while let Some(evt) = mgmt.next().await {
+        let (tx, mut rx) = mpsc::channel(1);
+
+        loop {
+            tokio::select! {
+                Some(evt) = mgmt.next() => {
             match evt? {
                 MgmtEvent::NewLongTermKeyEvent(evt) => {
                     if evt.store_hint() {
@@ -62,17 +70,36 @@ where
                         db.store_irks(key.clone()).await?;
                     }
                 }
-                MgmtEvent::PasskeyNotifyEvent(evt) => {
-                    let passkey = evt.passkey();
-                    passkey_notify(&passkey.to_string());
-                }
                 MgmtEvent::UserConfirmationRequestEvent(evt) => {
                     log::debug!("{:?}", evt);
-                    mgmt.user_confirmation(evt.address(), evt.address_type())
-                        .await?;
+                    //mgmt.user_confirmation(evt.address(), evt.address_type()).await?;
                     //sock.user_confirmation_negative(evt.address(), evt.address_type()).await?;
                 }
+                MgmtEvent::UserPasskeyRequestEvent(evt) => {
+                    log::debug!("{:?}", evt);
+                    let passkey_filter = passkey_filter.clone();
+                    let mut tx = tx.clone();
+                    tokio::spawn(async move {
+                        let mut buf = String::new();
+                        let mut rx = passkey_filter.subscribe();
+                        while let Ok(key) = rx.recv().await {
+                            match key {
+                                b @ b'0' ..= b'1' => buf.push(b.into()),
+                                b'\n' => break,
+                                _ => {},
+                            }
+                        }
+                        let passkey = buf.parse().unwrap();
+                        tx.send((evt.address(), evt.address_type(), passkey)).await.unwrap();
+                    });
+                }
                 evt => log::debug!("UNHANDLED {:?}", evt),
+            }
+                }
+                Some((addr, addr_t, passkey)) = rx.recv() => {
+                    mgmt.user_passkey_reply(addr, addr_t, passkey).await?;
+                }
+                else => break
             }
         }
 
@@ -92,7 +119,7 @@ where
     mgmt.low_energy(true).await?;
     mgmt.br_edr(false).await?;
     mgmt.secure_connections(SecureConnections::Enabled).await?;
-    mgmt.io_capability(IoCapability::DisplayOnly).await?;
+    mgmt.io_capability(IoCapability::KeyboardOnly).await?;
     mgmt.privacy(true, local_irk).await?;
     mgmt.local_name("btknmle", "btknmle").await?;
     mgmt.bondable(true).await?;

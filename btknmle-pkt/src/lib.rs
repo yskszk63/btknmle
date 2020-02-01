@@ -11,7 +11,7 @@ pub enum CodecError {
     Underflow,
     #[fail(display = "Unknown attribute {:x}", _0)]
     UnknownAtt(u8),
-    #[fail(display = "Unknown management packet {:x}", _0)]
+    #[fail(display = "Unknown management packet {:#06x}", _0)]
     UnknownMgmt(u16),
     #[fail(display = "invalid format")]
     Invalid,

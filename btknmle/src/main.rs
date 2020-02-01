@@ -2,6 +2,7 @@ use futures::future::TryFutureExt as _;
 use futures::stream::StreamExt as _;
 
 use btknmle::input::input_loop;
+use btknmle::input::PasskeyFilter;
 use btknmle::{gap, hogp};
 use btknmle_server::gatt;
 
@@ -10,7 +11,9 @@ fn on_err(e: failure::Error) {
 }
 
 async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Error> {
-    let gap = gap::Gap::setup(devid, varfile, |p| println!("Please input '{}'", p)).await?;
+    let passkey_filter = PasskeyFilter::new();
+
+    let gap = gap::Gap::setup(devid, varfile, passkey_filter.clone()).await?;
     let mut gap_working = tokio::spawn(gap.run());
 
     let (db, kbd, mouse) = hogp::new();
@@ -24,11 +27,12 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Err
                     Some(Ok(svc)) => {
                         let kbd_notify = svc.notify_for(&kbd)?;
                         let mouse_notify = svc.notify_for(&mouse)?;
+                        let passkey_filter = passkey_filter.clone();
 
                         tokio::task::spawn_local(async move {
                             log::debug!("begin");
                             let tasks = tokio::try_join!(
-                                input_loop(kbd_notify, mouse_notify, grab).map_err(Into::<failure::Error>::into),
+                                input_loop(kbd_notify, mouse_notify, grab, passkey_filter).map_err(Into::<failure::Error>::into),
                                 svc.run().map_err(Into::<failure::Error>::into),
                             );
                             log::debug!("done");

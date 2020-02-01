@@ -11,7 +11,6 @@ use btknmle_server::gatt;
 
 use super::kbstat::KbStat;
 use super::mousestat::MouseStat;
-use crate::util::CancelableStreamFactory;
 
 fn configure_device(device: &mut Device) {
     if device.has_capability(DeviceCapability::Gesture) {
@@ -24,13 +23,11 @@ fn configure_device(device: &mut Device) {
 pub async fn input_loop(
     mut kb: gatt::Notify,
     mut mouse: gatt::Notify,
-    factory: CancelableStreamFactory,
     grab: bool,
 ) -> Result<(), failure::Error> {
     let mut kbstat = KbStat::new();
     let mut mousestat = MouseStat::new();
-    let stream = LibinputStream::new_from_udev("seat0", grab)?; // FIXME seat
-    let mut stream = factory.with_stream::<_, failure::Error>(stream);
+    let mut stream = LibinputStream::new_from_udev("seat0", grab)?; // FIXME seat
 
     while let Some(evt) = stream.next().await {
         match evt? {

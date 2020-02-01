@@ -2,7 +2,6 @@ use futures::future::TryFutureExt as _;
 use futures::stream::StreamExt as _;
 
 use btknmle::input::input_loop;
-use btknmle::util::CancelableStreamController;
 use btknmle::{gap, hogp};
 use btknmle_server::gatt;
 
@@ -11,44 +10,38 @@ fn on_err(e: failure::Error) {
 }
 
 async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Error> {
-    use tokio::task::spawn_local;
-
     let gap = gap::Gap::setup(devid, varfile, |p| println!("Please input '{}'", p)).await?;
-    spawn_local(
-        gap.run()
-            .map_err(Into::<failure::Error>::into)
-            .unwrap_or_else(on_err),
-    );
+    let mut gap_working = tokio::spawn(gap.run());
 
     let (db, kbd, mouse) = hogp::new();
     let mut listener = gatt::GattListener::new(db)?;
-    while let Some(sock) = listener.next().await {
-        log::debug!("connected");
-        match sock {
-            Ok(svc) => {
-                let mut cancel = CancelableStreamController::new();
-                let kbd_notify = svc.notify_for(&kbd)?;
-                let mouse_notify = svc.notify_for(&mouse)?;
 
-                spawn_local(
-                    input_loop(kbd_notify, mouse_notify, cancel.factory(), grab)
-                        .unwrap_or_else(on_err),
-                );
+    loop {
+        tokio::select! {
+            maybe_sock = listener.next() => {
+                log::debug!("connected");
+                match maybe_sock {
+                    Some(Ok(svc)) => {
+                        let kbd_notify = svc.notify_for(&kbd)?;
+                        let mouse_notify = svc.notify_for(&mouse)?;
 
-                spawn_local(async move {
-                    log::debug!("begin");
-                    svc.run()
-                        .map_err(Into::<failure::Error>::into)
-                        .unwrap_or_else(on_err)
-                        .await;
-                    cancel.cancel();
-                    log::debug!("done");
-                });
+                        tokio::task::spawn_local(async move {
+                            log::debug!("begin");
+                            let tasks = tokio::try_join!(
+                                input_loop(kbd_notify, mouse_notify, grab).map_err(Into::<failure::Error>::into),
+                                svc.run().map_err(Into::<failure::Error>::into),
+                            );
+                            log::debug!("done");
+                            tasks.map(|_|()).unwrap_or_else(on_err);
+                        });
+                    }
+                    Some(Err(e)) => on_err(e.into()),
+                    None => break,
+                }
             }
-            Err(e) => on_err(e.into()),
+            gap_done = &mut gap_working => gap_done??
         }
     }
-
     Ok(())
 }
 

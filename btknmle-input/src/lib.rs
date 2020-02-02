@@ -145,4 +145,34 @@ mod tests {
         //assert_send::<EventedLibinput>();
         //assert_sync::<EventedLibinput>();
     }
+
+    #[test]
+    fn test_env_libinputif() {
+        use std::fs;
+        use std::path::PathBuf;
+
+        let path = PathBuf::from("/tmp/btknmle-input-6c9e069b-8099-4c5a-8c44-7c2387e391d8");
+        {
+            fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(&path)
+                .unwrap();
+        }
+
+        let mut env = Env(false);
+        if let Ok(fd) = env.open_restricted(&path, 0) {
+            env.close_restricted(fd)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_libinput() {
+        use tokio::stream::StreamExt;
+        let stream = LibinputStream::new_from_udev("default", false).unwrap();
+        let mut stream = stream
+            .timeout(tokio::time::Duration::from_millis(100))
+            .take_while(Result::is_ok);
+        while let Some(..) = stream.next().await {}
+    }
 }

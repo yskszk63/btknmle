@@ -1,3 +1,4 @@
+#![warn(clippy::all)]
 use std::fmt;
 
 pub use keyboard_usage_id::KeyboardUsageId;

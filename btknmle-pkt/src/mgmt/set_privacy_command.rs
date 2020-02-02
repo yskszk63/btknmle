@@ -40,11 +40,7 @@ impl CommandItem for SetPrivacyCommand {
 
 impl Codec for SetPrivacyCommand {
     fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        let v = match self.privacy {
-            false => 0x00,
-            true => 0x01,
-        };
-        buf.put_u8(v);
+        buf.put_u8(if self.privacy { 0x01 } else { 0x00 });
         buf.extend_from_slice(self.identity_resolving_key.as_ref());
         Ok(())
     }

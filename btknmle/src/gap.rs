@@ -84,9 +84,9 @@ impl Gap {
                         let mut rx = passkey_filter.subscribe();
                         while let Ok(key) = rx.recv().await {
                             match key {
-                                b @ b'0' ..= b'1' => buf.push(b.into()),
+                                b @ b'0' ..= b'9' => buf.push(b.into()),
                                 b'\n' => break,
-                                _ => {},
+                                b => log::debug!("ignore {}", b),
                             }
                         }
                         let passkey = buf.parse().unwrap();

@@ -37,7 +37,7 @@ impl EventItem for NewLongTermKeyEvent {
 impl Codec for NewLongTermKeyEvent {
     fn parse(buf: &mut impl Buf) -> Result<Self> {
         let controller_index = Default::default();
-        let store_hint = if buf.get_u8() == 0 { false } else { true };
+        let store_hint = buf.get_u8() != 0;
         let key = LongTermKey::parse(buf)?;
         Ok(Self {
             controller_index,

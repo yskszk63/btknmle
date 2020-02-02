@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 use btknmle_pkt as pkt;
 pub use btknmle_sock as sock;
 

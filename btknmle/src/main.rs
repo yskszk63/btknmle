@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 use futures::future::TryFutureExt as _;
 use futures::stream::StreamExt as _;
 

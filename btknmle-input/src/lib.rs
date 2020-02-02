@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 use std::io;
 use std::os::unix::ffi::OsStrExt as _;
 use std::os::unix::io::{AsRawFd, RawFd};

@@ -40,7 +40,7 @@ where
 
         let frame_res = pin.codec.decode(&mut pin.rd);
         pin.rd.clear();
-        let frame = frame_res?.map(|v| Ok(v));
+        let frame = frame_res?.map(Ok);
         Poll::Ready(frame)
     }
 }
@@ -64,7 +64,7 @@ where
 
         let frame_res = pin.codec.decode(&mut pin.rd);
         pin.rd.clear();
-        let frame = frame_res?.map(|v| Ok(v));
+        let frame = frame_res?.map(Ok);
         Poll::Ready(frame)
     }
 }

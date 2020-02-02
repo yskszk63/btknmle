@@ -66,7 +66,7 @@ impl Codec for PasskeyNotifyEvent {
         let address = Address::parse(buf)?;
         let address_type = AddressType::parse(buf)?;
         let passkey = Passkey(buf.get_u32_le());
-        let entered = if buf.get_u8() == 0 { false } else { true };
+        let entered = buf.get_u8() != 0;
         Ok(Self {
             controller_index,
             address,

@@ -49,7 +49,7 @@ impl TryFrom<String> for Address {
 
     fn try_from(v: String) -> std::result::Result<Self, String> {
         let mut result = vec![];
-        for i in v.split(":") {
+        for i in v.split(':') {
             result.push(if let Ok(i) = u8::from_str_radix(i, 16) {
                 i
             } else {

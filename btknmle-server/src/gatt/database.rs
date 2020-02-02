@@ -231,7 +231,7 @@ impl Database {
         };
         let mut result = vec![(head.att_handle.clone(), head.att_type.clone())];
         let mut size = 2 + type_size;
-        while let Some(item) = iter.next() {
+        for item in iter {
             match (&head_type, &item.att_type) {
                 (Uuid::Uuid16(..), Uuid::Uuid16(..)) | (Uuid::Uuid128(..), Uuid::Uuid128(..)) => {}
                 _ => break,
@@ -266,7 +266,7 @@ impl Database {
 
         let mut result = vec![];
         let mut size = 0;
-        while let Some(item) = iter.next() {
+        for item in iter {
             if item.att_handle > end {
                 return if result.is_empty() {
                     return Err(ErrorCode::AttributeNotFound.into());
@@ -311,7 +311,7 @@ impl Database {
         let value_size = head.att_value.size();
         let mut result = vec![(head.att_handle.clone(), head.att_value.clone())];
         let mut size = 2 + value_size;
-        while let Some(item) = iter.next() {
+        for item in iter {
             if item.att_value.size() != value_size {
                 break;
             }
@@ -346,7 +346,7 @@ impl Database {
 
         let mut result = vec![];
         let mut size = 0;
-        while let Some(item) = iter.next() {
+        for item in iter {
             if item.att_handle > end {
                 return if result.is_empty() {
                     return Err(ErrorCode::AttributeNotFound.into());
@@ -411,7 +411,7 @@ impl DatabaseBuilder {
         value: impl Into<Bytes>,
     ) -> Handle {
         // FIXME Extended Properties
-        let handle = Handle::from(self.next + 0);
+        let att_handle = Handle::from(self.next);
         let value_handle = Handle::from(self.next + 1);
         self.next += 2;
 
@@ -419,12 +419,12 @@ impl DatabaseBuilder {
         let value = value.into();
 
         self.attrs.insert(
-            handle.clone(),
+            att_handle.clone(),
             Attribute {
-                att_handle: handle.clone(),
+                att_handle,
                 att_type: Uuid::Uuid16(0x2803),
                 att_value: AttributeValue::Characteristic {
-                    properties: properties.clone(),
+                    properties,
                     value_handle: value_handle.clone(),
                     chr_type: chr_type.clone(),
                 },

@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 use btknmle_server::gatt;
 
 pub mod gap;

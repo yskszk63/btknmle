@@ -1,3 +1,4 @@
+#![warn(clippy::all)]
 use bytes::{Buf, BytesMut};
 use failure::Fail;
 

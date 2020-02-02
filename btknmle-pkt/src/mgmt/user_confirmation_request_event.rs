@@ -50,7 +50,7 @@ impl Codec for UserConfirmationRequestEvent {
         let controller_index = Default::default();
         let address = Address::parse(buf)?;
         let address_type = AddressType::parse(buf)?;
-        let confirm_hint = if buf.get_u8() == 0 { false } else { true };
+        let confirm_hint = buf.get_u8() != 0;
         let value = buf.take(4).to_bytes();
         Ok(Self {
             controller_index,

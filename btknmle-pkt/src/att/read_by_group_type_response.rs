@@ -108,7 +108,7 @@ impl Codec for ReadByGroupTypeResponse {
         head.end_group_handle.write_to(buf)?;
         buf.put(head.attribute_value.clone());
 
-        while let Some(item) = iter.next() {
+        for item in iter {
             item.attribute_handle.write_to(buf)?;
             item.end_group_handle.write_to(buf)?;
             buf.put(item.attribute_value.clone());

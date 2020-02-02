@@ -76,8 +76,8 @@ impl Codec for FindByTypeValueResponse {
     }
 
     fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {
-        let mut iter = self.handles_information_list.iter();
-        while let Some(item) = iter.next() {
+        let iter = self.handles_information_list.iter();
+        for item in iter {
             item.found_attribute_handle.write_to(buf)?;
             item.group_end_handle.write_to(buf)?;
         }

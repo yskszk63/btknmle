@@ -2,7 +2,7 @@ use bytes::{Buf, BytesMut};
 
 use super::{Att, AttItem, Codec, CodecError};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct WriteResponse {}
 
 impl WriteResponse {

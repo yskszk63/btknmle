@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 pub use frame::*;
 pub use l2_incoming::*;
 pub use l2_listener::*;

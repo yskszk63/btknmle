@@ -1,4 +1,4 @@
-#![deny(clippy::all)]
+#![warn(clippy::all)]
 
 use std::io;
 use std::os::unix::ffi::OsStrExt as _;

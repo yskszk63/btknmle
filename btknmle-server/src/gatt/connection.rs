@@ -103,7 +103,7 @@ where
                     (head.0).end().clone(),
                     head.1.clone(),
                 );
-                while let Some(item) = iter.next() {
+                for item in iter {
                     b.add(
                         (item.0).start().clone(),
                         (item.0).end().clone(),
@@ -143,7 +143,7 @@ where
                 let mut iter = response.iter();
                 let head = iter.next().unwrap();
                 let mut b = att::ReadByTypeResponse::builder(head.0.clone(), head.1.clone());
-                while let Some(item) = iter.next() {
+                for item in iter {
                     b.add(item.0.clone(), item.1.clone());
                 }
                 self.send(b.build()).await?
@@ -178,7 +178,7 @@ where
                 let mut iter = response.iter();
                 let head = iter.next().unwrap();
                 let mut b = att::FindInformationResponse::builder(head.0.clone(), head.1.clone());
-                while let Some(item) = iter.next() {
+                for item in iter {
                     b.add(item.0.clone(), item.1.clone());
                 }
                 self.send(b.build()).await?
@@ -216,7 +216,7 @@ where
                 let mut iter = response.iter();
                 let head = iter.next().unwrap();
                 let mut b = att::FindByTypeValueResponse::builder(head.0.clone(), head.1.clone());
-                while let Some(item) = iter.next() {
+                for item in iter {
                     b.add(item.0.clone(), item.1.clone());
                 }
                 self.send(b.build()).await?

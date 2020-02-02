@@ -38,6 +38,10 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - run: cargo tarpaulin --out Xml
+    - uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./cobertura.xml
 
   deploy-image:
     runs-on: ubuntu-latest

@@ -99,6 +99,7 @@ name = "btknmle-hid"
 version = "0.1.0"
 dependencies = [
  "btknmle-input 0.1.0",
+ "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

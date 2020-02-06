@@ -7,5 +7,5 @@ mod keyboard_usage_id {
 }
 
 #[derive(Debug, failure::Fail)]
-#[fail(display="no mapping found {:?}", _0)]
+#[fail(display = "no mapping found {:?}", _0)]
 pub struct NoMappingFound(btknmle_input::KeyCodes);

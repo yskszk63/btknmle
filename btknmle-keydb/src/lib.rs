@@ -64,3 +64,93 @@ impl KeyDb {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::convert::TryFrom;
+    use std::fs;
+    use std::path::Path;
+
+    #[tokio::test]
+    async fn test_open() {
+        KeyDb::new("/tmp/a21ef215-25da-4c51-ba26-2c54faff67f5")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_local_irks() {
+        let f = Path::new("/tmp/50f716bf-7254-4211-b460-be7fa17ddaa1");
+        fs::remove_file(f).ok();
+        let mut db = KeyDb::new(f).await.unwrap();
+        db.load_local_irk().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_irks() {
+        let f = Path::new("/tmp/d17aba67-3aac-4f70-b67f-e85a238f79ee");
+        fs::remove_file(f).ok();
+        let mut db = KeyDb::new(f).await.unwrap();
+        let address =
+            btknmle_pkt::mgmt::Address::try_from("00:00:00:00:00:00".to_string()).unwrap();
+        let address_type = btknmle_pkt::mgmt::AddressType::LePublic;
+        let value = [0; 16];
+        db.store_irks(IdentityResolvingKey::new(
+            address.clone(),
+            address_type.clone(),
+            value,
+        ))
+        .await
+        .unwrap();
+        let results = db.load_irks().await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(
+            results[0],
+            IdentityResolvingKey::new(address, address_type, value)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_ltks() {
+        let f = Path::new("/tmp/75a91193-70f0-4a34-971c-2cd6cdfba8c0");
+        fs::remove_file(f).ok();
+        let mut db = KeyDb::new(f).await.unwrap();
+        let address =
+            btknmle_pkt::mgmt::Address::try_from("00:00:00:00:00:00".to_string()).unwrap();
+        let address_type = btknmle_pkt::mgmt::AddressType::LePublic;
+        let key_type = 0;
+        let master = 0;
+        let encryption_size = 0;
+        let encryption_diversifier = [0; 2];
+        let random_number = [0; 8];
+        let value = [0; 16];
+        db.store_ltks(LongTermKey::new(
+            address.clone(),
+            address_type.clone(),
+            key_type,
+            master,
+            encryption_size,
+            encryption_diversifier,
+            random_number,
+            value,
+        ))
+        .await
+        .unwrap();
+        let results = db.load_ltks().await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(
+            results[0],
+            LongTermKey::new(
+                address.clone(),
+                address_type.clone(),
+                key_type,
+                master,
+                encryption_size,
+                encryption_diversifier,
+                random_number,
+                value
+            )
+        );
+    }
+}

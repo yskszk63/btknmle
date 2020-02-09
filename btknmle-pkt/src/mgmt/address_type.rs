@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 
 use super::{Codec, CodecError, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AddressType {
     BrEdr,
     LePublic,

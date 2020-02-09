@@ -5,7 +5,7 @@ use bytes::{Buf, BytesMut};
 
 use super::{Codec, Result};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Address([u8; 6]);
 
 impl Codec for Address {

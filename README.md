@@ -7,3 +7,32 @@ BTKNMLE (BlueTooth Keyboard aNd Mouse Low Energy)
 Expose local keyboard and mouse as Bluetooth HID device.
 
 WIP
+
+Prerequisite
+------------
+
+Stop bluez if running.
+
+```
+sudo systemctl stop bluez
+```
+
+Build & Run
+-----------
+
+Archlinux
+
+```
+# build
+sudo pacman -S libinput
+git clone https://github.com/yskszk63/btknmle
+cd btknmle
+cargo build --release
+
+# run
+sudo target/release/btknmle
+```
+
+Docker (Arm etc..)
+
+WIP

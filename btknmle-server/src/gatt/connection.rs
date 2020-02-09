@@ -5,13 +5,11 @@ use std::task::{Context, Poll};
 
 use bytes::Bytes;
 use futures::channel::mpsc;
-use futures::future::Either;
 use futures::{Sink, SinkExt as _, Stream, StreamExt as _};
 
 use super::{Database, Result};
 use crate::gatt;
 use crate::pkt::att::{self, Att};
-use crate::util::EitherStream;
 
 #[derive(Debug)]
 pub struct Notify {
@@ -43,7 +41,8 @@ impl Stream for Writed {
 #[derive(Debug)]
 pub struct GattConnection<IO> {
     db: Database,
-    io: EitherStream<IO, mpsc::Receiver<Att>>,
+    io: IO,
+    rx: mpsc::Receiver<Att>,
     tx: mpsc::Sender<Att>,
     listeners: HashMap<att::Handle, mpsc::Sender<Bytes>>,
 }
@@ -54,10 +53,10 @@ where
 {
     pub fn new(db: Database, io: IO) -> Self {
         let (tx, rx) = mpsc::channel(2);
-        let io = EitherStream::new(io, rx);
         Self {
             db,
             io,
+            rx,
             tx,
             listeners: HashMap::new(),
         }
@@ -84,7 +83,7 @@ where
     }
 
     async fn send(&mut self, item: impl Into<Att>) -> Result<()> {
-        self.io.get_mut().0.send(item.into()).await?;
+        self.io.send(item.into()).await?;
         Ok(())
     }
 
@@ -346,21 +345,27 @@ where
     }
 
     pub async fn run(mut self) -> Result<()> {
-        while let Some(pkt) = self.io.next().await {
-            match pkt {
-                Either::Left(pkt) => match pkt? {
-                    Att::ReadByGroupTypeRequest(item) => self.on_read_by_group_type(item).await?,
-                    Att::ReadByTypeRequest(item) => self.on_read_by_type(item).await?,
-                    Att::FindInformationRequest(item) => self.on_findinformation(item).await?,
-                    Att::FindByTypeValueRequest(item) => self.on_find_by_type_value(item).await?,
-                    Att::ReadRequest(item) => self.on_read(item).await?,
-                    Att::ReadBlobRequest(item) => self.on_read_blob(item).await?,
-                    Att::WriteRequest(item) => self.on_write(item).await?,
-                    Att::ExchangeMtuRequest(item) => self.on_exchange_mtu(item).await?,
-                    _ => unimplemented!(),
-                },
-
-                Either::Right(pkt) => self.send(pkt).await?,
+        loop {
+            tokio::select! {
+                Some(pkt) = self.io.next() => {
+                    match pkt? {
+                        Att::ReadByGroupTypeRequest(item) => self.on_read_by_group_type(item).await?,
+                        Att::ReadByTypeRequest(item) => self.on_read_by_type(item).await?,
+                        Att::FindInformationRequest(item) => self.on_findinformation(item).await?,
+                        Att::FindByTypeValueRequest(item) => self.on_find_by_type_value(item).await?,
+                        Att::ReadRequest(item) => self.on_read(item).await?,
+                        Att::ReadBlobRequest(item) => self.on_read_blob(item).await?,
+                        Att::WriteRequest(item) => self.on_write(item).await?,
+                        Att::ExchangeMtuRequest(item) => self.on_exchange_mtu(item).await?,
+                        _ => unimplemented!(),
+                    }
+                }
+                Some(pkt) = self.rx.next() => {
+                    self.send(pkt).await?;
+                }
+                else => {
+                    break;
+                }
             }
         }
 

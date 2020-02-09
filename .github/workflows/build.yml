@@ -31,6 +31,7 @@ jobs:
     - run: sudo apt update && sudo apt install -y libssl-dev pkg-config cmake zlib1g-dev
     - run: "[ -f ~/.cargo/bin/cargo-tarpaulin ] || cargo install cargo-tarpaulin"
     - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
+    - run: sudo modprobe bluetooth
     - name: Check format
       run: cargo fmt -- --check
     - name: Build

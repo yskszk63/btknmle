@@ -6,7 +6,7 @@ use super::{Address, AddressType};
 use super::{Codec, CodecError, Result};
 use crate::util::HexDisplay;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     UnauthenticatedLocalCsrk,
     UnauthenticatedRemoteCsrk,
@@ -54,7 +54,7 @@ impl TryFrom<u8> for Type {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Key {
     address: Address,
     address_type: AddressType,
@@ -108,7 +108,7 @@ impl Codec for Key {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LongTermKey {
     address: Address,
     address_type: AddressType,
@@ -222,7 +222,7 @@ impl Codec for LongTermKey {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IdentityResolvingKey {
     address: Address,
     address_type: AddressType,

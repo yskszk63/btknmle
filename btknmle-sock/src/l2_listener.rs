@@ -1,7 +1,6 @@
 use std::io;
 use std::task::{Context, Poll};
 
-use futures::future::poll_fn;
 use futures::ready;
 use tokio::io::PollEvented;
 
@@ -22,10 +21,6 @@ impl L2Listener {
         Ok(Self {
             io: PollEvented::new(inner)?,
         })
-    }
-
-    pub async fn accept(&mut self) -> io::Result<L2Stream> {
-        poll_fn(|cx| self.poll_accept(cx)).await
     }
 
     pub(crate) fn poll_accept(&self, cx: &mut Context<'_>) -> Poll<io::Result<L2Stream>> {
@@ -61,33 +56,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn _test() {
-        use crate::MgmtSocket;
-        use bytes::{BufMut, BytesMut};
-        use futures::sink::SinkExt as _;
-        use futures::stream::StreamExt as _;
-        use tokio_util::codec::BytesCodec;
-
-        let mut mgmt = MgmtSocket::bind().unwrap().framed(BytesCodec::new());
-        // Advertise
-        let mut command = BytesMut::new();
-        command.put_u16_le(0x0029);
-        command.put_u16_le(0x0000);
-        command.put_u16_le(0x0001);
-        command.put_u8(0x02);
-        mgmt.send(command.freeze()).await.unwrap();
-
-        let result = mgmt.next().await.unwrap();
-        println!("{:?}", result);
-
-        let sock = L2Listener::bind(0x0004).unwrap();
-        let mut incoming = sock.incoming();
-        while let Some(sock) = incoming.next().await {
-            println!("{:?}", sock);
-            let mut sock = sock.unwrap().framed(BytesCodec::new());
-            while let Some(v) = sock.next().await {
-                println!("{:?}", v);
-            }
-        }
+    async fn test_l2() {
+        L2Listener::bind(0x0004).unwrap();
     }
 }

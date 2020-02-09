@@ -5,7 +5,7 @@ use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
 use super::{Codec, Result};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Advertising {
     Disabled,
     Enabled,

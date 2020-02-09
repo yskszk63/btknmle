@@ -2,7 +2,7 @@ use std::fmt;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) struct HexDisplay<E>(E);
 
 impl<E> HexDisplay<E>

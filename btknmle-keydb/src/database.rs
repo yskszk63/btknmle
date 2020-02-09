@@ -9,8 +9,6 @@ use std::sync::{Arc, Mutex};
 use rusqlite::{Connection, OpenFlags};
 use tokio::task;
 
-use btknmle_pkt::CodecError;
-
 #[derive(Debug, failure::Fail)]
 pub(crate) enum Error {
     #[fail(display = "{}", _0)]
@@ -30,12 +28,6 @@ impl From<rusqlite::Error> for Error {
 impl From<io::Error> for Error {
     fn from(v: io::Error) -> Self {
         Self::Io(v)
-    }
-}
-
-impl From<CodecError> for Error {
-    fn from(v: CodecError) -> Self {
-        Self::Other(format!("{}", v))
     }
 }
 
@@ -254,5 +246,14 @@ mod tests {
 
         println!("{:?}", database.load::<IdentityResolvingKey>().await);
         println!("{:?}", database.load::<LongTermKey>().await);
+    }
+
+    #[tokio::test]
+    async fn test_open_dir() {
+        let result = Database::new("/").await;
+        match result {
+            Err(Error::Io(..)) => {}
+            _ => panic!(),
+        };
     }
 }

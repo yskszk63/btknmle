@@ -99,7 +99,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn test2() {
+    async fn test_mgmt() {
         use futures::sink::SinkExt as _;
         use futures::stream::StreamExt as _;
         use tokio_util::codec::BytesCodec;

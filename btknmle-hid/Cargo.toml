@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 btknmle-input = {path="../btknmle-input"}
+failure = "0.1.6"

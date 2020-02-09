@@ -6,6 +6,7 @@ use super::{Address, AddressType};
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
 use super::{Codec, Result};
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Passkey(u32);
 
 impl fmt::Display for Passkey {

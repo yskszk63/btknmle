@@ -225,6 +225,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_mgmt() {
         let sock = RawSocket::new_mgmt().unwrap();
         sock.bind_mgmt().unwrap();
@@ -243,6 +244,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_l2() {
         let sock = RawSocket::new_l2cap().unwrap();
         sock.bind_l2cap(0x0004).unwrap();

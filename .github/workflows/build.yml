@@ -28,8 +28,7 @@ jobs:
       with:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    - run: sudo apt update && sudo apt install -y libssl-dev pkg-config cmake zlib1g-dev bluez
-    - run: sudo modprobe bluetooth
+    - run: sudo apt update && sudo apt install -y libssl-dev pkg-config cmake zlib1g-dev
     - run: "[ -f ~/.cargo/bin/cargo-tarpaulin ] || cargo install cargo-tarpaulin"
     - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
     - name: Check format

@@ -42,6 +42,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_incoming() {
         use std::time::Duration;
         use tokio::stream::StreamExt as _;

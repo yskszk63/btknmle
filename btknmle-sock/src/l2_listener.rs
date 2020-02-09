@@ -55,6 +55,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_l2() {
         L2Listener::bind(0x0004).unwrap();
     }

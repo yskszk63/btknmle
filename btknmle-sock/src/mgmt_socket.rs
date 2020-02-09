@@ -98,6 +98,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_mgmt() {
         use futures::sink::SinkExt as _;
         use futures::stream::StreamExt as _;

@@ -224,26 +224,29 @@ mod tests {
         assert_sync::<RawSocket>();
     }
 
-    /*
     #[tokio::test]
-    async fn test() {
+    async fn test_mgmt() {
         let sock = RawSocket::new_mgmt().unwrap();
         sock.bind_mgmt().unwrap();
-
-        // FIXME
-        sock.send(&[0x01, 0x03, 0x0c, 0x00][..]).unwrap();
-
+        sock.send([0x01, 0x00, 0xff, 0xff, 0x00, 0x00].as_ref())
+            .unwrap();
         let mut buf = [0; 32];
         let len = sock.recv(&mut buf).unwrap();
         let buf = &buf[..len];
 
-        assert_eq!(buf[0], 0x04); // evt
-        assert_eq!(buf[1], 0x0e); // command complete
-        assert_eq!(buf[2], 0x04); // len
-                                  //assert_eq!(buf[3], 0x??); // ncmd
-        assert_eq!(buf[4], 0x03); // opcode[0]
-        assert_eq!(buf[5], 0x0c); // opcode[1]
-        assert_eq!(buf[6], 0x00); // status
+        assert_eq!(buf.len(), 12);
+        assert_eq!(u16::from_le_bytes([buf[0], buf[1]]), 0x0001);
+        assert_eq!(u16::from_le_bytes([buf[2], buf[3]]), 0xFFFF);
+        assert_eq!(u16::from_le_bytes([buf[4], buf[5]]), 0x0006);
+        assert_eq!(u16::from_le_bytes([buf[6], buf[7]]), 0x0001);
+        assert_eq!(buf[8], 0);
     }
-    */
+
+    #[tokio::test]
+    async fn test_l2() {
+        let sock = RawSocket::new_l2cap().unwrap();
+        sock.bind_l2cap(0x0004).unwrap();
+        sock.listen(0).unwrap();
+        sock.accept().ok();
+    }
 }

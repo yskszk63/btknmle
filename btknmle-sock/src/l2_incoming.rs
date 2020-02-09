@@ -40,4 +40,14 @@ mod tests {
         assert_send::<L2Incoming>();
         assert_sync::<L2Incoming>();
     }
+
+    #[tokio::test]
+    async fn test_incoming() {
+        use std::time::Duration;
+        use tokio::stream::StreamExt as _;
+
+        let sock = L2Listener::bind(0x0004).unwrap();
+        let stream = sock.incoming();
+        stream.timeout(Duration::from_millis(100)).next().await;
+    }
 }

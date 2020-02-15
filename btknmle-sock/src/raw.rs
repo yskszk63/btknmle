@@ -1,6 +1,7 @@
 use std::io;
 use std::mem::size_of;
 use std::os::unix::io::RawFd;
+use std::ptr;
 
 use mio::event::Evented;
 use mio::unix::EventedFd;
@@ -135,27 +136,17 @@ impl RawSocket {
     }
 
     pub(crate) fn accept(&self) -> io::Result<RawSocket> {
-        let mut addr = socketaddr_l2::default();
-        let mut len = size_of::<socketaddr_l2>() as libc::socklen_t;
         let r = unsafe {
-            libc::accept(
+            libc::accept4(
                 self.0,
-                &mut addr as *mut _ as *mut libc::sockaddr,
-                &mut len as *mut _,
+                ptr::null_mut() as *mut libc::sockaddr,
+                ptr::null_mut() as *mut _,
+                libc::SOCK_NONBLOCK | libc::SOCK_CLOEXEC,
             )
         };
         if r < 0 {
             Err(io::Error::last_os_error())
         } else {
-            unsafe {
-                let n = libc::fcntl(r, libc::F_GETFL);
-                if n < 0 {
-                    return Err(io::Error::last_os_error());
-                }
-                if libc::fcntl(r, libc::F_SETFL, n | libc::O_NONBLOCK) < 0 {
-                    return Err(io::Error::last_os_error());
-                }
-            }
             Ok(RawSocket(r))
         }
     }

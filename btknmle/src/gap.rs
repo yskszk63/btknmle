@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::path::Path;
 
 use futures::stream::StreamExt as _;
@@ -7,7 +8,8 @@ use tokio::sync::mpsc;
 use btknmle_keydb::KeyDb;
 use btknmle_server::mgmt;
 use btknmle_server::mgmt::model::{
-    AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent, SecureConnections,
+    Action, Address, AddressType, AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent,
+    SecureConnections,
 };
 use btknmle_server::mgmt::MgmtCodec;
 use btknmle_server::sock::{Framed, MgmtSocket};
@@ -139,10 +141,24 @@ where
     )
     .await?;
 
-    mgmt.powered(true).await?;
-
-    mgmt.load_irks(db.load_irks().await?).await?;
+    let irks = db.load_irks().await?;
+    mgmt.remove_device(
+        Address::try_from("00:00:00:00:00:00".to_string()).unwrap(),
+        AddressType::LePublic,
+    )
+    .await?;
+    for irk in &irks {
+        mgmt.add_device(
+            irk.address(),
+            irk.address_type(),
+            Action::AllowIncommingConnection,
+        )
+        .await?;
+    }
+    mgmt.load_irks(irks).await?;
     mgmt.load_ltks(db.load_ltks().await?).await?;
+
+    mgmt.powered(true).await?;
 
     Ok(())
 }

@@ -10,9 +10,9 @@ use log::debug;
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::pkt::mgmt::{
-    self, Address, AddressType, Advertising, AdvertisingFlags, CurrentSettings, Discoverable,
-    IdentityResolvingKey, IoCapability, LongTermKey, ManagementCommand, MgmtCommand, MgmtEvent,
-    SecureConnections, SetLocalNameCommandResult, Status,
+    self, Action, Address, AddressType, Advertising, AdvertisingFlags, CurrentSettings,
+    Discoverable, IdentityResolvingKey, IoCapability, LongTermKey, ManagementCommand, MgmtCommand,
+    MgmtEvent, SecureConnections, SetLocalNameCommandResult, Status,
 };
 use crate::pkt::{Codec as _, CodecError};
 use crate::sock::{Framed, MgmtSocket};
@@ -250,6 +250,34 @@ where
     ) -> Result<(Address, AddressType), Error> {
         self.invoke(mgmt::UserPasskeyReplyCommand::new(
             self.index, addr, addr_type, passkey,
+        ))
+        .await
+    }
+
+    pub async fn add_device(
+        &mut self,
+        address: Address,
+        address_type: AddressType,
+        action: Action,
+    ) -> Result<(Address, AddressType), Error> {
+        self.invoke(mgmt::AddDeviceCommand::new(
+            self.index,
+            address,
+            address_type,
+            action,
+        ))
+        .await
+    }
+
+    pub async fn remove_device(
+        &mut self,
+        address: Address,
+        address_type: AddressType,
+    ) -> Result<(Address, AddressType), Error> {
+        self.invoke(mgmt::RemoveDeviceCommand::new(
+            self.index,
+            address,
+            address_type,
         ))
         .await
     }

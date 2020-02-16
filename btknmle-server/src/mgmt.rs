@@ -288,16 +288,15 @@ where
     {
         self.io.send(msg.into()).await?;
 
-        if let Some(evt) = self.io.next().await {
+        while let Some(evt) = self.io.next().await {
             let evt = evt?;
             match evt {
-                MgmtEvent::CommandCompleteEvent(evt) => Ok(I::parse_result(&mut evt.parameters())?),
-                MgmtEvent::CommandStatusEvent(evt) => Err(Error::CommandError(evt.status())),
-                evt => Err(Error::InvalidEvent(evt)),
+                MgmtEvent::CommandCompleteEvent(evt) => return Ok(I::parse_result(&mut evt.parameters())?),
+                MgmtEvent::CommandStatusEvent(evt) => return Err(Error::CommandError(evt.status())),
+                evt => self.pending.push_back(evt),
             }
-        } else {
-            Err(Error::InvalidState)
         }
+        Err(Error::InvalidState)
     }
 }
 
@@ -308,6 +307,10 @@ where
     type Item = Result<MgmtEvent, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.io).poll_next(cx)
+        if let Some(pending) = self.pending.pop_back() {
+            Poll::Ready(Some(Ok(pending)))
+        } else {
+            Pin::new(&mut self.io).poll_next(cx)
+        }
     }
 }

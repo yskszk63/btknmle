@@ -12,7 +12,7 @@ use tokio_util::codec::{Decoder, Encoder};
 use crate::pkt::mgmt::{
     self, Action, Address, AddressType, Advertising, AdvertisingFlags, CurrentSettings,
     Discoverable, IdentityResolvingKey, IoCapability, LongTermKey, ManagementCommand, MgmtCommand,
-    MgmtEvent, SecureConnections, SetLocalNameCommandResult, Status,
+    MgmtEvent, SecureConnections, SetLocalNameCommandResult, Status, ReadControllerInformationResult,
 };
 use crate::pkt::{Codec as _, CodecError};
 use crate::sock::{Framed, MgmtSocket};
@@ -278,6 +278,15 @@ where
             self.index,
             address,
             address_type,
+        ))
+        .await
+    }
+
+    pub async fn read_controller_information(
+        &mut self,
+    ) -> Result<ReadControllerInformationResult, Error> {
+        self.invoke(mgmt::ReadControllerInformationCommand::new(
+            self.index,
         ))
         .await
     }

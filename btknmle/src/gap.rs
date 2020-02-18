@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::path::Path;
 
 use futures::stream::StreamExt as _;
@@ -8,8 +7,8 @@ use tokio::sync::mpsc;
 use btknmle_keydb::KeyDb;
 use btknmle_server::mgmt;
 use btknmle_server::mgmt::model::{
-    Action, Address, AddressType, AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent,
-    SecureConnections,
+    AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent,
+    SecureConnections, Address,
 };
 use btknmle_server::mgmt::MgmtCodec;
 use btknmle_server::sock::{Framed, MgmtSocket};
@@ -109,7 +108,7 @@ impl Gap {
     }
 }
 
-async fn setup<IO>(mgmt: &mut mgmt::Mgmt<IO>, db: &mut KeyDb) -> Result<(), mgmt::Error>
+async fn setup<IO>(mgmt: &mut mgmt::Mgmt<IO>, db: &mut KeyDb) -> Result<Address, mgmt::Error>
 where
     IO: Sink<MgmtCommand, Error = mgmt::Error>
         + Stream<Item = Result<MgmtEvent, mgmt::Error>>
@@ -141,24 +140,11 @@ where
     )
     .await?;
 
-    let irks = db.load_irks().await?;
-    mgmt.remove_device(
-        Address::try_from("00:00:00:00:00:00".to_string()).unwrap(),
-        AddressType::LePublic,
-    )
-    .await?;
-    for irk in &irks {
-        mgmt.add_device(
-            irk.address(),
-            irk.address_type(),
-            Action::AllowIncommingConnection,
-        )
-        .await?;
-    }
-    mgmt.load_irks(irks).await?;
+    mgmt.load_irks(db.load_irks().await?).await?;
     mgmt.load_ltks(db.load_ltks().await?).await?;
 
     mgmt.powered(true).await?;
 
-    Ok(())
+    let info = mgmt.read_controller_information().await?;
+    Ok(info.address())
 }

@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::future::Future;
 use std::sync::Arc;
 
@@ -7,41 +6,44 @@ use futures::{Sink, Stream};
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 
-use btknmle_keydb::KeyDb;
 use crate::mgmt;
 use crate::mgmt::model::{
-    AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent,
-    SecureConnections, Address,
+    Address, AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent, SecureConnections,
 };
 use crate::mgmt::MgmtCodec;
 use crate::sock::{Framed, MgmtSocket};
+use crate::KeyStore;
 
 #[derive(Debug)]
-pub struct Gap<C, F> where F: Future<Output=String>, C: FnMut() -> F {
+pub struct Gap<K, C, F>
+where
+    F: Future<Output = String>,
+    C: FnMut() -> F,
+{
     mgmt: mgmt::Mgmt<Framed<MgmtSocket, MgmtCodec>>,
-    db: KeyDb,
+    keystore: K,
     passkey_callback: Arc<Mutex<C>>,
 }
 
-impl<C, F> Gap<C, F> where F: Future<Output=String> + Send, C: (FnMut() -> F) + Send + Sync + 'static {
-    pub async fn setup<P>(
+impl<K, C, F> Gap<K, C, F>
+where
+    F: Future<Output = String> + Send,
+    C: (FnMut() -> F) + Send + Sync + 'static,
+    K: KeyStore,
+{
+    pub async fn setup(
         devid: u16,
-        varfile: P,
+        mut keystore: K,
         passkey_callback: C,
-    ) -> Result<Self, mgmt::Error>
-    where
-        P: AsRef<Path>,
-    {
-        let varfile = varfile.as_ref().to_owned();
-        let mut db = KeyDb::new(varfile).await?;
+    ) -> Result<Self, mgmt::Error> {
         let mut mgmt = mgmt::Mgmt::new(devid).await?;
         let passkey_callback = Arc::new(Mutex::new(passkey_callback));
 
-        setup(&mut mgmt, &mut db).await?;
+        setup(&mut mgmt, &mut keystore).await?;
 
         Ok(Gap {
             mgmt,
-            db,
+            keystore,
             passkey_callback,
         })
     }
@@ -49,7 +51,7 @@ impl<C, F> Gap<C, F> where F: Future<Output=String> + Send, C: (FnMut() -> F) + 
     pub async fn run(self) -> Result<(), mgmt::Error> {
         let Self {
             mut mgmt,
-            mut db,
+            mut keystore,
             passkey_callback,
         } = self;
 
@@ -63,14 +65,14 @@ impl<C, F> Gap<C, F> where F: Future<Output=String> + Send, C: (FnMut() -> F) + 
                     if evt.store_hint() {
                         let key = evt.key();
                         log::debug!("{:?}", key);
-                        db.store_ltks(key.clone()).await?;
+                        keystore.store_ltks(key.clone()).await?;
                     }
                 }
                 MgmtEvent::NewIdentityResolvingKeyEvent(evt) => {
                     if evt.store_hint() {
                         let key = evt.key();
                         log::debug!("{:?}", key);
-                        db.store_irks(key.clone()).await?;
+                        keystore.store_irks(key.clone()).await?;
                     }
                 }
                 MgmtEvent::UserConfirmationRequestEvent(evt) => {
@@ -104,13 +106,14 @@ impl<C, F> Gap<C, F> where F: Future<Output=String> + Send, C: (FnMut() -> F) + 
     }
 }
 
-async fn setup<IO>(mgmt: &mut mgmt::Mgmt<IO>, db: &mut KeyDb) -> Result<Address, mgmt::Error>
+async fn setup<IO, K>(mgmt: &mut mgmt::Mgmt<IO>, keystore: &mut K) -> Result<Address, mgmt::Error>
 where
     IO: Sink<MgmtCommand, Error = mgmt::Error>
         + Stream<Item = Result<MgmtEvent, mgmt::Error>>
         + Unpin,
+    K: KeyStore,
 {
-    let local_irk = db.load_local_irk().await?;
+    let local_irk = keystore.load_local_irk().await?;
 
     mgmt.powered(false).await?;
     mgmt.low_energy(true).await?;
@@ -136,8 +139,8 @@ where
     )
     .await?;
 
-    mgmt.load_irks(db.load_irks().await?).await?;
-    mgmt.load_ltks(db.load_ltks().await?).await?;
+    mgmt.load_irks(keystore.load_irks().await?).await?;
+    mgmt.load_ltks(keystore.load_ltks().await?).await?;
 
     mgmt.powered(true).await?;
 

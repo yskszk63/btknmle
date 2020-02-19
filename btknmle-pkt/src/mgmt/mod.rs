@@ -27,6 +27,7 @@ pub use new_long_term_key_event::*;
 pub use new_settings_event::*;
 pub use new_signature_resolving_key_event::*;
 pub use passkey_notify_event::*;
+pub use read_controller_information_command::*;
 pub use remove_device_command::*;
 pub use set_advertising_command::*;
 pub use set_appearance_command::*;
@@ -46,7 +47,6 @@ pub use user_confirmation_reply_command::*;
 pub use user_confirmation_request_event::*;
 pub use user_passkey_reply_command::*;
 pub use user_passkey_request_event::*;
-pub use read_controller_information_command::*;
 
 mod add_advertising_command;
 mod add_device_command;
@@ -70,6 +70,7 @@ mod new_long_term_key_event;
 mod new_settings_event;
 mod new_signature_resolving_key_event;
 mod passkey_notify_event;
+mod read_controller_information_command;
 mod remove_device_command;
 mod set_advertising_command;
 mod set_appearance_command;
@@ -89,7 +90,6 @@ mod user_confirmation_reply_command;
 mod user_confirmation_request_event;
 mod user_passkey_reply_command;
 mod user_passkey_request_event;
-mod read_controller_information_command;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Code(u16);

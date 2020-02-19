@@ -12,7 +12,8 @@ use tokio_util::codec::{Decoder, Encoder};
 use crate::pkt::mgmt::{
     self, Action, Address, AddressType, Advertising, AdvertisingFlags, CurrentSettings,
     Discoverable, IdentityResolvingKey, IoCapability, LongTermKey, ManagementCommand, MgmtCommand,
-    MgmtEvent, SecureConnections, SetLocalNameCommandResult, Status, ReadControllerInformationResult,
+    MgmtEvent, ReadControllerInformationResult, SecureConnections, SetLocalNameCommandResult,
+    Status,
 };
 use crate::pkt::{Codec as _, CodecError};
 use crate::sock::{Framed, MgmtSocket};
@@ -285,10 +286,8 @@ where
     pub async fn read_controller_information(
         &mut self,
     ) -> Result<ReadControllerInformationResult, Error> {
-        self.invoke(mgmt::ReadControllerInformationCommand::new(
-            self.index,
-        ))
-        .await
+        self.invoke(mgmt::ReadControllerInformationCommand::new(self.index))
+            .await
     }
 
     async fn invoke<I, O>(&mut self, msg: I) -> Result<O, Error>
@@ -300,8 +299,12 @@ where
         while let Some(evt) = self.io.next().await {
             let evt = evt?;
             match evt {
-                MgmtEvent::CommandCompleteEvent(evt) => return Ok(I::parse_result(&mut evt.parameters())?),
-                MgmtEvent::CommandStatusEvent(evt) => return Err(Error::CommandError(evt.status())),
+                MgmtEvent::CommandCompleteEvent(evt) => {
+                    return Ok(I::parse_result(&mut evt.parameters())?)
+                }
+                MgmtEvent::CommandStatusEvent(evt) => {
+                    return Err(Error::CommandError(evt.status()))
+                }
                 evt => self.pending.push_back(evt),
             }
         }

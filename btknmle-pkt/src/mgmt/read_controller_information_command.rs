@@ -1,11 +1,11 @@
-use bytes::{Buf, BytesMut};
 use bytes::buf::BufExt as _;
+use bytes::{Buf, BytesMut};
 
+use super::Address;
 use super::CurrentSettings;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
 use super::{Codec, Result};
-use super::Address;
 
 #[derive(Debug)]
 pub struct ReadControllerInformationResult {
@@ -96,9 +96,7 @@ pub struct ReadControllerInformationCommand {
 
 impl ReadControllerInformationCommand {
     pub fn new(ctrl_idx: u16) -> Self {
-        Self {
-            ctrl_idx,
-        }
+        Self { ctrl_idx }
     }
 }
 

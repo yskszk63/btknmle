@@ -5,13 +5,13 @@ authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-tokio = { version="0.2", features=["macros", "sync"] }
+tokio = { version="0.2", features=["macros", "sync", "rt-core"] }
 tokio-util = { version="0.2", features=["codec"] }
 futures = "0.3"
 bytes = "0.5"
 bitflags = "1.2"
 failure = "0.1.6"
+async-trait = "0.1"
 btknmle-sock = { path="../btknmle-sock" }
 btknmle-pkt = { path="../btknmle-pkt" }
-btknmle-keydb = { path="../btknmle-keydb" }
 log = "0.4"

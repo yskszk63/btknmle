@@ -3,10 +3,11 @@
 use futures::future::TryFutureExt as _;
 use futures::stream::StreamExt as _;
 
-use btknmle_server::{gap, gatt};
+use btknmle::hogp;
 use btknmle::input::input_loop;
 use btknmle::input::PasskeyFilter;
-use btknmle::hogp;
+use btknmle_keydb::KeyDb;
+use btknmle_server::{gap, gatt};
 
 fn on_err(e: failure::Error) {
     log::error!("{}", e)
@@ -17,7 +18,7 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Err
 
     let gap = {
         let passkey_filter = passkey_filter.clone();
-        gap::Gap::setup(devid, varfile, move || {
+        gap::Gap::setup(devid, KeyDb::new(varfile).await?, move || {
             let passkey_filter = passkey_filter.clone();
             async move {
                 let mut buf = String::new();

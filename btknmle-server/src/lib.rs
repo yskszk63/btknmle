@@ -2,8 +2,10 @@
 
 use btknmle_pkt as pkt;
 pub use btknmle_sock as sock;
+pub use keystore::KeyStore;
 
 mod att;
-pub mod gatt;
-pub mod mgmt;
 pub mod gap;
+pub mod gatt;
+pub mod keystore;
+pub mod mgmt;

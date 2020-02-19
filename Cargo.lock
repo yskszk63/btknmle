@@ -147,11 +147,10 @@ name = "btknmle-server"
 version = "0.1.0"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "btknmle-keydb 0.1.0",
  "btknmle-pkt 0.1.0",
  "btknmle-sock 0.1.0",
  "bytes 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "dotenv 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",

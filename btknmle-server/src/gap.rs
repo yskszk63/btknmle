@@ -1,32 +1,33 @@
 use std::path::Path;
+use std::future::Future;
+use std::sync::Arc;
 
 use futures::stream::StreamExt as _;
 use futures::{Sink, Stream};
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 
 use btknmle_keydb::KeyDb;
-use btknmle_server::mgmt;
-use btknmle_server::mgmt::model::{
+use crate::mgmt;
+use crate::mgmt::model::{
     AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent,
     SecureConnections, Address,
 };
-use btknmle_server::mgmt::MgmtCodec;
-use btknmle_server::sock::{Framed, MgmtSocket};
-
-use crate::input::PasskeyFilter;
+use crate::mgmt::MgmtCodec;
+use crate::sock::{Framed, MgmtSocket};
 
 #[derive(Debug)]
-pub struct Gap {
+pub struct Gap<C, F> where F: Future<Output=String>, C: FnMut() -> F {
     mgmt: mgmt::Mgmt<Framed<MgmtSocket, MgmtCodec>>,
     db: KeyDb,
-    passkey_filter: PasskeyFilter,
+    passkey_callback: Arc<Mutex<C>>,
 }
 
-impl Gap {
+impl<C, F> Gap<C, F> where F: Future<Output=String> + Send, C: (FnMut() -> F) + Send + Sync + 'static {
     pub async fn setup<P>(
         devid: u16,
         varfile: P,
-        passkey_filter: PasskeyFilter,
+        passkey_callback: C,
     ) -> Result<Self, mgmt::Error>
     where
         P: AsRef<Path>,
@@ -34,13 +35,14 @@ impl Gap {
         let varfile = varfile.as_ref().to_owned();
         let mut db = KeyDb::new(varfile).await?;
         let mut mgmt = mgmt::Mgmt::new(devid).await?;
+        let passkey_callback = Arc::new(Mutex::new(passkey_callback));
 
         setup(&mut mgmt, &mut db).await?;
 
         Ok(Gap {
             mgmt,
             db,
-            passkey_filter,
+            passkey_callback,
         })
     }
 
@@ -48,7 +50,7 @@ impl Gap {
         let Self {
             mut mgmt,
             mut db,
-            passkey_filter,
+            passkey_callback,
         } = self;
 
         let (tx, mut rx) = mpsc::channel(1);
@@ -78,19 +80,13 @@ impl Gap {
                 }
                 MgmtEvent::UserPasskeyRequestEvent(evt) => {
                     log::debug!("{:?}", evt);
-                    let passkey_filter = passkey_filter.clone();
                     let mut tx = tx.clone();
+                    let passkey_callback = passkey_callback.clone();
                     tokio::spawn(async move {
-                        let mut buf = String::new();
-                        let mut rx = passkey_filter.subscribe();
-                        while let Ok(key) = rx.recv().await {
-                            match key {
-                                b @ b'0' ..= b'9' => buf.push(b.into()),
-                                b'\n' => break,
-                                b => log::debug!("ignore {}", b),
-                            }
-                        }
-                        let passkey = buf.parse().unwrap();
+                        use std::ops::DerefMut;
+                        let mut passkey_callback = passkey_callback.lock().await;
+                        let passkey = (passkey_callback.deref_mut())().await;
+                        let passkey = passkey.parse().unwrap();
                         tx.send((evt.address(), evt.address_type(), passkey)).await.unwrap();
                     });
                 }

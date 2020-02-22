@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::num::NonZeroU8;
 
 use bytes::BytesMut;
 use failure::Fail;
@@ -239,6 +240,16 @@ where
     ) -> Result<u8, Error> {
         self.invoke(mgmt::AddAdvertisingCommand::new(
             self.index, instance, flags, duration, timeout, adv_data, scan_rsp,
+        ))
+        .await
+    }
+
+    pub async fn remove_advertising(
+        &mut self,
+        instance: Option<NonZeroU8>,
+    ) -> Result<u8, Error> {
+        self.invoke(mgmt::RemoveAdvertisingCommand::new(
+            self.index, instance,
         ))
         .await
     }

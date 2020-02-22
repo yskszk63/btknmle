@@ -92,6 +92,24 @@ where
                         tx.send((evt.address(), evt.address_type(), passkey)).await.unwrap();
                     });
                 }
+                MgmtEvent::DeviceConnectedEvent(..) => {
+                    mgmt.remove_advertising(None).await?;
+                }
+                MgmtEvent::DeviceDisconnectedEvent(..) => {
+                    mgmt.add_advertising(
+                        1,
+                        AdvertisingFlags::SWITCH_INTO_CONNECTABLE_MODE
+                            | AdvertisingFlags::ADVERTISE_AS_DISCOVERABLE
+                            | AdvertisingFlags::ADD_FLAGS_FIELD_TO_ADV_DATA
+                            | AdvertisingFlags::ADD_APPEARANCE_FIELD_TO_SCAN_RSP
+                            | AdvertisingFlags::ADD_LOCAL_NAME_IN_SCAN_RSP,
+                        0,
+                        0,
+                        [].as_ref(),
+                        [0x07, 0x03, 0x0f, 0x18, 0x0a, 0x18, 0x12, 0x18].as_ref(), // complete uuid16 [180f 180a 1812]
+                    )
+                    .await?;
+                }
                 evt => log::debug!("UNHANDLED {:?}", evt),
             }
                 }
@@ -125,6 +143,11 @@ where
     mgmt.bondable(true).await?;
     mgmt.connectable(false).await?;
 
+    mgmt.load_irks(keystore.load_irks().await?).await?;
+    mgmt.load_ltks(keystore.load_ltks().await?).await?;
+
+    mgmt.powered(true).await?;
+
     mgmt.add_advertising(
         1,
         AdvertisingFlags::SWITCH_INTO_CONNECTABLE_MODE
@@ -138,11 +161,6 @@ where
         [0x07, 0x03, 0x0f, 0x18, 0x0a, 0x18, 0x12, 0x18].as_ref(), // complete uuid16 [180f 180a 1812]
     )
     .await?;
-
-    mgmt.load_irks(keystore.load_irks().await?).await?;
-    mgmt.load_ltks(keystore.load_ltks().await?).await?;
-
-    mgmt.powered(true).await?;
 
     let info = mgmt.read_controller_information().await?;
     Ok(info.address())

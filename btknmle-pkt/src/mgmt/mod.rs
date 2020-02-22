@@ -47,6 +47,7 @@ pub use user_confirmation_reply_command::*;
 pub use user_confirmation_request_event::*;
 pub use user_passkey_reply_command::*;
 pub use user_passkey_request_event::*;
+pub use remove_advertising_command::*;
 
 mod add_advertising_command;
 mod add_device_command;
@@ -90,6 +91,7 @@ mod user_confirmation_reply_command;
 mod user_confirmation_request_event;
 mod user_passkey_reply_command;
 mod user_passkey_request_event;
+mod remove_advertising_command;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Code(u16);
@@ -198,6 +200,7 @@ pub enum MgmtCommand {
     AddDeviceCommand(AddDeviceCommand),
     RemoveDeviceCommand(RemoveDeviceCommand),
     ReadControllerInformationCommand(ReadControllerInformationCommand),
+    RemoveAdvertisingCommand(RemoveAdvertisingCommand),
 }
 
 impl fmt::Debug for MgmtCommand {
@@ -224,6 +227,7 @@ impl fmt::Debug for MgmtCommand {
             MgmtCommand::AddDeviceCommand(v) => v.fmt(f),
             MgmtCommand::RemoveDeviceCommand(v) => v.fmt(f),
             MgmtCommand::ReadControllerInformationCommand(v) => v.fmt(f),
+            MgmtCommand::RemoveAdvertisingCommand(v) => v.fmt(f),
         }
     }
 }
@@ -252,6 +256,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::AddDeviceCommand(v) => v.code(),
             MgmtCommand::RemoveDeviceCommand(v) => v.code(),
             MgmtCommand::ReadControllerInformationCommand(v) => v.code(),
+            MgmtCommand::RemoveAdvertisingCommand(v) => v.code(),
         };
         buf.put_u16_le(code.into());
 
@@ -278,6 +283,7 @@ impl Codec for MgmtCommand {
             MgmtCommand::AddDeviceCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::RemoveDeviceCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::ReadControllerInformationCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::RemoveAdvertisingCommand(v) => v.write_to(&mut b)?,
         };
         let b = b.freeze();
 
@@ -304,6 +310,7 @@ impl Codec for MgmtCommand {
                 MgmtCommand::AddDeviceCommand(v) => v.controller_index(),
                 MgmtCommand::RemoveDeviceCommand(v) => v.controller_index(),
                 MgmtCommand::ReadControllerInformationCommand(v) => v.controller_index(),
+                MgmtCommand::RemoveAdvertisingCommand(v) => v.controller_index(),
             }
             .into(),
         );

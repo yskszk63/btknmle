@@ -97,11 +97,20 @@ impl RawSocket {
 
     pub(crate) fn set_sockopt_l2cap_security(&self, level: u8) -> io::Result<()> {
         let sock = self.0;
-        let value = bt_security { level, ..Default::default() };
+        let value = bt_security {
+            level,
+            ..Default::default()
+        };
         let len = size_of::<bt_security>() as libc::c_uint;
 
         let r = unsafe {
-            libc::setsockopt(sock, SOL_BLUETOOTH, BT_SECURITY, &value as *const _ as *const libc::c_void, len)
+            libc::setsockopt(
+                sock,
+                SOL_BLUETOOTH,
+                BT_SECURITY,
+                &value as *const _ as *const libc::c_void,
+                len,
+            )
         };
         if r < 0 {
             Err(io::Error::last_os_error())

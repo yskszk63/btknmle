@@ -13,15 +13,9 @@ pub struct RemoveAdvertisingCommand {
 }
 
 impl RemoveAdvertisingCommand {
-    pub fn new(
-        ctrl_idx: u16,
-        instance: Option<NonZeroU8>,
-    ) -> Self {
+    pub fn new(ctrl_idx: u16, instance: Option<NonZeroU8>) -> Self {
         let instance = instance.map(NonZeroU8::get).unwrap_or_else(|| 0);
-        Self {
-            ctrl_idx,
-            instance,
-        }
+        Self { ctrl_idx, instance }
     }
 }
 

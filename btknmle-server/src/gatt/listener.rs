@@ -5,8 +5,8 @@ use futures::{ready, Stream};
 
 use super::{Database, GattConnection, Result};
 use crate::att::AttCodec;
-use crate::sock::{Framed, L2Incoming, L2Listener, L2Stream};
 pub use crate::sock::AttSecurityLevel;
+use crate::sock::{Framed, L2Incoming, L2Listener, L2Stream};
 
 #[derive(Debug)]
 pub struct GattListener {

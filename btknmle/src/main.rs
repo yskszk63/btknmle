@@ -19,21 +19,28 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Err
     let gap = {
         let passkey_filter = passkey_filter.clone();
         let adv_uuid = gap::Uuid16::from(0x1812).into();
-        gap::Gap::setup(devid, adv_uuid, "btknmle", "btknmle", KeyDb::new(varfile).await?, move || {
-            let passkey_filter = passkey_filter.clone();
-            async move {
-                let mut buf = String::new();
-                let mut rx = passkey_filter.subscribe();
-                while let Ok(key) = rx.recv().await {
-                    match key {
-                        b @ b'0'..=b'9' => buf.push(b.into()),
-                        b'\n' => break,
-                        b => log::debug!("ignore {}", b),
+        gap::Gap::setup(
+            devid,
+            adv_uuid,
+            "btknmle",
+            "btknmle",
+            KeyDb::new(varfile).await?,
+            move || {
+                let passkey_filter = passkey_filter.clone();
+                async move {
+                    let mut buf = String::new();
+                    let mut rx = passkey_filter.subscribe();
+                    while let Ok(key) = rx.recv().await {
+                        match key {
+                            b @ b'0'..=b'9' => buf.push(b.into()),
+                            b'\n' => break,
+                            b => log::debug!("ignore {}", b),
+                        }
                     }
+                    buf
                 }
-                buf
-            }
-        })
+            },
+        )
         .await?
     };
     let mut gap_working = tokio::spawn(gap.run());

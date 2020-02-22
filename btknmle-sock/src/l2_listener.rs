@@ -22,11 +22,14 @@ pub struct L2Listener {
 
 impl L2Listener {
     pub fn bind_att(level: AttSecurityLevel) -> io::Result<Self> {
-        Self::bind(0x0004, match level {
-            AttSecurityLevel::NeedsBoundMitm => raw::BT_SECURITY_HIGH,
-            AttSecurityLevel::NeedsBound => raw::BT_SECURITY_MEDIUM,
-            AttSecurityLevel::None => raw::BT_SECURITY_LOW,
-        })
+        Self::bind(
+            0x0004,
+            match level {
+                AttSecurityLevel::NeedsBoundMitm => raw::BT_SECURITY_HIGH,
+                AttSecurityLevel::NeedsBound => raw::BT_SECURITY_MEDIUM,
+                AttSecurityLevel::None => raw::BT_SECURITY_LOW,
+            },
+        )
     }
 
     pub(crate) fn bind(cid: u16, level: u8) -> io::Result<Self> {

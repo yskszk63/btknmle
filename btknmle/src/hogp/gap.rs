@@ -17,7 +17,7 @@ pub(crate) fn add(builder: &mut DatabaseBuilder) {
         Uuid::Uuid16(0x2A01),
         vec![0xC2, 0x03],
     ); // HID mouse
-    // Resolvable Private Address Only
+       // Resolvable Private Address Only
     builder.with_characteristic(
         CharacteristicProperties::READ,
         Uuid::Uuid16(0x2AC9),

@@ -54,11 +54,18 @@ where
                 scan_data.push(0x03);
                 scan_data.extend(uuid);
                 scan_data
-            },
+            }
             _ => todo!(),
         };
 
-        setup(&mut mgmt, &mut keystore, &scan_data, local_name, short_local_name).await?;
+        setup(
+            &mut mgmt,
+            &mut keystore,
+            &scan_data,
+            local_name,
+            short_local_name,
+        )
+        .await?;
 
         Ok(Gap {
             mgmt,
@@ -145,7 +152,13 @@ where
     }
 }
 
-async fn setup<IO, K>(mgmt: &mut mgmt::Mgmt<IO>, keystore: &mut K, scan_data: &[u8], local_name: &str, short_local_name: &str) -> Result<Address, mgmt::Error>
+async fn setup<IO, K>(
+    mgmt: &mut mgmt::Mgmt<IO>,
+    keystore: &mut K,
+    scan_data: &[u8],
+    local_name: &str,
+    short_local_name: &str,
+) -> Result<Address, mgmt::Error>
 where
     IO: Sink<MgmtCommand, Error = mgmt::Error>
         + Stream<Item = Result<MgmtEvent, mgmt::Error>>

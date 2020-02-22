@@ -84,14 +84,6 @@ fn gen(read: &mut impl io::Read, w: &mut impl io::Write) -> io::Result<()> {
     writeln!(w, r#"}}"#)?;
     writeln!(w, r#"}}"#)?;
 
-    writeln!(w, r#""#)?;
-    writeln!(w, r#""#)?;
-    writeln!(w, r#""#)?;
-    writeln!(w, r#""#)?;
-    writeln!(w, r#""#)?;
-    writeln!(w, r#""#)?;
-    writeln!(w, r#""#)?;
-
     Ok(())
 }
 

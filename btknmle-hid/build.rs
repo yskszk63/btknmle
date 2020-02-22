@@ -103,6 +103,5 @@ fn main() {
 
     gen(&mut input, &mut genrs).unwrap();
 
-    println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/keyboard_usage_id.txt");
 }

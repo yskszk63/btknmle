@@ -5,8 +5,8 @@ use futures::{ready, Stream};
 
 use super::{Database, GattConnection, Result};
 use crate::att::AttCodec;
-use crate::pkt::att::ATT_CID;
 use crate::sock::{Framed, L2Incoming, L2Listener, L2Stream};
+pub use crate::sock::AttSecurityLevel;
 
 #[derive(Debug)]
 pub struct GattListener {
@@ -15,8 +15,8 @@ pub struct GattListener {
 }
 
 impl GattListener {
-    pub fn new(db: Database) -> Result<Self> {
-        let listener = L2Listener::bind(ATT_CID)?;
+    pub fn new(db: Database, sec_level: AttSecurityLevel) -> Result<Self> {
+        let listener = L2Listener::bind_att(sec_level)?;
         let io = listener.incoming();
         Ok(Self { io, db })
     }

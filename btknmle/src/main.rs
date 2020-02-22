@@ -39,7 +39,7 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Err
     let mut gap_working = tokio::spawn(gap.run());
 
     let (db, kbd, mouse) = hogp::new();
-    let mut listener = gatt::GattListener::new(db)?;
+    let mut listener = gatt::GattListener::new(db, gatt::AttSecurityLevel::NeedsBoundMitm)?;
 
     loop {
         tokio::select! {

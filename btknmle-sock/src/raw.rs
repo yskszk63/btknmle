@@ -25,6 +25,13 @@ struct socketaddr_l2 {
     l2_bdaddr_type: u8,
 }
 
+#[repr(C)]
+#[derive(Debug, Default)]
+struct bt_security {
+    level: u8,
+    key_size: u8,
+}
+
 const BTPROTO_L2CAP: libc::c_int = 0;
 const BTPROTO_HCI: libc::c_int = 1;
 //const BTPROTO_SCO: libc::c_int = 2;
@@ -45,6 +52,14 @@ const HCI_CHANNEL_CONTROL: libc::c_ushort = 3;
 //const BDADDR_BREDR: u8 = 0x00;
 const BDADDR_LE_PUBLIC: u8 = 0x01;
 //const BDADDR_LE_RANDOM: u8 = 0x02;
+
+const SOL_BLUETOOTH: libc::c_int = 274;
+const BT_SECURITY: libc::c_int = 4;
+//pub(crate) const BT_SECURITY_SDP: u8 = 0;
+pub(crate) const BT_SECURITY_LOW: u8 = 1;
+pub(crate) const BT_SECURITY_MEDIUM: u8 = 2;
+pub(crate) const BT_SECURITY_HIGH: u8 = 3;
+//pub(crate) const BT_SECURITY_FIPS: u8 = 4;
 
 #[derive(Debug)]
 pub(crate) struct RawSocket(RawFd);
@@ -77,6 +92,21 @@ impl RawSocket {
             Err(io::Error::last_os_error())
         } else {
             Ok(Self(r as RawFd))
+        }
+    }
+
+    pub(crate) fn set_sockopt_l2cap_security(&self, level: u8) -> io::Result<()> {
+        let sock = self.0;
+        let value = bt_security { level, ..Default::default() };
+        let len = size_of::<bt_security>() as libc::c_uint;
+
+        let r = unsafe {
+            libc::setsockopt(sock, SOL_BLUETOOTH, BT_SECURITY, &value as *const _ as *const libc::c_void, len)
+        };
+        if r < 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(())
         }
     }
 

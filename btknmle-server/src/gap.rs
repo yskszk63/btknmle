@@ -1,10 +1,13 @@
 use std::future::Future;
 use std::sync::Arc;
 
+use bytes::Bytes;
 use futures::stream::StreamExt as _;
 use futures::{Sink, Stream};
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
+
+pub use btknmle_pkt::att::{Uuid, Uuid16};
 
 use crate::mgmt;
 use crate::mgmt::model::{
@@ -23,6 +26,7 @@ where
     mgmt: mgmt::Mgmt<Framed<MgmtSocket, MgmtCodec>>,
     keystore: K,
     passkey_callback: Arc<Mutex<C>>,
+    scan_data: Vec<u8>,
 }
 
 impl<K, C, F> Gap<K, C, F>
@@ -33,18 +37,34 @@ where
 {
     pub async fn setup(
         devid: u16,
+        adv_uuid: Uuid,
+        local_name: &str,
+        short_local_name: &str,
         mut keystore: K,
         passkey_callback: C,
     ) -> Result<Self, mgmt::Error> {
         let mut mgmt = mgmt::Mgmt::new(devid).await?;
         let passkey_callback = Arc::new(Mutex::new(passkey_callback));
 
-        setup(&mut mgmt, &mut keystore).await?;
+        let scan_data = match adv_uuid {
+            Uuid::Uuid16(uuid) => {
+                let uuid = Bytes::from(Uuid16::from(uuid));
+                let mut scan_data = vec![];
+                scan_data.push((uuid.len() + 1) as u8);
+                scan_data.push(0x03);
+                scan_data.extend(uuid);
+                scan_data
+            },
+            _ => todo!(),
+        };
+
+        setup(&mut mgmt, &mut keystore, &scan_data, local_name, short_local_name).await?;
 
         Ok(Gap {
             mgmt,
             keystore,
             passkey_callback,
+            scan_data,
         })
     }
 
@@ -53,6 +73,7 @@ where
             mut mgmt,
             mut keystore,
             passkey_callback,
+            scan_data,
         } = self;
 
         let (tx, mut rx) = mpsc::channel(1);
@@ -106,7 +127,7 @@ where
                         0,
                         0,
                         [].as_ref(),
-                        [0x07, 0x03, 0x0f, 0x18, 0x0a, 0x18, 0x12, 0x18].as_ref(), // complete uuid16 [180f 180a 1812]
+                        scan_data.as_ref(),
                     )
                     .await?;
                 }
@@ -124,7 +145,7 @@ where
     }
 }
 
-async fn setup<IO, K>(mgmt: &mut mgmt::Mgmt<IO>, keystore: &mut K) -> Result<Address, mgmt::Error>
+async fn setup<IO, K>(mgmt: &mut mgmt::Mgmt<IO>, keystore: &mut K, scan_data: &[u8], local_name: &str, short_local_name: &str) -> Result<Address, mgmt::Error>
 where
     IO: Sink<MgmtCommand, Error = mgmt::Error>
         + Stream<Item = Result<MgmtEvent, mgmt::Error>>
@@ -132,6 +153,8 @@ where
     K: KeyStore,
 {
     let local_irk = keystore.load_local_irk().await?;
+    let irks = keystore.load_irks().await?;
+    let ltks = keystore.load_ltks().await?;
 
     mgmt.powered(false).await?;
     mgmt.low_energy(true).await?;
@@ -139,12 +162,12 @@ where
     mgmt.secure_connections(SecureConnections::Enabled).await?;
     mgmt.io_capability(IoCapability::KeyboardOnly).await?;
     mgmt.privacy(true, local_irk).await?;
-    mgmt.local_name("btknmle", "btknmle").await?;
+    mgmt.local_name(local_name, short_local_name).await?;
     mgmt.bondable(true).await?;
     mgmt.connectable(false).await?;
 
-    mgmt.load_irks(keystore.load_irks().await?).await?;
-    mgmt.load_ltks(keystore.load_ltks().await?).await?;
+    mgmt.load_irks(irks).await?;
+    mgmt.load_ltks(ltks).await?;
 
     mgmt.powered(true).await?;
 
@@ -158,7 +181,7 @@ where
         0,
         0,
         [].as_ref(),
-        [0x07, 0x03, 0x0f, 0x18, 0x0a, 0x18, 0x12, 0x18].as_ref(), // complete uuid16 [180f 180a 1812]
+        scan_data.as_ref(),
     )
     .await?;
 

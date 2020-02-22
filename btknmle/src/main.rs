@@ -18,7 +18,8 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Err
 
     let gap = {
         let passkey_filter = passkey_filter.clone();
-        gap::Gap::setup(devid, KeyDb::new(varfile).await?, move || {
+        let adv_uuid = gap::Uuid16::from(0x1812).into();
+        gap::Gap::setup(devid, adv_uuid, "btknmle", "btknmle", KeyDb::new(varfile).await?, move || {
             let passkey_filter = passkey_filter.clone();
             async move {
                 let mut buf = String::new();

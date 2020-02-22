@@ -10,8 +10,8 @@ mod hids;
 pub fn new() -> (Database, Handle, Handle) {
     let mut builder = Database::builder();
 
-    gatt::add(&mut builder);
     gap::add(&mut builder);
+    gatt::add(&mut builder);
     dis::add(&mut builder);
     bas::add(&mut builder);
     let (kbd, mouse) = hids::add(&mut builder);

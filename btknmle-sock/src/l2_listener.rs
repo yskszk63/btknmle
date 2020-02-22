@@ -6,7 +6,14 @@ use tokio::io::PollEvented;
 
 use crate::l2_incoming::L2Incoming;
 use crate::l2_stream::L2Stream;
-use crate::raw::RawSocket;
+use crate::raw::{self, RawSocket};
+
+#[derive(Debug)]
+pub enum AttSecurityLevel {
+    NeedsBoundMitm,
+    NeedsBound,
+    None,
+}
 
 #[derive(Debug)]
 pub struct L2Listener {
@@ -14,8 +21,20 @@ pub struct L2Listener {
 }
 
 impl L2Listener {
-    pub fn bind(cid: u16) -> io::Result<Self> {
+    pub fn bind_att(level: AttSecurityLevel) -> io::Result<Self> {
+        Self::bind(
+            0x0004,
+            match level {
+                AttSecurityLevel::NeedsBoundMitm => raw::BT_SECURITY_HIGH,
+                AttSecurityLevel::NeedsBound => raw::BT_SECURITY_MEDIUM,
+                AttSecurityLevel::None => raw::BT_SECURITY_LOW,
+            },
+        )
+    }
+
+    pub(crate) fn bind(cid: u16, level: u8) -> io::Result<Self> {
         let inner = RawSocket::new_l2cap()?;
+        inner.set_sockopt_l2cap_security(level)?;
         inner.bind_l2cap(cid)?;
         inner.listen(1)?;
         Ok(Self {
@@ -57,6 +76,6 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_l2() {
-        L2Listener::bind(0x0004).unwrap();
+        L2Listener::bind(0x0004, raw::BT_SECURITY_LOW).unwrap();
     }
 }

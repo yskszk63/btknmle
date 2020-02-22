@@ -42,8 +42,6 @@ mod read_response;
 mod write_request;
 mod write_response;
 
-pub const ATT_CID: u16 = 0x0004;
-
 trait AttItem: Codec + Into<Att> {
     const OPCODE: u8;
 }

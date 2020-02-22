@@ -6,6 +6,7 @@ use bytes::{Buf, BufMut as _, BytesMut};
 use super::{Codec, CodecError, Result};
 
 pub use add_advertising_command::*;
+pub use add_device_command::*;
 pub use address::*;
 pub use address_type::*;
 pub use advertising_flags::*;
@@ -16,14 +17,19 @@ pub use current_settings::*;
 pub use device_connected_event::*;
 pub use device_disconnected_event::*;
 pub use device_found_event::*;
+pub use discovering_event::*;
 pub use extended_controller_information_changed_event::*;
 pub use key::*;
 pub use load_identity_resolving_keys_command::*;
 pub use load_long_term_keys_command::*;
 pub use new_identity_resolving_key_event::*;
 pub use new_long_term_key_event::*;
+pub use new_settings_event::*;
 pub use new_signature_resolving_key_event::*;
 pub use passkey_notify_event::*;
+pub use read_controller_information_command::*;
+pub use remove_advertising_command::*;
+pub use remove_device_command::*;
 pub use set_advertising_command::*;
 pub use set_appearance_command::*;
 pub use set_bondable_command::*;
@@ -44,6 +50,7 @@ pub use user_passkey_reply_command::*;
 pub use user_passkey_request_event::*;
 
 mod add_advertising_command;
+mod add_device_command;
 mod address;
 mod address_type;
 mod advertising_flags;
@@ -54,14 +61,19 @@ mod current_settings;
 mod device_connected_event;
 mod device_disconnected_event;
 mod device_found_event;
+mod discovering_event;
 mod extended_controller_information_changed_event;
 mod key;
 mod load_identity_resolving_keys_command;
 mod load_long_term_keys_command;
 mod new_identity_resolving_key_event;
 mod new_long_term_key_event;
+mod new_settings_event;
 mod new_signature_resolving_key_event;
 mod passkey_notify_event;
+mod read_controller_information_command;
+mod remove_advertising_command;
+mod remove_device_command;
 mod set_advertising_command;
 mod set_appearance_command;
 mod set_bondable_command;
@@ -185,6 +197,10 @@ pub enum MgmtCommand {
     SetAppearanceCommand(SetAppearanceCommand),
     AddAdvertisingCommand(AddAdvertisingCommand),
     UserPasskeyReplyCommand(UserPasskeyReplyCommand),
+    AddDeviceCommand(AddDeviceCommand),
+    RemoveDeviceCommand(RemoveDeviceCommand),
+    ReadControllerInformationCommand(ReadControllerInformationCommand),
+    RemoveAdvertisingCommand(RemoveAdvertisingCommand),
 }
 
 impl fmt::Debug for MgmtCommand {
@@ -208,6 +224,10 @@ impl fmt::Debug for MgmtCommand {
             MgmtCommand::SetAppearanceCommand(v) => v.fmt(f),
             MgmtCommand::AddAdvertisingCommand(v) => v.fmt(f),
             MgmtCommand::UserPasskeyReplyCommand(v) => v.fmt(f),
+            MgmtCommand::AddDeviceCommand(v) => v.fmt(f),
+            MgmtCommand::RemoveDeviceCommand(v) => v.fmt(f),
+            MgmtCommand::ReadControllerInformationCommand(v) => v.fmt(f),
+            MgmtCommand::RemoveAdvertisingCommand(v) => v.fmt(f),
         }
     }
 }
@@ -233,6 +253,10 @@ impl Codec for MgmtCommand {
             MgmtCommand::SetAppearanceCommand(v) => v.code(),
             MgmtCommand::AddAdvertisingCommand(v) => v.code(),
             MgmtCommand::UserPasskeyReplyCommand(v) => v.code(),
+            MgmtCommand::AddDeviceCommand(v) => v.code(),
+            MgmtCommand::RemoveDeviceCommand(v) => v.code(),
+            MgmtCommand::ReadControllerInformationCommand(v) => v.code(),
+            MgmtCommand::RemoveAdvertisingCommand(v) => v.code(),
         };
         buf.put_u16_le(code.into());
 
@@ -256,6 +280,10 @@ impl Codec for MgmtCommand {
             MgmtCommand::SetAppearanceCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::AddAdvertisingCommand(v) => v.write_to(&mut b)?,
             MgmtCommand::UserPasskeyReplyCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::AddDeviceCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::RemoveDeviceCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::ReadControllerInformationCommand(v) => v.write_to(&mut b)?,
+            MgmtCommand::RemoveAdvertisingCommand(v) => v.write_to(&mut b)?,
         };
         let b = b.freeze();
 
@@ -279,6 +307,10 @@ impl Codec for MgmtCommand {
                 MgmtCommand::SetAppearanceCommand(v) => v.controller_index(),
                 MgmtCommand::AddAdvertisingCommand(v) => v.controller_index(),
                 MgmtCommand::UserPasskeyReplyCommand(v) => v.controller_index(),
+                MgmtCommand::AddDeviceCommand(v) => v.controller_index(),
+                MgmtCommand::RemoveDeviceCommand(v) => v.controller_index(),
+                MgmtCommand::ReadControllerInformationCommand(v) => v.controller_index(),
+                MgmtCommand::RemoveAdvertisingCommand(v) => v.controller_index(),
             }
             .into(),
         );
@@ -307,6 +339,8 @@ pub enum MgmtEvent {
     UserConfirmationRequestEvent(UserConfirmationRequestEvent),
     PasskeyNotifyEvent(PasskeyNotifyEvent),
     NewIdentityResolvingKeyEvent(NewIdentityResolvingKeyEvent),
+    NewSettingsEvent(NewSettingsEvent),
+    DiscoveringEvent(DiscoveringEvent),
 }
 
 impl fmt::Debug for MgmtEvent {
@@ -325,6 +359,8 @@ impl fmt::Debug for MgmtEvent {
             MgmtEvent::UserConfirmationRequestEvent(v) => v.fmt(f),
             MgmtEvent::PasskeyNotifyEvent(v) => v.fmt(f),
             MgmtEvent::NewIdentityResolvingKeyEvent(v) => v.fmt(f),
+            MgmtEvent::NewSettingsEvent(v) => v.fmt(f),
+            MgmtEvent::DiscoveringEvent(v) => v.fmt(f),
         }
     }
 }
@@ -376,6 +412,12 @@ impl Codec for MgmtEvent {
                 .with_controller_index(controller_index)
                 .into(),
             NewIdentityResolvingKeyEvent::CODE => NewIdentityResolvingKeyEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            NewSettingsEvent::CODE => NewSettingsEvent::parse(&mut data)?
+                .with_controller_index(controller_index)
+                .into(),
+            DiscoveringEvent::CODE => DiscoveringEvent::parse(&mut data)?
                 .with_controller_index(controller_index)
                 .into(),
             x => return Err(CodecError::UnknownMgmt(x.into())),

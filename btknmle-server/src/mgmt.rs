@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::io;
+use std::num::NonZeroU8;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -10,9 +11,10 @@ use log::debug;
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::pkt::mgmt::{
-    self, Address, AddressType, Advertising, AdvertisingFlags, CurrentSettings, Discoverable,
-    IdentityResolvingKey, IoCapability, LongTermKey, ManagementCommand, MgmtCommand, MgmtEvent,
-    SecureConnections, SetLocalNameCommandResult, Status,
+    self, Action, Address, AddressType, Advertising, AdvertisingFlags, CurrentSettings,
+    Discoverable, IdentityResolvingKey, IoCapability, LongTermKey, ManagementCommand, MgmtCommand,
+    MgmtEvent, ReadControllerInformationResult, SecureConnections, SetLocalNameCommandResult,
+    Status,
 };
 use crate::pkt::{Codec as _, CodecError};
 use crate::sock::{Framed, MgmtSocket};
@@ -242,6 +244,11 @@ where
         .await
     }
 
+    pub async fn remove_advertising(&mut self, instance: Option<NonZeroU8>) -> Result<u8, Error> {
+        self.invoke(mgmt::RemoveAdvertisingCommand::new(self.index, instance))
+            .await
+    }
+
     pub async fn user_passkey_reply(
         &mut self,
         addr: Address,
@@ -254,22 +261,60 @@ where
         .await
     }
 
+    pub async fn add_device(
+        &mut self,
+        address: Address,
+        address_type: AddressType,
+        action: Action,
+    ) -> Result<(Address, AddressType), Error> {
+        self.invoke(mgmt::AddDeviceCommand::new(
+            self.index,
+            address,
+            address_type,
+            action,
+        ))
+        .await
+    }
+
+    pub async fn remove_device(
+        &mut self,
+        address: Address,
+        address_type: AddressType,
+    ) -> Result<(Address, AddressType), Error> {
+        self.invoke(mgmt::RemoveDeviceCommand::new(
+            self.index,
+            address,
+            address_type,
+        ))
+        .await
+    }
+
+    pub async fn read_controller_information(
+        &mut self,
+    ) -> Result<ReadControllerInformationResult, Error> {
+        self.invoke(mgmt::ReadControllerInformationCommand::new(self.index))
+            .await
+    }
+
     async fn invoke<I, O>(&mut self, msg: I) -> Result<O, Error>
     where
         I: ManagementCommand<O>,
     {
         self.io.send(msg.into()).await?;
 
-        if let Some(evt) = self.io.next().await {
+        while let Some(evt) = self.io.next().await {
             let evt = evt?;
             match evt {
-                MgmtEvent::CommandCompleteEvent(evt) => Ok(I::parse_result(&mut evt.parameters())?),
-                MgmtEvent::CommandStatusEvent(evt) => Err(Error::CommandError(evt.status())),
-                evt => Err(Error::InvalidEvent(evt)),
+                MgmtEvent::CommandCompleteEvent(evt) => {
+                    return Ok(I::parse_result(&mut evt.parameters())?)
+                }
+                MgmtEvent::CommandStatusEvent(evt) => {
+                    return Err(Error::CommandError(evt.status()))
+                }
+                evt => self.pending.push_back(evt),
             }
-        } else {
-            Err(Error::InvalidState)
         }
+        Err(Error::InvalidState)
     }
 }
 
@@ -280,6 +325,10 @@ where
     type Item = Result<MgmtEvent, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.io).poll_next(cx)
+        if let Some(pending) = self.pending.pop_back() {
+            Poll::Ready(Some(Ok(pending)))
+        } else {
+            Pin::new(&mut self.io).poll_next(cx)
+        }
     }
 }

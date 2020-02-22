@@ -18,7 +18,7 @@ impl PasskeyFilter {
         Self { tx }
     }
 
-    pub(crate) fn subscribe(&self) -> broadcast::Receiver<u8> {
+    pub fn subscribe(&self) -> broadcast::Receiver<u8> {
         self.tx.subscribe()
     }
 

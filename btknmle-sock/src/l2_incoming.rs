@@ -47,7 +47,7 @@ mod tests {
         use std::time::Duration;
         use tokio::stream::StreamExt as _;
 
-        let sock = L2Listener::bind(0x0004).unwrap();
+        let sock = L2Listener::bind(0x0004, 0).unwrap();
         let stream = sock.incoming();
         stream.timeout(Duration::from_millis(100)).next().await;
     }

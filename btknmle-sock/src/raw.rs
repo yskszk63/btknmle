@@ -1,6 +1,7 @@
 use std::io;
 use std::mem::size_of;
 use std::os::unix::io::RawFd;
+use std::ptr;
 
 use mio::event::Evented;
 use mio::unix::EventedFd;
@@ -24,6 +25,13 @@ struct socketaddr_l2 {
     l2_bdaddr_type: u8,
 }
 
+#[repr(C)]
+#[derive(Debug, Default)]
+struct bt_security {
+    level: u8,
+    key_size: u8,
+}
+
 const BTPROTO_L2CAP: libc::c_int = 0;
 const BTPROTO_HCI: libc::c_int = 1;
 //const BTPROTO_SCO: libc::c_int = 2;
@@ -44,6 +52,14 @@ const HCI_CHANNEL_CONTROL: libc::c_ushort = 3;
 //const BDADDR_BREDR: u8 = 0x00;
 const BDADDR_LE_PUBLIC: u8 = 0x01;
 //const BDADDR_LE_RANDOM: u8 = 0x02;
+
+const SOL_BLUETOOTH: libc::c_int = 274;
+const BT_SECURITY: libc::c_int = 4;
+//pub(crate) const BT_SECURITY_SDP: u8 = 0;
+pub(crate) const BT_SECURITY_LOW: u8 = 1;
+pub(crate) const BT_SECURITY_MEDIUM: u8 = 2;
+pub(crate) const BT_SECURITY_HIGH: u8 = 3;
+//pub(crate) const BT_SECURITY_FIPS: u8 = 4;
 
 #[derive(Debug)]
 pub(crate) struct RawSocket(RawFd);
@@ -76,6 +92,30 @@ impl RawSocket {
             Err(io::Error::last_os_error())
         } else {
             Ok(Self(r as RawFd))
+        }
+    }
+
+    pub(crate) fn set_sockopt_l2cap_security(&self, level: u8) -> io::Result<()> {
+        let sock = self.0;
+        let value = bt_security {
+            level,
+            ..Default::default()
+        };
+        let len = size_of::<bt_security>() as libc::c_uint;
+
+        let r = unsafe {
+            libc::setsockopt(
+                sock,
+                SOL_BLUETOOTH,
+                BT_SECURITY,
+                &value as *const _ as *const libc::c_void,
+                len,
+            )
+        };
+        if r < 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(())
         }
     }
 
@@ -135,27 +175,17 @@ impl RawSocket {
     }
 
     pub(crate) fn accept(&self) -> io::Result<RawSocket> {
-        let mut addr = socketaddr_l2::default();
-        let mut len = size_of::<socketaddr_l2>() as libc::socklen_t;
         let r = unsafe {
-            libc::accept(
+            libc::accept4(
                 self.0,
-                &mut addr as *mut _ as *mut libc::sockaddr,
-                &mut len as *mut _,
+                ptr::null_mut() as *mut libc::sockaddr,
+                ptr::null_mut() as *mut _,
+                libc::SOCK_NONBLOCK | libc::SOCK_CLOEXEC,
             )
         };
         if r < 0 {
             Err(io::Error::last_os_error())
         } else {
-            unsafe {
-                let n = libc::fcntl(r, libc::F_GETFL);
-                if n < 0 {
-                    return Err(io::Error::last_os_error());
-                }
-                if libc::fcntl(r, libc::F_SETFL, n | libc::O_NONBLOCK) < 0 {
-                    return Err(io::Error::last_os_error());
-                }
-            }
             Ok(RawSocket(r))
         }
     }

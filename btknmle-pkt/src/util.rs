@@ -1,6 +1,9 @@
 use std::fmt;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::mem::MaybeUninit;
+
+use bytes::{Buf, BufMut};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) struct HexDisplay<E>(E);
@@ -31,6 +34,12 @@ where
     }
 }
 
+impl<E> From<E> for HexDisplay<E> {
+    fn from(v: E) -> Self {
+        Self(v)
+    }
+}
+
 impl<E> AsRef<[u8]> for HexDisplay<E>
 where
     E: AsRef<[u8]>,
@@ -51,5 +60,33 @@ impl<E> Deref for HexDisplay<E> {
 impl<E> DerefMut for HexDisplay<E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl<E> Buf for HexDisplay<E> where E: Buf {
+    fn remaining(&self) -> usize {
+        self.0.remaining()
+    }
+
+    fn bytes(&self) -> &[u8] {
+        self.0.bytes()
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        self.0.advance(cnt)
+    }
+}
+
+impl<E> BufMut for HexDisplay<E> where E: BufMut {
+    fn remaining_mut(&self) -> usize {
+        self.0.remaining_mut()
+    }
+
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        self.0.advance_mut(cnt)
+    }
+
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        self.0.bytes_mut()
     }
 }

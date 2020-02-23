@@ -1,6 +1,7 @@
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut};
 
-use super::{Att, AttItem, Codec, CodecError, Handle};
+use crate::{PackError, PacketData, UnpackError};
+use super::{Att, AttItem, Handle};
 
 #[derive(Debug)]
 pub struct FindByTypeValueResponseBuilder {
@@ -28,13 +29,31 @@ impl FindByTypeValueResponseBuilder {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct HandleInformation {
     found_attribute_handle: Handle,
     group_end_handle: Handle,
 }
 
-#[derive(Debug)]
+impl PacketData for HandleInformation {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let found_attribute_handle = PacketData::unpack(buf)?;
+        let group_end_handle = PacketData::unpack(buf)?;
+
+        Ok(HandleInformation {
+            found_attribute_handle,
+            group_end_handle,
+        })
+    }
+
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.found_attribute_handle.pack(buf)?;
+        self.group_end_handle.pack(buf)
+    }
+}
+
+// TODO implement iter iter_mut into_iter extend from_iter
+#[derive(Debug, PartialEq, Eq)]
 pub struct FindByTypeValueResponse {
     handles_information_list: Vec<HandleInformation>,
 }
@@ -59,27 +78,18 @@ impl AttItem for FindByTypeValueResponse {
     const OPCODE: u8 = 0x07;
 }
 
-impl Codec for FindByTypeValueResponse {
-    fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
+impl PacketData for FindByTypeValueResponse {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let mut handles_information_list = vec![];
         while buf.has_remaining() {
-            let found_attribute_handle = Handle::parse(buf)?;
-            let group_end_handle = Handle::parse(buf)?;
-            handles_information_list.push(HandleInformation {
-                found_attribute_handle,
-                group_end_handle,
-            });
+            handles_information_list.push(PacketData::unpack(buf)?)
         }
-        Ok(Self {
-            handles_information_list,
-        })
+        Ok(Self { handles_information_list })
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {
-        let iter = self.handles_information_list.iter();
-        for item in iter {
-            item.found_attribute_handle.write_to(buf)?;
-            item.group_end_handle.write_to(buf)?;
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        for item in &self.handles_information_list {
+            item.pack(buf)?;
         }
         Ok(())
     }
@@ -88,5 +98,19 @@ impl Codec for FindByTypeValueResponse {
 impl From<FindByTypeValueResponse> for Att {
     fn from(v: FindByTypeValueResponse) -> Att {
         Att::FindByTypeValueResponse(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = Att::from(FindByTypeValueResponse::builder(0x0000, 0x1111).add(0x2222, 0x3333).build());
+        e.pack(&mut b).unwrap();
+        let r = Att::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

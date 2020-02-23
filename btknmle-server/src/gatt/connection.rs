@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::convert::TryInto;
 
 use bytes::Bytes;
 use futures::channel::mpsc;
@@ -10,6 +11,7 @@ use futures::{Sink, SinkExt as _, Stream, StreamExt as _};
 use super::{Database, Result};
 use crate::gatt;
 use crate::pkt::att::{self, Att};
+use crate::pkt::{Uuid, Uuid16, Uuid128};
 
 #[derive(Debug)]
 pub struct Notify {
@@ -176,11 +178,23 @@ where
             Ok(response) => {
                 let mut iter = response.iter();
                 let head = iter.next().unwrap();
-                let mut b = att::FindInformationResponse::builder(head.0.clone(), head.1.clone());
-                for item in iter {
-                    b.add(item.0.clone(), item.1.clone());
-                }
-                self.send(b.build()).await?
+                let response = match head.1 {
+                    Uuid::Uuid16(uuid) => {
+                        let mut b = att::FindInformationResponse::builder(head.0.clone(), Uuid16::from(uuid));
+                        for item in iter {
+                            b.add(item.0.clone(), item.1.clone().try_into().unwrap());
+                        }
+                        b.build()
+                    }
+                    Uuid::Uuid128(uuid) => {
+                        let mut b = att::FindInformationResponse::builder(head.0.clone(), Uuid128::from(uuid));
+                        for item in iter {
+                            b.add(item.0.clone(), item.1.clone().try_into().unwrap());
+                        }
+                        b.build()
+                    }
+                };
+                self.send(response).await?
             }
             Err(gatt::Error::AttError(e)) => {
                 let d = att::ErrorResponse::new(
@@ -207,7 +221,7 @@ where
             item.starting_handle(),
             item.ending_handle(),
             item.attribute_type(),
-            item.attribute_value(),
+            item.attribute_value().clone(),
         );
 
         match response {
@@ -301,10 +315,10 @@ where
     async fn on_write(&mut self, item: att::WriteRequest) -> Result<()> {
         let response = self
             .db
-            .write(item.attribute_handle(), item.attribute_value());
+            .write(item.attribute_handle(), item.attribute_value().clone());
 
         if let Some(rx) = self.listeners.get_mut(&item.attribute_handle()) {
-            rx.send(item.attribute_value()).await?;
+            rx.send(item.attribute_value().clone()).await?;
         }
 
         match response {

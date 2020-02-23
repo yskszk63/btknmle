@@ -7,7 +7,7 @@ use futures::{Sink, Stream};
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 
-pub use btknmle_pkt::att::{Uuid, Uuid16};
+pub use btknmle_pkt::{Uuid, Uuid16};
 
 use crate::mgmt;
 use crate::mgmt::model::{

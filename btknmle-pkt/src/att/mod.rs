@@ -1,8 +1,8 @@
 use std::fmt;
 
-use bytes::{Buf, BufMut as _, Bytes, BytesMut};
+use bytes::{Buf, BufMut};
 
-use super::{Codec, CodecError};
+use crate::{PackError, PacketData, UnpackError};
 
 pub use error_response::*;
 pub use exchange_mtu_request::*;
@@ -42,142 +42,30 @@ mod read_response;
 mod write_request;
 mod write_response;
 
-trait AttItem: Codec + Into<Att> {
+trait AttItem: PacketData + Into<Att> {
     const OPCODE: u8;
-}
 
-#[derive(Clone, PartialEq, Eq)]
-pub enum Uuid {
-    Uuid16(u16),
-    Uuid128(u128),
-}
-
-impl Codec for Uuid {
-    fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
-        Ok(match buf.remaining() {
-            2 => Uuid16(buf.get_u16_le()).into(),
-            16 => Uuid128(buf.get_u128_le()).into(),
-            _ => return Err(CodecError::Invalid),
-        })
+    fn unpack_into(buf: &mut impl Buf) -> Result<Att, UnpackError> {
+        let item = Self::unpack(buf)?;
+        Ok(item.into())
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {
-        match self {
-            Self::Uuid16(v) => buf.put_u16_le(*v),
-            Self::Uuid128(v) => buf.put_u128_le(*v),
-        }
-        Ok(())
+    fn pack_attr(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        Self::OPCODE.pack(buf)?;
+        self.pack(buf)
     }
 }
 
-impl From<Uuid> for Bytes {
-    fn from(v: Uuid) -> Self {
-        let mut b = BytesMut::new();
-        v.write_to(&mut b).unwrap();
-        b.freeze()
-    }
-}
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Handle(u16);
 
-impl fmt::Debug for Uuid {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-impl fmt::Display for Uuid {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Uuid16(v) => fmt::Display::fmt(&Uuid16(*v), f),
-            Self::Uuid128(v) => fmt::Display::fmt(&Uuid128(*v), f),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct Uuid16(u16);
-
-impl From<u16> for Uuid16 {
-    fn from(v: u16) -> Self {
-        Uuid16(v)
-    }
-}
-
-impl From<Uuid16> for Bytes {
-    fn from(v: Uuid16) -> Self {
-        let mut b = BytesMut::with_capacity(2);
-        b.put_u16_le(v.0);
-        b.freeze()
-    }
-}
-
-impl From<Uuid16> for Uuid {
-    fn from(v: Uuid16) -> Self {
-        Uuid::Uuid16(v.0)
-    }
-}
-
-impl fmt::Debug for Uuid16 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-impl fmt::Display for Uuid16 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "0x{:X}", self.0)
-    }
-}
-
-#[derive(Clone)]
-pub struct Uuid128(u128);
-
-impl From<u128> for Uuid128 {
-    fn from(v: u128) -> Self {
-        Uuid128(v)
-    }
-}
-
-impl From<Uuid128> for Bytes {
-    fn from(v: Uuid128) -> Self {
-        let mut b = BytesMut::with_capacity(16);
-        b.put_u128_le(v.0);
-        b.freeze()
-    }
-}
-
-impl From<Uuid128> for Uuid {
-    fn from(v: Uuid128) -> Self {
-        Uuid::Uuid128(v.0)
-    }
-}
-
-impl fmt::Debug for Uuid128 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-impl fmt::Display for Uuid128 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "0x{:X}", self.0) // FIXME
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Handle(pub u16);
-
-impl Codec for Handle {
-    fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
-        if buf.remaining() < 2 {
-            return Err(CodecError::Underflow);
-        }
-        Ok(Handle(buf.get_u16_le()))
+impl PacketData for Handle {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        Ok(u16::unpack(buf)?.into())
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {
-        buf.reserve(2);
-        buf.put_u16_le(self.0);
-        Ok(())
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        u16::from(self.clone()).pack(buf)
     }
 }
 
@@ -187,7 +75,19 @@ impl From<u16> for Handle {
     }
 }
 
-#[derive(Debug)]
+impl From<Handle> for u16 {
+    fn from(v: Handle) -> Self {
+        v.0
+    }
+}
+
+impl fmt::Debug for Handle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "0x{:04X}", self.0)
+    }
+}
+
+#[derive(PartialEq, Eq)]
 pub enum Att {
     ErrorResponse(ErrorResponse),
     ExchangeMtuRequest(ExchangeMtuRequest),
@@ -209,80 +109,77 @@ pub enum Att {
     HandleValueNotification(HandleValueNotification),
 }
 
-impl Codec for Att {
-    fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
-        if !buf.has_remaining() {
-            return Err(CodecError::Underflow);
+impl PacketData for Att {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let opcode = u8::unpack(buf)?;
+        match opcode {
+            ErrorResponse::OPCODE => ErrorResponse::unpack_into(buf),
+            ExchangeMtuRequest::OPCODE => ExchangeMtuRequest::unpack_into(buf),
+            ExchangeMtuResponse::OPCODE => ExchangeMtuResponse::unpack_into(buf),
+            FindInformationRequest::OPCODE => FindInformationRequest::unpack_into(buf),
+            FindInformationResponse::OPCODE => FindInformationResponse::unpack_into(buf),
+            FindByTypeValueRequest::OPCODE => FindByTypeValueRequest::unpack_into(buf),
+            FindByTypeValueResponse::OPCODE => FindByTypeValueResponse::unpack_into(buf),
+            ReadByTypeRequest::OPCODE => ReadByTypeRequest::unpack_into(buf),
+            ReadByTypeResponse::OPCODE => ReadByTypeResponse::unpack_into(buf),
+            ReadByGroupTypeRequest::OPCODE => ReadByGroupTypeRequest::unpack_into(buf),
+            ReadByGroupTypeResponse::OPCODE => ReadByGroupTypeResponse::unpack_into(buf),
+            ReadRequest::OPCODE => ReadRequest::unpack_into(buf),
+            ReadResponse::OPCODE => ReadResponse::unpack_into(buf),
+            ReadBlobRequest::OPCODE => ReadBlobRequest::unpack_into(buf),
+            ReadBlobResponse::OPCODE => ReadBlobResponse::unpack_into(buf),
+            WriteRequest::OPCODE => WriteRequest::unpack_into(buf),
+            WriteResponse::OPCODE => WriteResponse::unpack_into(buf),
+            HandleValueNotification::OPCODE => HandleValueNotification::unpack_into(buf),
+            x => Err(UnpackError::unexpected(format!("opcode {}", x))),
         }
-
-        let opcode = buf.get_u8();
-        let result = match opcode {
-            ErrorResponse::OPCODE => ErrorResponse::parse(buf)?.into(),
-            ExchangeMtuRequest::OPCODE => ExchangeMtuRequest::parse(buf)?.into(),
-            ExchangeMtuResponse::OPCODE => ExchangeMtuResponse::parse(buf)?.into(),
-            FindInformationRequest::OPCODE => FindInformationRequest::parse(buf)?.into(),
-            FindInformationResponse::OPCODE => FindInformationResponse::parse(buf)?.into(),
-            FindByTypeValueRequest::OPCODE => FindByTypeValueRequest::parse(buf)?.into(),
-            FindByTypeValueResponse::OPCODE => FindByTypeValueResponse::parse(buf)?.into(),
-            ReadByTypeRequest::OPCODE => ReadByTypeRequest::parse(buf)?.into(),
-            ReadByTypeResponse::OPCODE => ReadByTypeResponse::parse(buf)?.into(),
-            ReadByGroupTypeRequest::OPCODE => ReadByGroupTypeRequest::parse(buf)?.into(),
-            ReadByGroupTypeResponse::OPCODE => ReadByGroupTypeResponse::parse(buf)?.into(),
-            ReadRequest::OPCODE => ReadRequest::parse(buf)?.into(),
-            ReadResponse::OPCODE => ReadResponse::parse(buf)?.into(),
-            ReadBlobRequest::OPCODE => ReadBlobRequest::parse(buf)?.into(),
-            ReadBlobResponse::OPCODE => ReadBlobResponse::parse(buf)?.into(),
-            WriteRequest::OPCODE => WriteRequest::parse(buf)?.into(),
-            WriteResponse::OPCODE => WriteResponse::parse(buf)?.into(),
-            HandleValueNotification::OPCODE => HandleValueNotification::parse(buf)?.into(),
-            x => return Err(CodecError::UnknownAtt(x)),
-        };
-        Ok(result)
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         match self {
-            Att::ErrorResponse(..) => buf.put_u8(ErrorResponse::OPCODE),
-            Att::ExchangeMtuRequest(..) => buf.put_u8(ExchangeMtuRequest::OPCODE),
-            Att::ExchangeMtuResponse(..) => buf.put_u8(ExchangeMtuResponse::OPCODE),
-            Att::FindInformationRequest(..) => buf.put_u8(FindInformationRequest::OPCODE),
-            Att::FindInformationResponse(..) => buf.put_u8(FindInformationResponse::OPCODE),
-            Att::FindByTypeValueRequest(..) => buf.put_u8(FindByTypeValueRequest::OPCODE),
-            Att::FindByTypeValueResponse(..) => buf.put_u8(FindByTypeValueResponse::OPCODE),
-            Att::ReadByTypeRequest(..) => buf.put_u8(ReadByTypeRequest::OPCODE),
-            Att::ReadByTypeResponse(..) => buf.put_u8(ReadByTypeResponse::OPCODE),
-            Att::ReadByGroupTypeRequest(..) => buf.put_u8(ReadByGroupTypeRequest::OPCODE),
-            Att::ReadByGroupTypeResponse(..) => buf.put_u8(ReadByGroupTypeResponse::OPCODE),
-            Att::ReadRequest(..) => buf.put_u8(ReadRequest::OPCODE),
-            Att::ReadResponse(..) => buf.put_u8(ReadResponse::OPCODE),
-            Att::ReadBlobRequest(..) => buf.put_u8(ReadBlobRequest::OPCODE),
-            Att::ReadBlobResponse(..) => buf.put_u8(ReadBlobResponse::OPCODE),
-            Att::WriteRequest(..) => buf.put_u8(WriteRequest::OPCODE),
-            Att::WriteResponse(..) => buf.put_u8(WriteResponse::OPCODE),
-            Att::HandleValueNotification(..) => buf.put_u8(HandleValueNotification::OPCODE),
+            Att::ErrorResponse(item) => item.pack_attr(buf),
+            Att::ExchangeMtuRequest(item) => item.pack_attr(buf),
+            Att::ExchangeMtuResponse(item) => item.pack_attr(buf),
+            Att::FindInformationRequest(item) => item.pack_attr(buf),
+            Att::FindInformationResponse(item) => item.pack_attr(buf),
+            Att::FindByTypeValueRequest(item) => item.pack_attr(buf),
+            Att::FindByTypeValueResponse(item) => item.pack_attr(buf),
+            Att::ReadByTypeRequest(item) => item.pack_attr(buf),
+            Att::ReadByTypeResponse(item) => item.pack_attr(buf),
+            Att::ReadByGroupTypeRequest(item) => item.pack_attr(buf),
+            Att::ReadByGroupTypeResponse(item) => item.pack_attr(buf),
+            Att::ReadRequest(item) => item.pack_attr(buf),
+            Att::ReadResponse(item) => item.pack_attr(buf),
+            Att::ReadBlobRequest(item) => item.pack_attr(buf),
+            Att::ReadBlobResponse(item) => item.pack_attr(buf),
+            Att::WriteRequest(item) => item.pack_attr(buf),
+            Att::WriteResponse(item) => item.pack_attr(buf),
+            Att::HandleValueNotification(item) => item.pack_attr(buf),
         }
+    }
+}
 
+impl fmt::Debug for Att {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Att::ErrorResponse(item) => item.write_to(buf)?,
-            Att::ExchangeMtuRequest(item) => item.write_to(buf)?,
-            Att::ExchangeMtuResponse(item) => item.write_to(buf)?,
-            Att::FindInformationRequest(item) => item.write_to(buf)?,
-            Att::FindInformationResponse(item) => item.write_to(buf)?,
-            Att::FindByTypeValueRequest(item) => item.write_to(buf)?,
-            Att::FindByTypeValueResponse(item) => item.write_to(buf)?,
-            Att::ReadByTypeRequest(item) => item.write_to(buf)?,
-            Att::ReadByTypeResponse(item) => item.write_to(buf)?,
-            Att::ReadByGroupTypeRequest(item) => item.write_to(buf)?,
-            Att::ReadByGroupTypeResponse(item) => item.write_to(buf)?,
-            Att::ReadRequest(item) => item.write_to(buf)?,
-            Att::ReadResponse(item) => item.write_to(buf)?,
-            Att::ReadBlobRequest(item) => item.write_to(buf)?,
-            Att::ReadBlobResponse(item) => item.write_to(buf)?,
-            Att::WriteRequest(item) => item.write_to(buf)?,
-            Att::WriteResponse(item) => item.write_to(buf)?,
-            Att::HandleValueNotification(item) => item.write_to(buf)?,
+            Att::ErrorResponse(item) => item.fmt(f),
+            Att::ExchangeMtuRequest(item) => item.fmt(f),
+            Att::ExchangeMtuResponse(item) => item.fmt(f),
+            Att::FindInformationRequest(item) => item.fmt(f),
+            Att::FindInformationResponse(item) => item.fmt(f),
+            Att::FindByTypeValueRequest(item) => item.fmt(f),
+            Att::FindByTypeValueResponse(item) => item.fmt(f),
+            Att::ReadByTypeRequest(item) => item.fmt(f),
+            Att::ReadByTypeResponse(item) => item.fmt(f),
+            Att::ReadByGroupTypeRequest(item) => item.fmt(f),
+            Att::ReadByGroupTypeResponse(item) => item.fmt(f),
+            Att::ReadRequest(item) => item.fmt(f),
+            Att::ReadResponse(item) => item.fmt(f),
+            Att::ReadBlobRequest(item) => item.fmt(f),
+            Att::ReadBlobResponse(item) => item.fmt(f),
+            Att::WriteRequest(item) => item.fmt(f),
+            Att::WriteResponse(item) => item.fmt(f),
+            Att::HandleValueNotification(item) => item.fmt(f),
         }
-
-        Ok(())
     }
 }

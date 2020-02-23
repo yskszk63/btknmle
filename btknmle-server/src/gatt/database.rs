@@ -5,7 +5,8 @@ use bitflags::bitflags;
 use bytes::{Buf as _, BufMut as _, Bytes, BytesMut};
 use failure::Fail;
 
-use btknmle_pkt::att::{ErrorCode, Handle, Uuid, Uuid16};
+use btknmle_pkt::att::{ErrorCode, Handle};
+use btknmle_pkt::{Uuid, Uuid16};
 
 #[derive(Debug, Fail)]
 pub enum Error {
@@ -95,7 +96,7 @@ impl From<AttributeValue> for Bytes {
             } => {
                 let mut buf = BytesMut::new();
                 buf.put_u8(properties.bits());
-                buf.put_u16_le(value_handle.0);
+                buf.put_u16_le(value_handle.into());
                 buf.put(Bytes::from(chr_type));
                 buf.freeze()
             }

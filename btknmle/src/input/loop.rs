@@ -41,7 +41,7 @@ pub async fn input_loop(
 ) -> Result<(), Error> {
     let mut kbstat = KbStat::new();
     let mut mousestat = MouseStat::new();
-    let mut stream = LibinputStream::new_from_udev("seat0", grab)?; // FIXME seat
+    let mut stream = LibinputStream::new_from_udev("seat0")?; // FIXME seat
 
     while let Some(evt) = stream.next().await {
         match evt? {

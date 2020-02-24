@@ -10,9 +10,7 @@ pub struct ReadRequest {
 
 impl ReadRequest {
     pub fn new(attribute_handle: Handle) -> Self {
-        Self {
-            attribute_handle,
-        }
+        Self { attribute_handle }
     }
 
     pub fn attribute_handle(&self) -> Handle {

@@ -1,10 +1,10 @@
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::Key;
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct NewSignatureResolvingKeyEvent {
     controller_index: ControlIndex,
     store_hint: bool,
@@ -12,6 +12,14 @@ pub struct NewSignatureResolvingKeyEvent {
 }
 
 impl NewSignatureResolvingKeyEvent {
+    pub fn new(controller_index: ControlIndex, store_hint: bool, key: Key) -> Self {
+        Self {
+            controller_index,
+            store_hint,
+            key,
+        }
+    }
+
     pub fn controller_index(&self) -> ControlIndex {
         self.controller_index.clone()
     }
@@ -34,25 +42,51 @@ impl EventItem for NewSignatureResolvingKeyEvent {
     }
 }
 
-impl Codec for NewSignatureResolvingKeyEvent {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let controller_index = Default::default();
-        let store_hint = buf.get_u8() != 0;
-        let key = Key::parse(buf)?;
+impl PacketData for NewSignatureResolvingKeyEvent {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let store_hint = u8::unpack(buf)? != 0;
+        let key = PacketData::unpack(buf)?;
         Ok(Self {
-            controller_index,
+            controller_index: Default::default(),
             store_hint,
             key,
         })
     }
 
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        (self.store_hint as u8).pack(buf)?;
+        self.key.pack(buf)
     }
 }
 
 impl From<NewSignatureResolvingKeyEvent> for MgmtEvent {
     fn from(v: NewSignatureResolvingKeyEvent) -> Self {
         Self::NewSignatureResolvingKeyEvent(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::AddressType;
+    use super::super::Type;
+    use super::*;
+    use bytes::Bytes;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = NewSignatureResolvingKeyEvent::new(
+            Default::default(),
+            true,
+            Key::new(
+                "00:11:22:33:44:55".parse().unwrap(),
+                AddressType::LeRandom,
+                Type::AuthenticatedLocalCsrk,
+                Bytes::from("ok"),
+            ),
+        );
+        e.pack(&mut b).unwrap();
+        let r = NewSignatureResolvingKeyEvent::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

@@ -1,7 +1,7 @@
 use std::fmt;
+use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::ops::DerefMut;
-use std::mem::MaybeUninit;
 
 use bytes::{Buf, BufMut};
 
@@ -49,6 +49,15 @@ where
     }
 }
 
+impl<E> AsMut<[u8]> for HexDisplay<E>
+where
+    E: AsMut<[u8]>,
+{
+    fn as_mut(&mut self) -> &mut [u8] {
+        self.0.as_mut()
+    }
+}
+
 impl<E> Deref for HexDisplay<E> {
     type Target = E;
 
@@ -63,7 +72,10 @@ impl<E> DerefMut for HexDisplay<E> {
     }
 }
 
-impl<E> Buf for HexDisplay<E> where E: Buf {
+impl<E> Buf for HexDisplay<E>
+where
+    E: Buf,
+{
     fn remaining(&self) -> usize {
         self.0.remaining()
     }
@@ -77,7 +89,10 @@ impl<E> Buf for HexDisplay<E> where E: Buf {
     }
 }
 
-impl<E> BufMut for HexDisplay<E> where E: BufMut {
+impl<E> BufMut for HexDisplay<E>
+where
+    E: BufMut,
+{
     fn remaining_mut(&self) -> usize {
         self.0.remaining_mut()
     }

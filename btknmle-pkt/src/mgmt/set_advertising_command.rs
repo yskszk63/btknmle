@@ -1,9 +1,11 @@
-use bytes::{Buf, BufMut as _, BytesMut};
+use std::convert::{TryFrom, TryInto};
+
+use bytes::{Buf, BufMut};
 
 use super::CurrentSettings;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Advertising {
@@ -12,7 +14,42 @@ pub enum Advertising {
     Connectable,
 }
 
-#[derive(Debug)]
+impl PacketData for Advertising {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        u8::unpack(buf)?
+            .try_into()
+            .map_err(|x| UnpackError::unexpected(format!("value {}", x)))
+    }
+
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        u8::from(self.clone()).pack(buf)
+    }
+}
+
+impl TryFrom<u8> for Advertising {
+    type Error = u8;
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        match v {
+            0x00 => Ok(Self::Disabled),
+            0x01 => Ok(Self::Enabled),
+            0x02 => Ok(Self::Connectable),
+            x => Err(x),
+        }
+    }
+}
+
+impl From<Advertising> for u8 {
+    fn from(v: Advertising) -> Self {
+        match v {
+            Advertising::Disabled => 0x00,
+            Advertising::Enabled => 0x01,
+            Advertising::Connectable => 0x02,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct SetAdvertisingCommand {
     ctrl_idx: u16,
     advertising: Advertising,
@@ -28,8 +65,8 @@ impl SetAdvertisingCommand {
 }
 
 impl ManagementCommand<CurrentSettings> for SetAdvertisingCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings> {
-        Ok(CurrentSettings::parse(buf)?)
+    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
+        Ok(CurrentSettings::unpack(buf)?)
     }
 }
 
@@ -41,24 +78,36 @@ impl CommandItem for SetAdvertisingCommand {
     }
 }
 
-impl Codec for SetAdvertisingCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        let v = match self.advertising {
-            Advertising::Disabled => 0x00,
-            Advertising::Enabled => 0x01,
-            Advertising::Connectable => 0x02,
-        };
-        buf.put_u8(v);
-        Ok(())
+impl PacketData for SetAdvertisingCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let advertising = PacketData::unpack(buf)?;
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            advertising,
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.advertising.pack(buf)
     }
 }
 
 impl From<SetAdvertisingCommand> for MgmtCommand {
     fn from(v: SetAdvertisingCommand) -> Self {
         Self::SetAdvertisingCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = SetAdvertisingCommand::new(Default::default(), Advertising::Connectable);
+        e.pack(&mut b).unwrap();
+        let r = SetAdvertisingCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

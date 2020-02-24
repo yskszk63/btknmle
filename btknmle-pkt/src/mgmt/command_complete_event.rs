@@ -1,11 +1,11 @@
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes};
 
 use super::Status;
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
-use super::{Codec, Result};
 use crate::util::HexDisplay;
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CommandCompleteEvent {
     controller_index: ControlIndex,
     command_opcode: Code,
@@ -14,6 +14,21 @@ pub struct CommandCompleteEvent {
 }
 
 impl CommandCompleteEvent {
+    pub fn new(
+        controller_index: ControlIndex,
+        command_opcode: Code,
+        status: Status,
+        parameters: Bytes,
+    ) -> Self {
+        let parameters = parameters.into();
+        Self {
+            controller_index,
+            command_opcode,
+            status,
+            parameters,
+        }
+    }
+
     pub fn controller_index(&self) -> ControlIndex {
         self.controller_index.clone()
     }
@@ -40,27 +55,51 @@ impl EventItem for CommandCompleteEvent {
     }
 }
 
-impl Codec for CommandCompleteEvent {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let controller_index = Default::default();
-        let command_opcode = buf.get_u16_le().into();
-        let status = buf.get_u8().into();
-        let parameters = HexDisplay::new(buf.to_bytes());
+impl PacketData for CommandCompleteEvent {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let command_opcode = PacketData::unpack(buf)?;
+        let status = PacketData::unpack(buf)?;
+        let parameters = buf.to_bytes().into();
         Ok(Self {
-            controller_index,
+            controller_index: Default::default(),
             command_opcode,
             status,
             parameters,
         })
     }
 
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.command_opcode.pack(buf)?;
+        self.status.pack(buf)?;
+        if buf.remaining_mut() < self.parameters.len() {
+            return Err(PackError::InsufficientBufLength);
+        }
+        buf.put(self.parameters.as_ref());
+        Ok(())
     }
 }
 
 impl From<CommandCompleteEvent> for MgmtEvent {
     fn from(v: CommandCompleteEvent) -> Self {
         Self::CommandCompleteEvent(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = CommandCompleteEvent::new(
+            Default::default(),
+            Code(10),
+            Status::Busy,
+            Bytes::from("ok"),
+        );
+        e.pack(&mut b).unwrap();
+        let r = CommandCompleteEvent::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

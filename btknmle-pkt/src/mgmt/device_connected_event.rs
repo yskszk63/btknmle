@@ -1,11 +1,11 @@
 use bytes::buf::BufExt as _;
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes};
 
 use super::{Address, AddressType};
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct DeviceConnectedEvent {
     controller_index: ControlIndex,
     address: Address,
@@ -15,6 +15,22 @@ pub struct DeviceConnectedEvent {
 }
 
 impl DeviceConnectedEvent {
+    pub fn new(
+        controller_index: ControlIndex,
+        address: Address,
+        address_type: AddressType,
+        flags: u32,
+        eir_data: Bytes,
+    ) -> Self {
+        Self {
+            controller_index,
+            address,
+            address_type,
+            flags,
+            eir_data,
+        }
+    }
+
     pub fn controller_index(&self) -> ControlIndex {
         self.controller_index.clone()
     }
@@ -45,16 +61,19 @@ impl EventItem for DeviceConnectedEvent {
     }
 }
 
-impl Codec for DeviceConnectedEvent {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let controller_index = Default::default();
-        let address = Address::parse(buf)?;
-        let address_type = AddressType::parse(buf)?;
-        let flags = buf.get_u32_le();
-        let len = buf.get_u16_le() as usize;
+impl PacketData for DeviceConnectedEvent {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let address = PacketData::unpack(buf)?;
+        let address_type = PacketData::unpack(buf)?;
+        let flags = PacketData::unpack(buf)?;
+        let len = u16::unpack(buf)? as usize;
+        if buf.remaining() < len {
+            return Err(UnpackError::UnexpectedEof);
+        }
         let eir_data = buf.take(len).to_bytes();
+
         Ok(Self {
-            controller_index,
+            controller_index: Default::default(),
             address,
             address_type,
             flags,
@@ -62,13 +81,41 @@ impl Codec for DeviceConnectedEvent {
         })
     }
 
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.address.pack(buf)?;
+        self.address_type.pack(buf)?;
+        self.flags.pack(buf)?;
+        (self.eir_data.len() as u16).pack(buf)?;
+        if buf.remaining_mut() < self.eir_data.len() {
+            return Err(PackError::InsufficientBufLength);
+        }
+        buf.put(self.eir_data.as_ref());
+        Ok(())
     }
 }
 
 impl From<DeviceConnectedEvent> for MgmtEvent {
     fn from(v: DeviceConnectedEvent) -> Self {
         Self::DeviceConnectedEvent(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = DeviceConnectedEvent::new(
+            Default::default(),
+            "00:11:22:33:44:55".parse().unwrap(),
+            AddressType::LeRandom,
+            3,
+            Bytes::from("ok"),
+        );
+        e.pack(&mut b).unwrap();
+        let r = DeviceConnectedEvent::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

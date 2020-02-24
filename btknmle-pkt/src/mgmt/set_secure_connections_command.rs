@@ -1,9 +1,9 @@
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::CurrentSettings;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SecureConnections {
@@ -12,7 +12,7 @@ pub enum SecureConnections {
     Only,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SetSecureConnectionsCommand {
     ctrl_idx: u16,
     secure_connections: SecureConnections,
@@ -28,8 +28,8 @@ impl SetSecureConnectionsCommand {
 }
 
 impl ManagementCommand<CurrentSettings> for SetSecureConnectionsCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings> {
-        Ok(CurrentSettings::parse(buf)?)
+    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
+        Ok(CurrentSettings::unpack(buf)?)
     }
 }
 
@@ -41,24 +41,47 @@ impl CommandItem for SetSecureConnectionsCommand {
     }
 }
 
-impl Codec for SetSecureConnectionsCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
+impl PacketData for SetSecureConnectionsCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let v = u8::unpack(buf)?;
+        let secure_connections = match v {
+            0x00 => SecureConnections::Disabled,
+            0x01 => SecureConnections::Enabled,
+            0x02 => SecureConnections::Only,
+            x => return Err(UnpackError::unexpected(format!("value {}", x))),
+        };
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            secure_connections,
+        })
+    }
+
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         let v = match self.secure_connections {
             SecureConnections::Disabled => 0x00,
             SecureConnections::Enabled => 0x01,
             SecureConnections::Only => 0x02,
         };
-        buf.put_u8(v);
-        Ok(())
-    }
-
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+        u8::pack(&v, buf)
     }
 }
 
 impl From<SetSecureConnectionsCommand> for MgmtCommand {
     fn from(v: SetSecureConnectionsCommand) -> Self {
         Self::SetSecureConnectionsCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = SetSecureConnectionsCommand::new(Default::default(), SecureConnections::Only);
+        e.pack(&mut b).unwrap();
+        let r = SetSecureConnectionsCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

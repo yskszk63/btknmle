@@ -1,7 +1,7 @@
 use bytes::{Buf, BufMut};
 
-use crate::{PackError, PacketData, UnpackError};
 use super::{Att, AttItem};
+use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ExchangeMtuRequest {

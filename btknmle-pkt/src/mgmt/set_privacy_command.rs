@@ -1,12 +1,12 @@
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::CurrentSettings;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
 use crate::util::HexDisplay;
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SetPrivacyCommand {
     ctrl_idx: u16,
     privacy: bool,
@@ -25,8 +25,8 @@ impl SetPrivacyCommand {
 }
 
 impl ManagementCommand<CurrentSettings> for SetPrivacyCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings> {
-        Ok(CurrentSettings::parse(buf)?)
+    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
+        Ok(CurrentSettings::unpack(buf)?)
     }
 }
 
@@ -38,20 +38,47 @@ impl CommandItem for SetPrivacyCommand {
     }
 }
 
-impl Codec for SetPrivacyCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        buf.put_u8(if self.privacy { 0x01 } else { 0x00 });
-        buf.extend_from_slice(self.identity_resolving_key.as_ref());
-        Ok(())
+impl PacketData for SetPrivacyCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let privacy = u8::unpack(buf)? != 0;
+        if buf.remaining() < 16 {
+            return Err(UnpackError::UnexpectedEof);
+        }
+        let mut identity_resolving_key = HexDisplay::new([0; 16]);
+        buf.copy_to_slice(identity_resolving_key.as_mut());
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            privacy,
+            identity_resolving_key,
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        (self.privacy as u8).pack(buf)?;
+        if buf.remaining_mut() < 16 {
+            return Err(PackError::InsufficientBufLength);
+        }
+        buf.put(self.identity_resolving_key.as_ref());
+        Ok(())
     }
 }
 
 impl From<SetPrivacyCommand> for MgmtCommand {
     fn from(v: SetPrivacyCommand) -> Self {
         Self::SetPrivacyCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = SetPrivacyCommand::new(Default::default(), true, [0; 16]);
+        e.pack(&mut b).unwrap();
+        let r = SetPrivacyCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

@@ -24,6 +24,12 @@ pub enum CodecError {
     Invalid,
 }
 
+impl From<UnpackError> for CodecError {
+    fn from(_: UnpackError) -> Self {
+        CodecError::Invalid
+    }
+}
+
 pub type Result<T> = std::result::Result<T, CodecError>;
 
 pub trait Codec: Sized {

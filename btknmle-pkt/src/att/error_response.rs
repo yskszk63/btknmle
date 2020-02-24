@@ -171,13 +171,16 @@ mod tests {
         let mut b = vec![];
         r.pack(&mut b).unwrap();
         assert_eq!(b, vec![0x01]);
-
     }
 
     #[test]
     fn test_error_response() {
         let mut b = vec![];
-        let e = Att::from(ErrorResponse::new(ErrorResponse::OPCODE, Handle::from(0x01), ErrorCode::InvalidHandle));
+        let e = Att::from(ErrorResponse::new(
+            ErrorResponse::OPCODE,
+            Handle::from(0x01),
+            ErrorCode::InvalidHandle,
+        ));
         e.pack(&mut b).unwrap();
         let r = Att::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);

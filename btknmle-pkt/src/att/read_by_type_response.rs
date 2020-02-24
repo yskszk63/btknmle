@@ -4,8 +4,8 @@ use bytes::buf::BufExt as _;
 use bytes::{Buf, BufMut, Bytes};
 
 use super::{Att, AttItem, Handle};
-use crate::{PackError, PacketData, UnpackError};
 use crate::util::HexDisplay;
+use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug)]
 pub struct ReadByTypeResponseBuilder<V> {
@@ -83,7 +83,11 @@ impl PacketData for ReadByTypeResponse {
         let mut attribute_data_list = vec![];
 
         if buf.remaining() % len != 0 {
-            return Err(UnpackError::unexpected(format!("{} % {} != 0", buf.remaining(), len)))
+            return Err(UnpackError::unexpected(format!(
+                "{} % {} != 0",
+                buf.remaining(),
+                len
+            )));
         }
 
         while buf.has_remaining() {
@@ -103,7 +107,7 @@ impl PacketData for ReadByTypeResponse {
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         if buf.remaining_mut() < self.attribute_data_list.len() * (self.length as usize) {
-            return Err(PackError::InsufficientBufLength)
+            return Err(PackError::InsufficientBufLength);
         }
 
         self.length.pack(buf)?;
@@ -128,8 +132,11 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = Att::from(ReadByTypeResponse::builder(Handle::from(0x0000), "aaa")
-            .add(0x0000, "bbb").build());
+        let e = Att::from(
+            ReadByTypeResponse::builder(Handle::from(0x0000), "aaa")
+                .add(0x0000, "bbb")
+                .build(),
+        );
         e.pack(&mut b).unwrap();
         let r = Att::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);

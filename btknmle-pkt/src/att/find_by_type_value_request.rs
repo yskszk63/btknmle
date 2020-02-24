@@ -1,9 +1,9 @@
 use bytes::{Buf, BufMut, Bytes};
 
 use super::{Att, AttItem, Handle};
+use crate::util::HexDisplay;
 use crate::Uuid16;
 use crate::{PackError, PacketData, UnpackError};
-use crate::util::HexDisplay;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FindByTypeValueRequest {
@@ -91,12 +91,20 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = Att::from(FindByTypeValueRequest::new(Handle::from(0x0000), Handle::from(0xFFFF), Uuid16::from(0x1234), Bytes::from("abc")));
+        let e = Att::from(FindByTypeValueRequest::new(
+            Handle::from(0x0000),
+            Handle::from(0xFFFF),
+            Uuid16::from(0x1234),
+            Bytes::from("abc"),
+        ));
         e.pack(&mut b).unwrap();
         let r = Att::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
 
         let mut b = [0u8; 8]; // 8 = e.len - 1
-        assert_eq!(Err(PackError::InsufficientBufLength), e.pack(&mut b.as_mut()));
+        assert_eq!(
+            Err(PackError::InsufficientBufLength),
+            e.pack(&mut b.as_mut())
+        );
     }
 }

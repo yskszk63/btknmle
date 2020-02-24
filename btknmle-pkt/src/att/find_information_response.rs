@@ -4,10 +4,9 @@ use bytes::buf::BufExt as _;
 use bytes::{Buf, BufMut, Bytes};
 
 use super::{Att, AttItem, Handle};
-use crate::{Uuid16, Uuid128};
-use crate::{PackError, PacketData, UnpackError};
 use crate::util::HexDisplay;
-
+use crate::{PackError, PacketData, UnpackError};
+use crate::{Uuid128, Uuid16};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Format {
@@ -62,7 +61,9 @@ struct AttributeData {
 
 impl AttributeData {
     fn new<V>(attribute_handle: impl Into<Handle>, attribute_value: V) -> Self
-    where V: IntoAttributeDataValue {
+    where
+        V: IntoAttributeDataValue,
+    {
         let attribute_handle = attribute_handle.into();
         let attribute_value = attribute_value.into();
 
@@ -124,7 +125,9 @@ impl FindInformationResponse {
     }
 
     fn new<V>(attribute_data_list: Vec<AttributeData>) -> Self
-    where V: IntoAttributeDataValue {
+    where
+        V: IntoAttributeDataValue,
+    {
         let format = V::FORMAT;
         Self {
             format,
@@ -146,7 +149,7 @@ impl PacketData for FindInformationResponse {
         while buf.has_remaining() {
             let attribute_handle = PacketData::unpack(buf)?;
             if buf.remaining() < len {
-                return Err(UnpackError::UnexpectedEof)
+                return Err(UnpackError::UnexpectedEof);
             }
             let attribute_value = buf.take(len).to_bytes().into();
 
@@ -169,7 +172,7 @@ impl PacketData for FindInformationResponse {
         for item in &self.attribute_data_list {
             item.attribute_handle.pack(buf)?;
             if buf.remaining_mut() < len {
-                return Err(PackError::InsufficientBufLength)
+                return Err(PackError::InsufficientBufLength);
             }
             buf.put(item.attribute_value.clone());
         }
@@ -190,7 +193,9 @@ mod tests {
     #[test]
     fn test_uuid16() {
         let mut b = vec![];
-        let e = Att::from(FindInformationResponse::builder(Handle::from(0x0000), Uuid16::from(0xFFFF)).build());
+        let e = Att::from(
+            FindInformationResponse::builder(Handle::from(0x0000), Uuid16::from(0xFFFF)).build(),
+        );
         e.pack(&mut b).unwrap();
         let r = Att::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
@@ -199,7 +204,8 @@ mod tests {
     #[test]
     fn test_uuid128() {
         let mut b = vec![];
-        let e = FindInformationResponse::builder(Handle::from(0x0000), Uuid128::from(0xFFFF)).build();
+        let e =
+            FindInformationResponse::builder(Handle::from(0x0000), Uuid128::from(0xFFFF)).build();
         e.pack(&mut b).unwrap();
         let r = FindInformationResponse::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);

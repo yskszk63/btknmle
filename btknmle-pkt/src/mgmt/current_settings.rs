@@ -1,6 +1,6 @@
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
 bitflags::bitflags! {
     pub struct CurrentSettings: u32 {
@@ -23,14 +23,29 @@ bitflags::bitflags! {
     }
 }
 
-impl Codec for CurrentSettings {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let b = buf.get_u32_le();
+impl PacketData for CurrentSettings {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let b = PacketData::unpack(buf)?;
         Ok(CurrentSettings::from_bits_truncate(b))
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        buf.put_u32_le(self.bits());
-        Ok(())
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.bits().pack(buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        for n in 0..=0b1111_1111_1111_1111 {
+            let n = u32::to_le_bytes(n).to_vec();
+            let b = CurrentSettings::unpack(&mut n.as_ref()).unwrap();
+            let mut r = vec![];
+            b.pack(&mut r).unwrap();
+            assert_eq!(n, r);
+        }
     }
 }

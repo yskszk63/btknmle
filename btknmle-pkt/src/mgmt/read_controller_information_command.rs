@@ -1,25 +1,52 @@
-use bytes::buf::BufExt as _;
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::Address;
 use super::CurrentSettings;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
+use super::{CompleteName, Name, ShortName};
+use crate::util::HexDisplay;
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ReadControllerInformationResult {
     address: Address,
     bluetooth_version: u8,
     manufacturer: u16,
     supported_settings: CurrentSettings,
     current_settings: CurrentSettings,
-    class_of_device: [u8; 3],
-    name: String,
-    short_name: String,
+    class_of_device: HexDisplay<[u8; 3]>,
+    name: Name<CompleteName>,
+    short_name: Name<ShortName>,
 }
 
 impl ReadControllerInformationResult {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        address: Address,
+        bluetooth_version: u8,
+        manufacturer: u16,
+        supported_settings: CurrentSettings,
+        current_settings: CurrentSettings,
+        class_of_device: [u8; 3],
+        name: String,
+        short_name: String,
+    ) -> Self {
+        let class_of_device = class_of_device.into();
+        let name = Name::with_complete_name(name).unwrap(); // FIXME
+        let short_name = Name::with_short_name(short_name).unwrap(); // FIXME
+        Self {
+            address,
+            bluetooth_version,
+            manufacturer,
+            supported_settings,
+            current_settings,
+            class_of_device,
+            name,
+            short_name,
+        }
+    }
+
     pub fn address(&self) -> Address {
         self.address.clone()
     }
@@ -35,46 +62,31 @@ impl ReadControllerInformationResult {
     pub fn current_settings(&self) -> CurrentSettings {
         self.current_settings
     }
-    pub fn class_of_device(&self) -> [u8; 3] {
-        self.class_of_device
+    pub fn class_of_device(&self) -> &[u8] {
+        self.class_of_device.as_ref()
     }
     pub fn name(&self) -> String {
-        self.name.clone()
+        self.name.to_string_lossy().to_owned().to_string()
     }
     pub fn short_name(&self) -> String {
-        self.short_name.clone()
+        self.short_name.to_string_lossy().to_owned().to_string()
     }
 }
 
-impl Codec for ReadControllerInformationResult {
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
-        unimplemented!()
-    }
-
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let address = Address::parse(buf)?;
-        let bluetooth_version = buf.get_u8();
-        let manufacturer = buf.get_u16_le();
-        let supported_settings = CurrentSettings::parse(buf)?;
-        let current_settings = CurrentSettings::parse(buf)?;
-        let mut class_of_device = [0; 3];
-        buf.copy_to_slice(&mut class_of_device);
-        let name = buf
-            .take(249)
-            .bytes()
-            .iter()
-            .cloned()
-            .take_while(|c| c != &0)
-            .map(char::from)
-            .collect();
-        let short_name = buf
-            .take(11)
-            .bytes()
-            .iter()
-            .cloned()
-            .take_while(|c| c != &0)
-            .map(char::from)
-            .collect();
+impl PacketData for ReadControllerInformationResult {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let address = PacketData::unpack(buf)?;
+        let bluetooth_version = PacketData::unpack(buf)?;
+        let manufacturer = PacketData::unpack(buf)?;
+        let supported_settings = PacketData::unpack(buf)?;
+        let current_settings = PacketData::unpack(buf)?;
+        if buf.remaining() < 3 {
+            return Err(UnpackError::UnexpectedEof);
+        }
+        let mut class_of_device = HexDisplay::new([0; 3]);
+        buf.copy_to_slice(class_of_device.as_mut());
+        let name = PacketData::unpack(buf)?;
+        let short_name = PacketData::unpack(buf)?;
 
         Ok(Self {
             address,
@@ -87,9 +99,23 @@ impl Codec for ReadControllerInformationResult {
             short_name,
         })
     }
+
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.address.pack(buf)?;
+        self.bluetooth_version.pack(buf)?;
+        self.manufacturer.pack(buf)?;
+        self.supported_settings.pack(buf)?;
+        self.current_settings.pack(buf)?;
+        if buf.remaining_mut() < 3 {
+            return Err(PackError::InsufficientBufLength);
+        }
+        buf.put(self.class_of_device.as_ref());
+        self.name.pack(buf)?;
+        self.short_name.pack(buf)
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ReadControllerInformationCommand {
     ctrl_idx: u16,
 }
@@ -101,8 +127,10 @@ impl ReadControllerInformationCommand {
 }
 
 impl ManagementCommand<ReadControllerInformationResult> for ReadControllerInformationCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<ReadControllerInformationResult> {
-        Ok(ReadControllerInformationResult::parse(buf)?)
+    fn parse_result(
+        buf: &mut impl Buf,
+    ) -> Result<ReadControllerInformationResult, crate::CodecError> {
+        Ok(ReadControllerInformationResult::unpack(buf)?)
     }
 }
 
@@ -114,18 +142,52 @@ impl CommandItem for ReadControllerInformationCommand {
     }
 }
 
-impl Codec for ReadControllerInformationCommand {
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
-        Ok(())
+impl PacketData for ReadControllerInformationCommand {
+    fn unpack(_buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        Ok(Self {
+            ctrl_idx: Default::default(),
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, _buf: &mut impl BufMut) -> Result<(), PackError> {
+        Ok(())
     }
 }
 
 impl From<ReadControllerInformationCommand> for MgmtCommand {
     fn from(v: ReadControllerInformationCommand) -> Self {
         Self::ReadControllerInformationCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = ReadControllerInformationCommand::new(Default::default());
+        e.pack(&mut b).unwrap();
+        let r = ReadControllerInformationCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
+    }
+
+    #[test]
+    fn test_result() {
+        let mut b = vec![];
+        let e = ReadControllerInformationResult::new(
+            "00:11:22:33:44:55".parse().unwrap(),
+            1,
+            2,
+            CurrentSettings::POWERED,
+            CurrentSettings::POWERED,
+            [3; 3],
+            "name".to_owned(),
+            "shortname".to_owned(),
+        );
+        e.pack(&mut b).unwrap();
+        let r = ReadControllerInformationResult::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

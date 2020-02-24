@@ -1,9 +1,10 @@
 use std::fmt;
 
 use bytes::buf::BufExt as _;
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 
 use super::{Codec, CodecError, Result};
+use crate::{PackError, PacketData, UnpackError};
 
 pub use add_advertising_command::*;
 pub use add_device_command::*;
@@ -22,6 +23,7 @@ pub use extended_controller_information_changed_event::*;
 pub use key::*;
 pub use load_identity_resolving_keys_command::*;
 pub use load_long_term_keys_command::*;
+pub use name::*;
 pub use new_identity_resolving_key_event::*;
 pub use new_long_term_key_event::*;
 pub use new_settings_event::*;
@@ -66,6 +68,7 @@ mod extended_controller_information_changed_event;
 mod key;
 mod load_identity_resolving_keys_command;
 mod load_long_term_keys_command;
+mod name;
 mod new_identity_resolving_key_event;
 mod new_long_term_key_event;
 mod new_settings_event;
@@ -111,6 +114,16 @@ impl From<u16> for Code {
 impl From<Code> for u16 {
     fn from(v: Code) -> Self {
         v.0
+    }
+}
+
+impl PacketData for Code {
+    fn unpack(buf: &mut impl Buf) -> std::result::Result<Self, UnpackError> {
+        u16::unpack(buf).map(Into::into)
+    }
+
+    fn pack(&self, buf: &mut impl BufMut) -> std::result::Result<(), PackError> {
+        u16::from(self.clone()).pack(buf)
     }
 }
 

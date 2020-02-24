@@ -1,11 +1,11 @@
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::IdentityResolvingKey;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct LoadIdentityResolvingKeysCommand {
     ctrl_idx: u16,
     keys: Vec<IdentityResolvingKey>,
@@ -18,7 +18,7 @@ impl LoadIdentityResolvingKeysCommand {
 }
 
 impl ManagementCommand<()> for LoadIdentityResolvingKeysCommand {
-    fn parse_result(_buf: &mut impl Buf) -> Result<()> {
+    fn parse_result(_buf: &mut impl Buf) -> Result<(), crate::CodecError> {
         Ok(())
     }
 }
@@ -31,22 +31,54 @@ impl CommandItem for LoadIdentityResolvingKeysCommand {
     }
 }
 
-impl Codec for LoadIdentityResolvingKeysCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        buf.put_u16_le(self.keys.len() as u16);
-        for key in &self.keys {
-            key.write_to(buf)?;
+impl PacketData for LoadIdentityResolvingKeysCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let len = u16::unpack(buf)? as usize;
+        let mut keys = vec![];
+        for _ in 0..len {
+            let key = PacketData::unpack(buf)?;
+            keys.push(key)
         }
-        Ok(())
+
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            keys,
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        (self.keys.len() as u16).pack(buf)?;
+        for key in &self.keys {
+            key.pack(buf)?;
+        }
+        Ok(())
     }
 }
 
 impl From<LoadIdentityResolvingKeysCommand> for MgmtCommand {
     fn from(v: LoadIdentityResolvingKeysCommand) -> Self {
         Self::LoadIdentityResolvingKeysCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::AddressType;
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = LoadIdentityResolvingKeysCommand::new(
+            Default::default(),
+            vec![IdentityResolvingKey::new(
+                "00:11:22:33:44:55".parse().unwrap(),
+                AddressType::LeRandom,
+                [0; 16],
+            )],
+        );
+        e.pack(&mut b).unwrap();
+        let r = LoadIdentityResolvingKeysCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

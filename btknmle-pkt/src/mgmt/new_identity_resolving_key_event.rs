@@ -1,11 +1,11 @@
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::Address;
 use super::IdentityResolvingKey;
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct NewIdentityResolvingKeyEvent {
     controller_index: ControlIndex,
     store_hint: bool,
@@ -14,6 +14,20 @@ pub struct NewIdentityResolvingKeyEvent {
 }
 
 impl NewIdentityResolvingKeyEvent {
+    pub fn new(
+        controller_index: ControlIndex,
+        store_hint: bool,
+        random_address: Address,
+        key: IdentityResolvingKey,
+    ) -> Self {
+        Self {
+            controller_index,
+            store_hint,
+            random_address,
+            key,
+        }
+    }
+
     pub fn controller_index(&self) -> ControlIndex {
         self.controller_index.clone()
     }
@@ -40,27 +54,52 @@ impl EventItem for NewIdentityResolvingKeyEvent {
     }
 }
 
-impl Codec for NewIdentityResolvingKeyEvent {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let controller_index = Default::default();
-        let store_hint = buf.get_u8() != 0;
-        let random_address = Address::parse(buf)?;
-        let key = IdentityResolvingKey::parse(buf)?;
+impl PacketData for NewIdentityResolvingKeyEvent {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let store_hint = u8::unpack(buf)? != 0;
+        let random_address = PacketData::unpack(buf)?;
+        let key = PacketData::unpack(buf)?;
         Ok(Self {
-            controller_index,
+            controller_index: Default::default(),
             store_hint,
             random_address,
             key,
         })
     }
 
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        (self.store_hint as u8).pack(buf)?;
+        self.random_address.pack(buf)?;
+        self.key.pack(buf)
     }
 }
 
 impl From<NewIdentityResolvingKeyEvent> for MgmtEvent {
     fn from(v: NewIdentityResolvingKeyEvent) -> Self {
         Self::NewIdentityResolvingKeyEvent(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::AddressType;
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = NewIdentityResolvingKeyEvent::new(
+            Default::default(),
+            true,
+            "00:11:22:33:44:55".parse().unwrap(),
+            IdentityResolvingKey::new(
+                "00:11:22:33:44:55".parse().unwrap(),
+                AddressType::LeRandom,
+                [1; 16],
+            ),
+        );
+        e.pack(&mut b).unwrap();
+        let r = NewIdentityResolvingKeyEvent::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

@@ -71,7 +71,11 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = Att::from(ReadByTypeRequest::new(Handle::from(0x0000), Handle::from(0xFFFF), Uuid16::from(0x01).into()));
+        let e = Att::from(ReadByTypeRequest::new(
+            Handle::from(0x0000),
+            Handle::from(0xFFFF),
+            Uuid16::from(0x01).into(),
+        ));
         e.pack(&mut b).unwrap();
         let r = Att::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);

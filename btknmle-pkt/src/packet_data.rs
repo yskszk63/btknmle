@@ -64,6 +64,25 @@ impl PacketData for u16 {
     }
 }
 
+impl PacketData for u32 {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        if buf.remaining() < 4 {
+            Err(UnpackError::UnexpectedEof)
+        } else {
+            Ok(buf.get_u32_le())
+        }
+    }
+
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        if buf.remaining_mut() < 4 {
+            Err(PackError::InsufficientBufLength)
+        } else {
+            buf.put_u32_le(*self);
+            Ok(())
+        }
+    }
+}
+
 impl PacketData for u128 {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         if buf.remaining() < 16 {
@@ -99,7 +118,10 @@ mod tests {
         assert_eq!(b, vec![10]);
 
         assert_eq!(Err(UnpackError::UnexpectedEof), u8::unpack(&mut &[][..]));
-        assert_eq!(Err(PackError::InsufficientBufLength), 0u8.pack(&mut &mut [][..]));
+        assert_eq!(
+            Err(PackError::InsufficientBufLength),
+            0u8.pack(&mut &mut [][..])
+        );
     }
 
     #[test]
@@ -113,8 +135,35 @@ mod tests {
         r.pack(&mut b).unwrap();
         assert_eq!(b, vec![10, 0]);
 
-        assert_eq!(Err(UnpackError::UnexpectedEof), u16::unpack(&mut &[0x00][..]));
-        assert_eq!(Err(PackError::InsufficientBufLength), 0u16.pack(&mut &mut [0x00][..]));
+        assert_eq!(
+            Err(UnpackError::UnexpectedEof),
+            u16::unpack(&mut &[0x00][..])
+        );
+        assert_eq!(
+            Err(PackError::InsufficientBufLength),
+            0u16.pack(&mut &mut [0x00][..])
+        );
+    }
+
+    #[test]
+    fn test_u32() {
+        let t = vec![10u8, 0u8, 0u8, 0u8];
+
+        let r = u32::unpack(&mut t.as_ref()).unwrap();
+        assert_eq!(r, 10);
+
+        let mut b = vec![];
+        r.pack(&mut b).unwrap();
+        assert_eq!(b, vec![10, 0, 0, 0]);
+
+        assert_eq!(
+            Err(UnpackError::UnexpectedEof),
+            u32::unpack(&mut &[0x00][..])
+        );
+        assert_eq!(
+            Err(PackError::InsufficientBufLength),
+            0u32.pack(&mut &mut [0x00][..])
+        );
     }
 
     #[test]
@@ -128,7 +177,13 @@ mod tests {
         r.pack(&mut b).unwrap();
         assert_eq!(b, t);
 
-        assert_eq!(Err(UnpackError::UnexpectedEof), u128::unpack(&mut [0; 15].as_ref()));
-        assert_eq!(Err(PackError::InsufficientBufLength), 0u128.pack(&mut &mut [0; 15][..]));
+        assert_eq!(
+            Err(UnpackError::UnexpectedEof),
+            u128::unpack(&mut [0; 15].as_ref())
+        );
+        assert_eq!(
+            Err(PackError::InsufficientBufLength),
+            0u128.pack(&mut &mut [0; 15][..])
+        );
     }
 }

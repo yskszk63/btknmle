@@ -1,7 +1,7 @@
 use bytes::{Buf, BufMut};
 
-use crate::{PackError, PacketData, UnpackError};
 use super::{Att, AttItem, Handle};
+use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug)]
 pub struct FindByTypeValueResponseBuilder {
@@ -84,7 +84,9 @@ impl PacketData for FindByTypeValueResponse {
         while buf.has_remaining() {
             handles_information_list.push(PacketData::unpack(buf)?)
         }
-        Ok(Self { handles_information_list })
+        Ok(Self {
+            handles_information_list,
+        })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
@@ -108,7 +110,11 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = Att::from(FindByTypeValueResponse::builder(0x0000, 0x1111).add(0x2222, 0x3333).build());
+        let e = Att::from(
+            FindByTypeValueResponse::builder(0x0000, 0x1111)
+                .add(0x2222, 0x3333)
+                .build(),
+        );
         e.pack(&mut b).unwrap();
         let r = Att::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);

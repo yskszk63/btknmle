@@ -1,8 +1,8 @@
-use std::fmt;
 use std::convert::TryFrom;
+use std::fmt;
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
 use crate::{PackError, PacketData, UnpackError};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 #[derive(failure::Fail, Debug, Clone, PartialEq, Eq)]
 #[fail(display = "try from uuid error")]
@@ -163,5 +163,3 @@ impl PacketData for Uuid128 {
         self.0.pack(buf)
     }
 }
-
-

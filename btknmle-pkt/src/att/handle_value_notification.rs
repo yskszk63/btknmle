@@ -1,8 +1,8 @@
 use bytes::{Buf, BufMut, Bytes};
 
 use super::{Att, AttItem, Handle};
-use crate::{PackError, PacketData, UnpackError};
 use crate::util::HexDisplay;
+use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct HandleValueNotification {
@@ -37,7 +37,7 @@ impl PacketData for HandleValueNotification {
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         self.attribute_handle.pack(buf)?;
         if buf.remaining_mut() < self.attribute_value.len() {
-            return Err(PackError::InsufficientBufLength)
+            return Err(PackError::InsufficientBufLength);
         }
         buf.put(self.attribute_value.clone());
         Ok(())

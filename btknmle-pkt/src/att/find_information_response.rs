@@ -28,7 +28,7 @@ impl PacketData for Format {
         match u8::unpack(buf)? {
             0x01 => Ok(Self::F2),
             0x02 => Ok(Self::F16),
-            x => Err(UnpackError::unexpected(format!("{:02x}", x))),
+            x => Err(UnpackError::UnexpectedValue(x)),
         }
     }
 

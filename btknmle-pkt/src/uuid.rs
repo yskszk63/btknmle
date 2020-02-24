@@ -1,11 +1,13 @@
 use std::convert::TryFrom;
 use std::fmt;
 
+use thiserror::Error;
+
 use crate::{PackError, PacketData, UnpackError};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-#[derive(failure::Fail, Debug, Clone, PartialEq, Eq)]
-#[fail(display = "try from uuid error")]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[error("try from uuid error")]
 pub struct TryFromUuidError;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -19,7 +21,7 @@ impl PacketData for Uuid {
         match buf.remaining() {
             2 => Ok(Uuid16::unpack(buf)?.into()),
             16 => Ok(Uuid128::unpack(buf)?.into()),
-            x => Err(UnpackError::unexpected(format!("data length {}", x))),
+            x => Err(UnpackError::InvalidDataLength(x)),
         }
     }
 

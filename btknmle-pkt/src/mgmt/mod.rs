@@ -443,10 +443,7 @@ impl PacketData for MgmtEvent {
             }
             NewSettingsEvent::CODE => NewSettingsEvent::unpack_event(&mut buf, index),
             DiscoveringEvent::CODE => DiscoveringEvent::unpack_event(&mut buf, index),
-            x => Err(UnpackError::unexpected(format!(
-                "unknown event code {:?}",
-                x
-            ))),
+            x => Err(UnpackError::UnknownOpcode(x.into())),
         }
     }
 

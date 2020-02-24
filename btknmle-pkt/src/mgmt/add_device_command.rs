@@ -17,8 +17,7 @@ pub enum Action {
 impl PacketData for Action {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let b = u8::unpack(buf)?;
-        b.try_into()
-            .map_err(|x| UnpackError::unexpected(format!("byte {}", x)))
+        b.try_into().map_err(UnpackError::UnexpectedValue)
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {

@@ -1,6 +1,9 @@
+use std::io;
+
 use futures::stream::StreamExt as _;
 
 use input::{Device, DeviceCapability};
+use thiserror::Error;
 
 use btknmle_input::event::DeviceEvent;
 use btknmle_input::event::Event;
@@ -12,6 +15,15 @@ use btknmle_server::gatt;
 use super::kbstat::KbStat;
 use super::mousestat::MouseStat;
 use super::{NotInterested, PasskeyFilter};
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error(transparent)]
+    Gatt(#[from] gatt::GattError),
+}
 
 fn configure_device(device: &mut Device) {
     if device.has_capability(DeviceCapability::Gesture) {
@@ -26,7 +38,7 @@ pub async fn input_loop(
     mut mouse: gatt::Notify,
     grab: bool,
     mut passkey_filter: PasskeyFilter,
-) -> Result<(), failure::Error> {
+) -> Result<(), Error> {
     let mut kbstat = KbStat::new();
     let mut mousestat = MouseStat::new();
     let mut stream = LibinputStream::new_from_udev("seat0", grab)?; // FIXME seat

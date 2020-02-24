@@ -3,16 +3,16 @@ use std::ops::RangeInclusive;
 
 use bitflags::bitflags;
 use bytes::{Buf as _, BufMut as _, Bytes, BytesMut};
-use failure::Fail;
+use thiserror::Error;
 
 use btknmle_pkt::att::{ErrorCode, Handle};
 use btknmle_pkt::{Uuid, Uuid16};
 
-#[derive(Debug, Fail)]
+#[derive(Error, Debug)]
 pub enum Error {
-    #[fail(display = "att err {:?}", _0)]
+    #[error("att error {0:?}")]
     AttError(ErrorCode),
-    #[fail(display = "?")]
+    #[error("?")]
     _E,
 }
 

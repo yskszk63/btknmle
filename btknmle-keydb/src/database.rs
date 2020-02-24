@@ -7,34 +7,19 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use rusqlite::{Connection, OpenFlags};
+use thiserror::Error;
 use tokio::task;
 
-#[derive(Debug, failure::Fail)]
+#[derive(Error, Debug)]
 pub(crate) enum Error {
-    #[fail(display = "{}", _0)]
-    Sqlite(rusqlite::Error),
-    #[fail(display = "{}", _0)]
-    Io(io::Error),
-    #[fail(display = "{}", _0)]
-    Other(String),
-}
-
-impl From<rusqlite::Error> for Error {
-    fn from(v: rusqlite::Error) -> Self {
-        Self::Sqlite(v)
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(v: io::Error) -> Self {
-        Self::Io(v)
-    }
-}
-
-impl From<task::JoinError> for Error {
-    fn from(v: task::JoinError) -> Self {
-        Self::Other(format!("{}", v))
-    }
+    #[error(transparent)]
+    Sqlite(#[from] rusqlite::Error),
+    #[error(transparent)]
+    Io(#[from] io::Error),
+    #[error(transparent)]
+    Join(#[from] task::JoinError),
+    #[error("not supported")]
+    NotSupported,
 }
 
 pub(crate) trait DatabaseItem: Sized {

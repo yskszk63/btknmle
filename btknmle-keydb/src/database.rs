@@ -145,8 +145,7 @@ impl Inner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use btknmle_pkt::mgmt::{Address, AddressType, IdentityResolvingKey, LongTermKey};
-    use std::convert::TryFrom as _;
+    use btknmle_pkt::mgmt::{AddressType, IdentityResolvingKey, LongTermKey};
 
     #[test]
     fn test_inner() {
@@ -154,21 +153,21 @@ mod tests {
         let mut inner = Inner::new(connection).unwrap();
 
         let irks = IdentityResolvingKey::new(
-            Address::try_from("00:11:22:33:44:55".to_string()).unwrap(),
+            "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
             [0; 16],
         );
         inner.store(&irks).unwrap();
 
         let irks = IdentityResolvingKey::new(
-            Address::try_from("00:11:22:33:44:55".to_string()).unwrap(),
+            "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LePublic,
             [0; 16],
         );
         inner.store(&irks).unwrap();
 
         let irks = IdentityResolvingKey::new(
-            Address::try_from("99:88:77:66:55:44".to_string()).unwrap(),
+            "99:88:77:66:55:44".parse().unwrap(),
             AddressType::LeRandom,
             [0; 16],
         );
@@ -183,21 +182,21 @@ mod tests {
         let mut database = Database::new_with(connection).unwrap();
 
         let irks = IdentityResolvingKey::new(
-            Address::try_from("00:11:22:33:44:55".to_string()).unwrap(),
+            "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
             [0; 16],
         );
         database.store(irks).await.unwrap();
 
         let irks = IdentityResolvingKey::new(
-            Address::try_from("00:11:22:33:44:55".to_string()).unwrap(),
+            "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LePublic,
             [0; 16],
         );
         database.store(irks).await.unwrap();
 
         let irks = IdentityResolvingKey::new(
-            Address::try_from("99:88:77:66:55:44".to_string()).unwrap(),
+            "99:88:77:66:55:44".parse().unwrap(),
             AddressType::LeRandom,
             [0; 16],
         );
@@ -212,28 +211,28 @@ mod tests {
         let mut database = Database::new(tmp.path().to_string()).await.unwrap();
 
         let irks = IdentityResolvingKey::new(
-            Address::try_from("00:11:22:33:44:55".to_string()).unwrap(),
+            "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
             [0; 16],
         );
         database.store(irks).await.unwrap();
 
         let irks = IdentityResolvingKey::new(
-            Address::try_from("00:11:22:33:44:55".to_string()).unwrap(),
+            "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LePublic,
             [0; 16],
         );
         database.store(irks).await.unwrap();
 
         let irks = IdentityResolvingKey::new(
-            Address::try_from("99:88:77:66:55:44".to_string()).unwrap(),
+            "99:88:77:66:55:44".parse().unwrap(),
             AddressType::LeRandom,
             [0; 16],
         );
         database.store(irks).await.unwrap();
 
         let ltks = LongTermKey::new(
-            Address::try_from("99:88:77:66:55:44".to_string()).unwrap(),
+            "99:88:77:66:55:44".parse().unwrap(),
             AddressType::LeRandom,
             0,
             0,

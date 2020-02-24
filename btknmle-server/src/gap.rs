@@ -55,7 +55,7 @@ where
                 scan_data.extend(uuid);
                 scan_data
             }
-            _ => todo!(),
+            _ => unimplemented!(),
         };
 
         setup(

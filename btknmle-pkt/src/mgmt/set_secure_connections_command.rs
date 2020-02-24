@@ -46,7 +46,7 @@ impl PacketData for SetSecureConnectionsCommand {
             0x00 => SecureConnections::Disabled,
             0x01 => SecureConnections::Enabled,
             0x02 => SecureConnections::Only,
-            x => return Err(UnpackError::unexpected(format!("value {}", x))),
+            x => return Err(UnpackError::UnexpectedValue(x)),
         };
         Ok(Self {
             ctrl_idx: Default::default(),

@@ -131,7 +131,7 @@ impl PacketData for Att {
             WriteRequest::OPCODE => WriteRequest::unpack_into(buf),
             WriteResponse::OPCODE => WriteResponse::unpack_into(buf),
             HandleValueNotification::OPCODE => HandleValueNotification::unpack_into(buf),
-            x => Err(UnpackError::unexpected(format!("opcode {}", x))),
+            x => Err(UnpackError::UnknownOpcode(x.into())),
         }
     }
 

@@ -1,23 +1,24 @@
 use bytes::{Buf, BufMut};
-use failure::Fail;
+use thiserror::Error;
 
-#[derive(Debug, Fail, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum UnpackError {
-    #[fail(display = "unexpected eof")]
+    #[error("unexpected eof")]
     UnexpectedEof,
-    #[fail(display = "unexpected {}", _0)]
-    Unexpected(String),
+
+    #[error("unexpected value {0}")]
+    UnexpectedValue(u8),
+
+    #[error("invalid data length {0}")]
+    InvalidDataLength(usize),
+
+    #[error("unknown opcode {0:#06X}")]
+    UnknownOpcode(u16),
 }
 
-impl UnpackError {
-    pub fn unexpected(cause: impl ToString) -> Self {
-        Self::Unexpected(cause.to_string())
-    }
-}
-
-#[derive(Debug, Fail, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum PackError {
-    #[fail(display = "insufficient buf length")]
+    #[error("insufficient buf length")]
     InsufficientBufLength,
 }
 

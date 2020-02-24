@@ -16,7 +16,7 @@ impl Encoder for AttCodec {
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         debug!("> {:?}", item);
         item.pack(dst)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, failure::Error::from(e)))?;
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         Ok(())
     }
 }
@@ -26,8 +26,8 @@ impl Decoder for AttCodec {
     type Error = std::io::Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let result = Self::Item::unpack(buf)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, failure::Error::from(e)))?;
+        let result =
+            Self::Item::unpack(buf).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         debug!("< {:?}", result);
         Ok(Some(result))
     }

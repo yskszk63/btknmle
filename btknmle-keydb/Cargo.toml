@@ -8,7 +8,7 @@ edition = "2018"
 tokio = { version="0.2", features=["blocking"] }
 futures = "0.3"
 bytes = "0.5"
-failure = "0.1.6"
+thiserror = "1.0"
 rusqlite = { version="0.21", features=["bundled"] }
 async-trait = "0.1"
 btknmle-pkt = { path="../btknmle-pkt" }

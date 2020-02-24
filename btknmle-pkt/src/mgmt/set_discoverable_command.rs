@@ -20,7 +20,7 @@ impl PacketData for Discoverable {
             0x00 => Discoverable::Disabled,
             0x01 => Discoverable::General,
             0x02 => Discoverable::Limited(t),
-            x => return Err(UnpackError::unexpected(format!("value {}", x))),
+            x => return Err(UnpackError::UnexpectedValue(x)),
         })
     }
 

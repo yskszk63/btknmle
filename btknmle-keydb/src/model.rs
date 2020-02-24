@@ -20,7 +20,7 @@ impl DatabaseItem for LocalIdentityResolvingKey {
     "#;
 
     fn store(&self, _connection: &mut Connection) -> Result<(), Error> {
-        Err(Error::Other("NOT SUPPORTED".into()))
+        Err(Error::NotSupported)
     }
 
     fn load(connection: &mut Connection) -> Result<Vec<Self>, Error> {

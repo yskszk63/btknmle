@@ -41,7 +41,7 @@ impl PacketData for Type {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         u8::unpack(buf)?
             .try_into()
-            .map_err(|x| UnpackError::unexpected(format!("value {}", x)))
+            .map_err(UnpackError::UnexpectedValue)
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {

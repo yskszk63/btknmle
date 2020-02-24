@@ -1,5 +1,6 @@
 #![warn(clippy::all)]
 
+use anyhow::{Error, Result};
 use futures::future::TryFutureExt as _;
 use futures::stream::StreamExt as _;
 
@@ -9,11 +10,11 @@ use btknmle::input::PasskeyFilter;
 use btknmle_keydb::KeyDb;
 use btknmle_server::{gap, gatt};
 
-fn on_err(e: failure::Error) {
+fn on_err(e: Error) {
     log::error!("{}", e)
 }
 
-async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Error> {
+async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
     let passkey_filter = PasskeyFilter::new();
 
     let gap = {
@@ -61,8 +62,8 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Err
                         tokio::task::spawn_local(async move {
                             log::debug!("begin");
                             let tasks = tokio::try_join!(
-                                input_loop(kbd_notify, mouse_notify, grab, passkey_filter).map_err(Into::<failure::Error>::into),
-                                svc.run().map_err(Into::<failure::Error>::into),
+                                input_loop(kbd_notify, mouse_notify, grab, passkey_filter).map_err(Into::<Error>::into),
+                                svc.run().map_err(Into::<Error>::into),
                             );
                             log::debug!("done");
                             tasks.map(|_|()).unwrap_or_else(on_err);
@@ -78,7 +79,7 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<(), failure::Err
     Ok(())
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<()> {
     use clap::*;
 
     dotenv::dotenv().ok();

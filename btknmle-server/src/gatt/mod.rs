@@ -1,7 +1,7 @@
 use std::io;
 
-use failure::Fail;
 use futures::channel::mpsc;
+use thiserror::Error;
 
 pub use connection::*;
 pub use database::*;
@@ -16,25 +16,13 @@ pub mod model {
     pub use crate::pkt::{Uuid, Uuid128, Uuid16};
 }
 
-#[derive(Debug, Fail)]
+#[derive(Error, Debug)]
 pub enum GattError {
-    #[fail(display = "IO Error occurred {}", _0)]
-    Io(#[fail(cause)] io::Error),
+    #[error(transparent)]
+    Io(#[from] io::Error),
 
-    #[fail(display = "Send Error occurred {}", _0)]
-    Send(#[fail(cause)] mpsc::SendError),
-}
-
-impl From<io::Error> for GattError {
-    fn from(v: io::Error) -> Self {
-        Self::Io(v)
-    }
-}
-
-impl From<mpsc::SendError> for GattError {
-    fn from(v: mpsc::SendError) -> Self {
-        Self::Send(v)
-    }
+    #[error(transparent)]
+    Send(#[from] mpsc::SendError),
 }
 
 pub type Result<T> = std::result::Result<T, GattError>;

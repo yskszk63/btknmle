@@ -5,9 +5,9 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::BytesMut;
-use failure::Fail;
 use futures::{Sink, SinkExt as _, Stream, StreamExt as _};
 use log::debug;
+use thiserror::Error;
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::pkt::mgmt::{
@@ -21,43 +21,25 @@ use crate::sock::{Framed, MgmtSocket};
 
 pub use crate::pkt::mgmt as model;
 
-#[derive(Debug, Fail)]
+#[derive(Error, Debug)]
 pub enum Error {
-    #[fail(display = "Io Error occurred {}", _0)]
-    Io(#[fail(cause)] io::Error),
+    #[error(transparent)]
+    Io(#[from] io::Error),
 
-    #[fail(display = "Invalid state")]
+    #[error("invalid state")]
     InvalidState,
 
-    #[fail(display = "Command Error {:?}", _0)]
+    #[error("command error {0:?}")]
     CommandError(Status),
 
-    #[fail(display = "Invalid event {:?}", _0)]
+    #[error("invalid event {0:?}")]
     InvalidEvent(MgmtEvent),
 
-    #[fail(display = "unpack error {:?}", _0)]
-    UnpackError(UnpackError),
+    #[error(transparent)]
+    UnpackError(#[from] UnpackError),
 
-    #[fail(display = "pack error {:?}", _0)]
-    PackError(PackError),
-}
-
-impl From<io::Error> for Error {
-    fn from(v: io::Error) -> Self {
-        Self::Io(v)
-    }
-}
-
-impl From<UnpackError> for Error {
-    fn from(v: UnpackError) -> Self {
-        Self::UnpackError(v)
-    }
-}
-
-impl From<PackError> for Error {
-    fn from(v: PackError) -> Self {
-        Self::PackError(v)
-    }
+    #[error(transparent)]
+    PackError(#[from] PackError),
 }
 
 #[derive(Debug)]

@@ -9,7 +9,7 @@ tokio = { version="0.2", features=["sync", "rt-core", "rt-util", "stream", "macr
 futures = "0.3"
 bytes = "0.5"
 bitflags = "1.2"
-failure = "0.1.6"
+thiserror = "1.0"
 input = "0.4"
 btknmle-server = { path="../btknmle-server" }
 btknmle-input = { path="../btknmle-input" }
@@ -19,3 +19,4 @@ clap = "2.33"
 log = "0.4"
 env_logger = "0.7"
 dotenv = "0.14"
+anyhow = "1.0"

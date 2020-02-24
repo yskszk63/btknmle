@@ -92,11 +92,7 @@ impl PacketData for ReadByGroupTypeResponse {
         let mut attribute_data_list = vec![];
 
         if buf.remaining() % len != 0 {
-            return Err(UnpackError::unexpected(format!(
-                "{} % {} != 0",
-                buf.remaining(),
-                len
-            )));
+            return Err(UnpackError::UnexpectedEof);
         }
 
         while buf.has_remaining() {

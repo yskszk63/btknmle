@@ -2,6 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use bytes::{Buf, BufMut};
+use thiserror::Error;
 
 use crate::{PackError, PacketData, UnpackError};
 
@@ -52,8 +53,8 @@ impl AsRef<[u8]> for Address {
     }
 }
 
-#[derive(failure::Fail, Debug, PartialEq, Eq)]
-#[fail(display = "failed to parse address {}", _0)]
+#[derive(Error, Debug, PartialEq, Eq)]
+#[error("failed to parse address {0}")]
 pub struct ParseAddressError(String);
 
 impl FromStr for Address {

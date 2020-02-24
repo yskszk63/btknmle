@@ -22,7 +22,7 @@ impl PacketData for IoCapability {
             0x02 => IoCapability::KeyboardOnly,
             0x03 => IoCapability::NoInputNoOutput,
             0x04 => IoCapability::KeyboardDisplay,
-            x => return Err(UnpackError::unexpected(format!("value {}", x))),
+            x => return Err(UnpackError::UnexpectedValue(x)),
         })
     }
 

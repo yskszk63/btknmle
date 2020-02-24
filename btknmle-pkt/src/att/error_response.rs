@@ -1,8 +1,9 @@
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
-use super::{Att, AttItem, Codec, CodecError, Handle};
+use super::{Att, AttItem, Handle};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorCode {
     InvalidHandle,
     ReadNotPermitted,
@@ -86,7 +87,18 @@ impl From<ErrorCode> for u8 {
     }
 }
 
-#[derive(Debug)]
+impl PacketData for ErrorCode {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        Ok(u8::unpack(buf)?.into())
+    }
+
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        u8::from(self.clone()).pack(buf)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct ErrorResponse {
     request_opcode_in_error: u8,
     attribute_handle_in_error: Handle,
@@ -111,11 +123,11 @@ impl AttItem for ErrorResponse {
     const OPCODE: u8 = 0x01;
 }
 
-impl Codec for ErrorResponse {
-    fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
-        let request_opcode_in_error = buf.get_u8();
-        let attribute_handle_in_error = Handle::parse(buf)?;
-        let error_code = buf.get_u8().into();
+impl PacketData for ErrorResponse {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let request_opcode_in_error = PacketData::unpack(buf)?;
+        let attribute_handle_in_error = PacketData::unpack(buf)?;
+        let error_code = PacketData::unpack(buf)?;
 
         Ok(Self {
             request_opcode_in_error,
@@ -124,10 +136,10 @@ impl Codec for ErrorResponse {
         })
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {
-        buf.put_u8(self.request_opcode_in_error);
-        self.attribute_handle_in_error.write_to(buf)?;
-        buf.put_u8(self.error_code.clone().into());
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.request_opcode_in_error.pack(buf)?;
+        self.attribute_handle_in_error.pack(buf)?;
+        self.error_code.pack(buf)?;
 
         Ok(())
     }
@@ -136,5 +148,41 @@ impl Codec for ErrorResponse {
 impl From<ErrorResponse> for Att {
     fn from(v: ErrorResponse) -> Att {
         Att::ErrorResponse(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_code() {
+        for n in 0..=255 {
+            let e = ErrorCode::from(n);
+            let e = e.into();
+            assert_eq!(n, e);
+        }
+
+        let t = vec![0x01u8];
+
+        let r = ErrorCode::unpack(&mut t.as_ref()).unwrap();
+        assert_eq!(r, ErrorCode::InvalidHandle);
+
+        let mut b = vec![];
+        r.pack(&mut b).unwrap();
+        assert_eq!(b, vec![0x01]);
+    }
+
+    #[test]
+    fn test_error_response() {
+        let mut b = vec![];
+        let e = Att::from(ErrorResponse::new(
+            ErrorResponse::OPCODE,
+            Handle::from(0x01),
+            ErrorCode::InvalidHandle,
+        ));
+        e.pack(&mut b).unwrap();
+        let r = Att::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

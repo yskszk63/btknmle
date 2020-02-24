@@ -1,11 +1,11 @@
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::CurrentSettings;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SetBondableCommand {
     ctrl_idx: u16,
     bondable: bool,
@@ -17,10 +17,8 @@ impl SetBondableCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetBondableCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings> {
-        Ok(CurrentSettings::parse(buf)?)
-    }
+impl ManagementCommand for SetBondableCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetBondableCommand {
@@ -31,19 +29,36 @@ impl CommandItem for SetBondableCommand {
     }
 }
 
-impl Codec for SetBondableCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        buf.put_u8(if self.bondable { 0x01 } else { 0x00 });
-        Ok(())
+impl PacketData for SetBondableCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let bondable = u8::unpack(buf)? != 0;
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            bondable,
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        (self.bondable as u8).pack(buf)
     }
 }
 
 impl From<SetBondableCommand> for MgmtCommand {
     fn from(v: SetBondableCommand) -> Self {
         Self::SetBondableCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = SetBondableCommand::new(Default::default(), true);
+        e.pack(&mut b).unwrap();
+        let r = SetBondableCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

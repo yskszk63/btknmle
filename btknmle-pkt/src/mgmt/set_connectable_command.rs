@@ -1,11 +1,11 @@
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::CurrentSettings;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SetConnectableCommand {
     ctrl_idx: u16,
     connectable: bool,
@@ -20,10 +20,8 @@ impl SetConnectableCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetConnectableCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings> {
-        Ok(CurrentSettings::parse(buf)?)
-    }
+impl ManagementCommand for SetConnectableCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetConnectableCommand {
@@ -34,19 +32,36 @@ impl CommandItem for SetConnectableCommand {
     }
 }
 
-impl Codec for SetConnectableCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        buf.put_u8(if self.connectable { 0x01 } else { 0x00 });
-        Ok(())
+impl PacketData for SetConnectableCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let connectable = u8::unpack(buf)? != 0;
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            connectable,
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        (self.connectable as u8).pack(buf)
     }
 }
 
 impl From<SetConnectableCommand> for MgmtCommand {
     fn from(v: SetConnectableCommand) -> Self {
         Self::SetConnectableCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = SetConnectableCommand::new(Default::default(), true);
+        e.pack(&mut b).unwrap();
+        let r = SetConnectableCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

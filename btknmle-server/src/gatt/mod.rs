@@ -12,7 +12,8 @@ mod database;
 mod listener;
 
 pub mod model {
-    pub use crate::pkt::att::{Handle, Uuid, Uuid128, Uuid16};
+    pub use crate::pkt::att::Handle;
+    pub use crate::pkt::{Uuid, Uuid128, Uuid16};
 }
 
 #[derive(Debug, Fail)]

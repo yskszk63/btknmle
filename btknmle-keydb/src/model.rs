@@ -1,9 +1,10 @@
 use rusqlite::types::Value;
 use rusqlite::Connection;
+use std::convert::TryInto;
 
 use crate::database::{DatabaseItem, Error};
-use btknmle_pkt::mgmt::{Address, AddressType, IdentityResolvingKey, LongTermKey};
-use btknmle_pkt::Codec as _;
+use btknmle_pkt::mgmt::{IdentityResolvingKey, LongTermKey};
+use btknmle_pkt::PacketData;
 
 #[derive(Debug)]
 pub(crate) struct LocalIdentityResolvingKey([u8; 16]);
@@ -53,12 +54,8 @@ impl DatabaseItem for IdentityResolvingKey {
         let address = Vec::from(self.address().as_ref());
         let address = Value::Blob(address);
 
-        let address_type = match self.address_type() {
-            AddressType::BrEdr => 0,
-            AddressType::LePublic => 1,
-            AddressType::LeRandom => 2,
-        };
-        let address_type = Value::Integer(address_type);
+        let address_type = u8::from(self.address_type());
+        let address_type = Value::Integer(address_type.into());
 
         let value = Vec::from(self.value().as_ref());
         let value = Value::Blob(value);
@@ -77,13 +74,11 @@ impl DatabaseItem for IdentityResolvingKey {
     fn load(connection: &mut Connection) -> Result<Vec<Self>, Error> {
         let mut statement = connection.prepare("SELECT address, address_type, value FROM irks")?;
         let rows = statement.query_map(rusqlite::NO_PARAMS, |row| {
-            let address = Address::parse(&mut row.get::<_, Vec<_>>(0)?.as_ref()).unwrap();
-            let address_type = match row.get(1)? {
-                0 => AddressType::BrEdr,
-                1 => AddressType::LePublic,
-                2 => AddressType::LeRandom,
-                _ => return Err(rusqlite::Error::InvalidQuery),
-            };
+            let address = PacketData::unpack(&mut row.get::<_, Vec<_>>(0)?.as_ref()).unwrap();
+            let address_type = row
+                .get::<_, u8>(1)?
+                .try_into()
+                .map_err(|_| rusqlite::Error::InvalidQuery)?;
             let mut value = [0; 16];
             value.copy_from_slice(&row.get::<_, Vec<_>>(2)?);
             Ok(Self::new(address, address_type, value))
@@ -111,12 +106,8 @@ impl DatabaseItem for LongTermKey {
         let address = Vec::from(self.address().as_ref());
         let address = Value::Blob(address);
 
-        let address_type = match self.address_type() {
-            AddressType::BrEdr => 0,
-            AddressType::LePublic => 1,
-            AddressType::LeRandom => 2,
-        };
-        let address_type = Value::Integer(address_type);
+        let address_type = u8::from(self.address_type());
+        let address_type = Value::Integer(address_type.into());
 
         let key_type = Value::Integer(self.key_type().into());
 
@@ -152,13 +143,11 @@ impl DatabaseItem for LongTermKey {
         let mut statement = connection.prepare(
             "SELECT address, address_type, key_type, master, encryption_size, encryption_diversifier, random_number, value FROM ltks")?;
         let rows = statement.query_map(rusqlite::NO_PARAMS, |row| {
-            let address = Address::parse(&mut row.get::<_, Vec<_>>(0)?.as_ref()).unwrap();
-            let address_type = match row.get(1)? {
-                0 => AddressType::BrEdr,
-                1 => AddressType::LePublic,
-                2 => AddressType::LeRandom,
-                _ => return Err(rusqlite::Error::InvalidQuery),
-            };
+            let address = PacketData::unpack(&mut row.get::<_, Vec<_>>(0)?.as_ref()).unwrap();
+            let address_type = row
+                .get::<_, u8>(1)?
+                .try_into()
+                .map_err(|_| rusqlite::Error::InvalidQuery)?;
             let key_type = row.get(2)?;
             let master = row.get(3)?;
             let encryption_size = row.get(4)?;

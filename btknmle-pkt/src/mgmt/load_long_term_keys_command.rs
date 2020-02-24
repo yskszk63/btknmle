@@ -1,11 +1,11 @@
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::LongTermKey;
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct LoadLongTermKeysCommand {
     ctrl_idx: u16,
     keys: Vec<LongTermKey>,
@@ -17,10 +17,8 @@ impl LoadLongTermKeysCommand {
     }
 }
 
-impl ManagementCommand<()> for LoadLongTermKeysCommand {
-    fn parse_result(_buf: &mut impl Buf) -> Result<()> {
-        Ok(())
-    }
+impl ManagementCommand for LoadLongTermKeysCommand {
+    type Result = ();
 }
 
 impl CommandItem for LoadLongTermKeysCommand {
@@ -31,22 +29,58 @@ impl CommandItem for LoadLongTermKeysCommand {
     }
 }
 
-impl Codec for LoadLongTermKeysCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        buf.put_u16_le(self.keys.len() as u16);
-        for key in &self.keys {
-            key.write_to(buf)?;
+impl PacketData for LoadLongTermKeysCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let len = u16::unpack(buf)? as usize;
+        let mut keys = vec![];
+        for _ in 0..len {
+            let key = PacketData::unpack(buf)?;
+            keys.push(key);
         }
-        Ok(())
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            keys,
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        (self.keys.len() as u16).pack(buf)?;
+        for key in &self.keys {
+            key.pack(buf)?;
+        }
+        Ok(())
     }
 }
 
 impl From<LoadLongTermKeysCommand> for MgmtCommand {
     fn from(v: LoadLongTermKeysCommand) -> Self {
         Self::LoadLongTermKeysCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::AddressType;
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = LoadLongTermKeysCommand::new(
+            Default::default(),
+            vec![LongTermKey::new(
+                "00:11:22:33:44:55".parse().unwrap(),
+                AddressType::LeRandom,
+                0,
+                1,
+                2,
+                [3; 2],
+                [4; 8],
+                [5; 16],
+            )],
+        );
+        e.pack(&mut b).unwrap();
+        let r = LoadLongTermKeysCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

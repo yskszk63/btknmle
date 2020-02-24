@@ -72,7 +72,6 @@ impl KeyStore for KeyDb {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryFrom;
     use std::fs;
     use std::path::Path;
 
@@ -96,8 +95,9 @@ mod tests {
         let f = Path::new("/tmp/d17aba67-3aac-4f70-b67f-e85a238f79ee");
         fs::remove_file(f).ok();
         let mut db = KeyDb::new(f).await.unwrap();
-        let address =
-            btknmle_pkt::mgmt::Address::try_from("00:00:00:00:00:00".to_string()).unwrap();
+        let address = "00:00:00:00:00:00"
+            .parse::<btknmle_pkt::mgmt::Address>()
+            .unwrap();
         let address_type = btknmle_pkt::mgmt::AddressType::LePublic;
         let value = [0; 16];
         db.store_irks(IdentityResolvingKey::new(
@@ -120,8 +120,9 @@ mod tests {
         let f = Path::new("/tmp/75a91193-70f0-4a34-971c-2cd6cdfba8c0");
         fs::remove_file(f).ok();
         let mut db = KeyDb::new(f).await.unwrap();
-        let address =
-            btknmle_pkt::mgmt::Address::try_from("00:00:00:00:00:00".to_string()).unwrap();
+        let address = "00:00:00:00:00:00"
+            .parse::<btknmle_pkt::mgmt::Address>()
+            .unwrap();
         let address_type = btknmle_pkt::mgmt::AddressType::LePublic;
         let key_type = 0;
         let master = 0;

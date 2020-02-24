@@ -1,11 +1,11 @@
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::ManagementCommand;
 use super::{Address, AddressType};
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, CodecError, Result};
+use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Action {
@@ -14,23 +14,15 @@ pub enum Action {
     AutoConnectRemoteDevice,
 }
 
-impl Codec for Action {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        Ok(match buf.get_u8() {
-            0 => Self::BackgroundScanForDevice,
-            1 => Self::AllowIncommingConnection,
-            2 => Self::AutoConnectRemoteDevice,
-            _ => return Err(CodecError::Invalid),
-        })
+impl PacketData for Action {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let b = u8::unpack(buf)?;
+        b.try_into()
+            .map_err(|x| UnpackError::unexpected(format!("byte {}", x)))
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        let v = match self {
-            Self::BackgroundScanForDevice => 0x00,
-            Self::AllowIncommingConnection => 0x01,
-            Self::AutoConnectRemoteDevice => 0x02,
-        };
-        buf.put_u8(v);
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        buf.put_u8(self.clone().into());
         Ok(())
     }
 }
@@ -56,7 +48,8 @@ impl TryFrom<u8> for Action {
         })
     }
 }
-#[derive(Debug)]
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct AddDeviceCommand {
     ctrl_idx: u16,
     address: Address,
@@ -75,12 +68,8 @@ impl AddDeviceCommand {
     }
 }
 
-impl ManagementCommand<(Address, AddressType)> for AddDeviceCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<(Address, AddressType)> {
-        let address = Address::parse(buf)?;
-        let address_type = AddressType::parse(buf)?;
-        Ok((address, address_type))
-    }
+impl ManagementCommand for AddDeviceCommand {
+    type Result = (Address, AddressType);
 }
 
 impl CommandItem for AddDeviceCommand {
@@ -91,21 +80,48 @@ impl CommandItem for AddDeviceCommand {
     }
 }
 
-impl Codec for AddDeviceCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        self.address.write_to(buf)?;
-        self.address_type.write_to(buf)?;
-        self.action.write_to(buf)?;
-        Ok(())
+impl PacketData for AddDeviceCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let address = PacketData::unpack(buf)?;
+        let address_type = PacketData::unpack(buf)?;
+        let action = PacketData::unpack(buf)?;
+
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            address,
+            address_type,
+            action,
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.address.pack(buf)?;
+        self.address_type.pack(buf)?;
+        self.action.pack(buf)
     }
 }
 
 impl From<AddDeviceCommand> for MgmtCommand {
     fn from(v: AddDeviceCommand) -> Self {
         Self::AddDeviceCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = AddDeviceCommand::new(
+            0,
+            "00:11:22:33:44:55".parse().unwrap(),
+            AddressType::LePublic,
+            Action::AutoConnectRemoteDevice,
+        );
+        e.pack(&mut b).unwrap();
+        let r = AddDeviceCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

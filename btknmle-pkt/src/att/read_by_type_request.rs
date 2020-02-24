@@ -1,8 +1,10 @@
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut};
 
-use super::{Att, AttItem, Codec, CodecError, Handle, Uuid};
+use super::{Att, AttItem, Handle};
+use crate::Uuid;
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ReadByTypeRequest {
     starting_handle: Handle,
     ending_handle: Handle,
@@ -10,6 +12,14 @@ pub struct ReadByTypeRequest {
 }
 
 impl ReadByTypeRequest {
+    pub fn new(starting_handle: Handle, ending_handle: Handle, attribute_type: Uuid) -> Self {
+        Self {
+            starting_handle,
+            ending_handle,
+            attribute_type,
+        }
+    }
+
     pub fn starting_handle(&self) -> Handle {
         self.starting_handle.clone()
     }
@@ -27,11 +37,11 @@ impl AttItem for ReadByTypeRequest {
     const OPCODE: u8 = 0x08;
 }
 
-impl Codec for ReadByTypeRequest {
-    fn parse(buf: &mut impl Buf) -> Result<Self, CodecError> {
-        let starting_handle = Handle::parse(buf)?;
-        let ending_handle = Handle::parse(buf)?;
-        let attribute_type = Uuid::parse(buf)?;
+impl PacketData for ReadByTypeRequest {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let starting_handle = PacketData::unpack(buf)?;
+        let ending_handle = PacketData::unpack(buf)?;
+        let attribute_type = PacketData::unpack(buf)?;
 
         Ok(Self {
             starting_handle,
@@ -40,17 +50,34 @@ impl Codec for ReadByTypeRequest {
         })
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<(), CodecError> {
-        self.starting_handle.write_to(buf)?;
-        self.ending_handle.write_to(buf)?;
-        self.attribute_type.write_to(buf)?;
-
-        Ok(())
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.starting_handle.pack(buf)?;
+        self.ending_handle.pack(buf)?;
+        self.attribute_type.pack(buf)
     }
 }
 
 impl From<ReadByTypeRequest> for Att {
     fn from(v: ReadByTypeRequest) -> Att {
         Att::ReadByTypeRequest(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Uuid16;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = Att::from(ReadByTypeRequest::new(
+            Handle::from(0x0000),
+            Handle::from(0xFFFF),
+            Uuid16::from(0x01).into(),
+        ));
+        e.pack(&mut b).unwrap();
+        let r = Att::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

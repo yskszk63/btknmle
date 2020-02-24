@@ -1,7 +1,7 @@
-use bytes::{Buf, BufMut as _, BytesMut};
-use std::convert::TryFrom;
+use bytes::{Buf, BufMut};
+use std::convert::{TryFrom, TryInto};
 
-use super::{Codec, CodecError, Result};
+use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AddressType {
@@ -10,24 +10,15 @@ pub enum AddressType {
     LeRandom,
 }
 
-impl Codec for AddressType {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        Ok(match buf.get_u8() {
-            0 => Self::BrEdr,
-            1 => Self::LePublic,
-            2 => Self::LeRandom,
-            _ => return Err(CodecError::Invalid),
-        })
+impl PacketData for AddressType {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        u8::unpack(buf)?
+            .try_into()
+            .map_err(|x| UnpackError::unexpected(format!("{}", x)))
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        let v = match self {
-            Self::BrEdr => 0x00,
-            Self::LePublic => 0x01,
-            Self::LeRandom => 0x02,
-        };
-        buf.put_u8(v);
-        Ok(())
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        u8::from(self.clone()).pack(buf)
     }
 }
 
@@ -43,12 +34,26 @@ impl From<AddressType> for u8 {
 
 impl TryFrom<u8> for AddressType {
     type Error = u8;
-    fn try_from(v: u8) -> std::result::Result<Self, Self::Error> {
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
         Ok(match v {
             0x00 => AddressType::BrEdr,
             0x01 => AddressType::LePublic,
             0x02 => AddressType::LeRandom,
             v => return Err(v),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = AddressType::BrEdr;
+        e.pack(&mut b).unwrap();
+        let r = AddressType::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

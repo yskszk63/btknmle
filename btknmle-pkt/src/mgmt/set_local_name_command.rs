@@ -1,65 +1,48 @@
-use bytes::buf::BufExt as _;
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::ManagementCommand;
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
+use super::{CompleteName, Name, ShortName};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SetLocalNameCommandResult {
-    name: String,
-    short_name: String,
+    name: Name<CompleteName>,
+    short_name: Name<ShortName>,
 }
 
-impl Codec for SetLocalNameCommandResult {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        let mut name = BytesMut::from(self.name.as_str());
-        name.resize(249, 0);
-        name[248] = 0;
-        buf.extend(name);
-
-        let mut short_name = BytesMut::from(self.short_name.as_str());
-        short_name.resize(11, 0);
-        short_name[10] = 0;
-        buf.extend(short_name);
-
-        Ok(())
+impl PacketData for SetLocalNameCommandResult {
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.name.pack(buf)?;
+        self.short_name.pack(buf)
     }
 
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let name = buf
-            .take(249)
-            .bytes()
-            .iter()
-            .cloned()
-            .take_while(|c| c != &0)
-            .map(char::from)
-            .collect();
-
-        let short_name = buf
-            .take(11)
-            .bytes()
-            .iter()
-            .cloned()
-            .take_while(|c| c != &0)
-            .map(char::from)
-            .collect();
-
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let name = PacketData::unpack(buf)?;
+        let short_name = PacketData::unpack(buf)?;
         Ok(Self { name, short_name })
     }
 }
 
-#[derive(Debug)]
+impl SetLocalNameCommandResult {
+    pub fn new(name: impl AsRef<str>, short_name: impl AsRef<str>) -> Self {
+        let name = Name::with_complete_name(name).unwrap(); // FIXME
+        let short_name = Name::with_short_name(short_name).unwrap(); // FIXME
+        Self { name, short_name }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct SetLocalNameCommand {
     ctrl_idx: u16,
-    name: String,
-    short_name: String,
+    name: Name<CompleteName>,
+    short_name: Name<ShortName>,
 }
 
 impl SetLocalNameCommand {
-    pub fn new(ctrl_idx: u16, name: impl ToString, short_name: impl ToString) -> Self {
-        let name = name.to_string();
-        let short_name = short_name.to_string();
+    pub fn new(ctrl_idx: u16, name: impl AsRef<str>, short_name: impl AsRef<str>) -> Self {
+        let name = Name::with_complete_name(name).unwrap(); // FIXME
+        let short_name = Name::with_short_name(short_name).unwrap(); // FIXME
         Self {
             ctrl_idx,
             name,
@@ -68,10 +51,8 @@ impl SetLocalNameCommand {
     }
 }
 
-impl ManagementCommand<SetLocalNameCommandResult> for SetLocalNameCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<SetLocalNameCommandResult> {
-        Ok(SetLocalNameCommandResult::parse(buf)?)
-    }
+impl ManagementCommand for SetLocalNameCommand {
+    type Result = SetLocalNameCommandResult;
 }
 
 impl CommandItem for SetLocalNameCommand {
@@ -82,28 +63,48 @@ impl CommandItem for SetLocalNameCommand {
     }
 }
 
-impl Codec for SetLocalNameCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        let mut name = BytesMut::from(self.name.as_str());
-        name.resize(249, 0);
-        name[248] = 0;
-        buf.extend(name);
-
-        let mut short_name = BytesMut::from(self.short_name.as_str());
-        short_name.resize(11, 0);
-        short_name[10] = 0;
-        buf.extend(short_name);
-
-        Ok(())
+impl PacketData for SetLocalNameCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let name = PacketData::unpack(buf)?;
+        let short_name = PacketData::unpack(buf)?;
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            name,
+            short_name,
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.name.pack(buf)?;
+        self.short_name.pack(buf)
     }
 }
 
 impl From<SetLocalNameCommand> for MgmtCommand {
     fn from(v: SetLocalNameCommand) -> Self {
-        Self::SetLocalNameCommand(v)
+        Self::SetLocalNameCommand(Box::new(v))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = SetLocalNameCommand::new(Default::default(), "aaa", "bbb");
+        e.pack(&mut b).unwrap();
+        let r = SetLocalNameCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
+    }
+
+    #[test]
+    fn test_result() {
+        let mut b = vec![];
+        let e = SetLocalNameCommandResult::new("aaa", "bbb");
+        e.pack(&mut b).unwrap();
+        let r = SetLocalNameCommandResult::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

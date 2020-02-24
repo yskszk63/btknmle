@@ -1,7 +1,7 @@
 use bitflags::bitflags;
-use bytes::{Buf, BufMut as _, BytesMut};
+use bytes::{Buf, BufMut};
 
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
 bitflags! {
     pub struct AdvertisingFlags: u32 {
@@ -18,13 +18,28 @@ bitflags! {
     }
 }
 
-impl Codec for AdvertisingFlags {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        Ok(Self::from_bits_truncate(buf.get_u32_le()))
+impl PacketData for AdvertisingFlags {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        Ok(Self::from_bits_truncate(u32::unpack(buf)?))
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        buf.put_u32_le(self.bits());
-        Ok(())
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.bits().pack(buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        for n in 0..=0b0000_0011_1111_1111 {
+            let n = u32::to_le_bytes(n).to_vec();
+            let b = AdvertisingFlags::unpack(&mut n.as_ref()).unwrap();
+            let mut r = vec![];
+            b.pack(&mut r).unwrap();
+            assert_eq!(n, r);
+        }
     }
 }

@@ -1,10 +1,9 @@
-use bytes::buf::BufExt as _;
-use bytes::{Buf, BufMut as _, Bytes, BytesMut};
-use std::convert::TryFrom;
+use bytes::{Buf, BufMut, Bytes};
+use std::convert::{TryFrom, TryInto};
 
 use super::{Address, AddressType};
-use super::{Codec, CodecError, Result};
 use crate::util::HexDisplay;
+use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -14,19 +13,16 @@ pub enum Type {
     AuthenticatedRemoteCsrk,
 }
 
-impl Codec for Type {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        Ok(match buf.get_u8() {
+impl TryFrom<u8> for Type {
+    type Error = u8;
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        Ok(match v {
             0x00 => Self::UnauthenticatedLocalCsrk,
             0x01 => Self::UnauthenticatedRemoteCsrk,
             0x02 => Self::AuthenticatedLocalCsrk,
             0x03 => Self::AuthenticatedRemoteCsrk,
-            _ => return Err(CodecError::Invalid),
+            x => return Err(x),
         })
-    }
-
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
-        unimplemented!()
     }
 }
 
@@ -41,16 +37,15 @@ impl From<Type> for u8 {
     }
 }
 
-impl TryFrom<u8> for Type {
-    type Error = u8;
-    fn try_from(v: u8) -> std::result::Result<Self, Self::Error> {
-        Ok(match v {
-            0x00 => Type::UnauthenticatedLocalCsrk,
-            0x01 => Type::UnauthenticatedRemoteCsrk,
-            0x02 => Type::AuthenticatedLocalCsrk,
-            0x03 => Type::AuthenticatedRemoteCsrk,
-            v => return Err(v),
-        })
+impl PacketData for Type {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        u8::unpack(buf)?
+            .try_into()
+            .map_err(|x| UnpackError::unexpected(format!("value {}", x)))
+    }
+
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        u8::from(self.clone()).pack(buf)
     }
 }
 
@@ -89,12 +84,12 @@ impl Key {
     }
 }
 
-impl Codec for Key {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let address = Address::parse(buf)?;
-        let address_type = AddressType::parse(buf)?;
-        let r#type = Type::parse(buf)?;
-        let value = buf.take(usize::max_value()).to_bytes();
+impl PacketData for Key {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let address = PacketData::unpack(buf)?;
+        let address_type = PacketData::unpack(buf)?;
+        let r#type = PacketData::unpack(buf)?;
+        let value = buf.to_bytes();
         Ok(Self {
             address,
             address_type,
@@ -103,8 +98,15 @@ impl Codec for Key {
         })
     }
 
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.address.pack(buf)?;
+        self.address_type.pack(buf)?;
+        self.r#type.pack(buf)?;
+        if buf.remaining_mut() < self.value.len() {
+            return Err(PackError::InsufficientBufLength);
+        }
+        buf.put(self.value.as_ref());
+        Ok(())
     }
 }
 
@@ -132,9 +134,9 @@ impl LongTermKey {
         random_number: [u8; 8],
         value: [u8; 16],
     ) -> Self {
-        let encryption_diversifier = HexDisplay::new(encryption_diversifier);
-        let random_number = HexDisplay::new(random_number);
-        let value = HexDisplay::new(value);
+        let encryption_diversifier = encryption_diversifier.into();
+        let random_number = random_number.into();
+        let value = value.into();
         Self {
             address,
             address_type,
@@ -180,22 +182,22 @@ impl LongTermKey {
     }
 }
 
-impl Codec for LongTermKey {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let address = Address::parse(buf)?;
-        let address_type = AddressType::parse(buf)?;
-        let key_type = buf.get_u8();
-        let master = buf.get_u8();
-        let encryption_size = buf.get_u8();
-        let mut encryption_diversifier = [0; 2];
-        buf.copy_to_slice(&mut encryption_diversifier);
-        let encryption_diversifier = HexDisplay::new(encryption_diversifier);
-        let mut random_number = [0; 8];
-        buf.copy_to_slice(&mut random_number);
-        let random_number = HexDisplay::new(random_number);
-        let mut value = [0; 16];
-        buf.copy_to_slice(&mut value);
-        let value = HexDisplay::new(value);
+impl PacketData for LongTermKey {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let address = PacketData::unpack(buf)?;
+        let address_type = PacketData::unpack(buf)?;
+        let key_type = PacketData::unpack(buf)?;
+        let master = PacketData::unpack(buf)?;
+        let encryption_size = PacketData::unpack(buf)?;
+        if buf.remaining() < 2 + 8 + 16 {
+            return Err(UnpackError::UnexpectedEof);
+        }
+        let mut encryption_diversifier = HexDisplay::new([0; 2]);
+        buf.copy_to_slice(encryption_diversifier.as_mut());
+        let mut random_number = HexDisplay::new([0; 8]);
+        buf.copy_to_slice(random_number.as_mut());
+        let mut value = HexDisplay::new([0; 16]);
+        buf.copy_to_slice(value.as_mut());
 
         Ok(Self {
             address,
@@ -209,15 +211,18 @@ impl Codec for LongTermKey {
         })
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        self.address.write_to(buf)?;
-        self.address_type.write_to(buf)?;
-        buf.put_u8(self.key_type);
-        buf.put_u8(self.master);
-        buf.put_u8(self.encryption_size);
-        buf.extend_from_slice(self.encryption_diversifier.as_ref());
-        buf.extend_from_slice(self.random_number.as_ref());
-        buf.extend_from_slice(self.value.as_ref());
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.address.pack(buf)?;
+        self.address_type.pack(buf)?;
+        self.key_type.pack(buf)?;
+        self.master.pack(buf)?;
+        self.encryption_size.pack(buf)?;
+        if buf.remaining_mut() < 2 + 8 + 16 {
+            return Err(PackError::InsufficientBufLength);
+        }
+        buf.put(self.encryption_diversifier.as_ref());
+        buf.put(self.random_number.as_ref());
+        buf.put(self.value.as_ref());
         Ok(())
     }
 }
@@ -231,7 +236,7 @@ pub struct IdentityResolvingKey {
 
 impl IdentityResolvingKey {
     pub fn new(address: Address, address_type: AddressType, value: [u8; 16]) -> Self {
-        let value = HexDisplay::new(value);
+        let value = value.into();
         Self {
             address,
             address_type,
@@ -252,13 +257,15 @@ impl IdentityResolvingKey {
     }
 }
 
-impl Codec for IdentityResolvingKey {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let address = Address::parse(buf)?;
-        let address_type = AddressType::parse(buf)?;
-        let mut value = [0; 16];
-        buf.copy_to_slice(&mut value);
-        let value = HexDisplay::new(value);
+impl PacketData for IdentityResolvingKey {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let address = PacketData::unpack(buf)?;
+        let address_type = PacketData::unpack(buf)?;
+        if buf.remaining() < 16 {
+            return Err(UnpackError::UnexpectedEof);
+        }
+        let mut value = HexDisplay::new([0; 16]);
+        buf.copy_to_slice(value.as_mut());
 
         Ok(Self {
             address,
@@ -267,10 +274,76 @@ impl Codec for IdentityResolvingKey {
         })
     }
 
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        self.address.write_to(buf)?;
-        self.address_type.write_to(buf)?;
-        buf.extend_from_slice(self.value.as_ref());
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.address.pack(buf)?;
+        self.address_type.pack(buf)?;
+        if buf.remaining_mut() < 16 {
+            return Err(PackError::InsufficientBufLength);
+        }
+        buf.put(self.value.as_ref());
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_type() {
+        for n in 0..=3 {
+            let b = vec![n];
+            let r = Type::unpack(&mut b.as_ref()).unwrap();
+            let mut b2 = vec![];
+            r.pack(&mut b2).unwrap();
+            assert_eq!(b, b2);
+        }
+
+        assert_eq!(false, Type::unpack(&mut vec![4].as_ref()).is_ok());
+    }
+
+    #[test]
+    fn test_key() {
+        let mut b = vec![];
+        let e = Key::new(
+            "00:11:22:33:44:55".parse().unwrap(),
+            AddressType::LeRandom,
+            Type::AuthenticatedLocalCsrk,
+            Bytes::from("ok"),
+        );
+        e.pack(&mut b).unwrap();
+        let r = Key::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
+    }
+
+    #[test]
+    fn test_ltks() {
+        let mut b = vec![];
+        let e = LongTermKey::new(
+            "00:11:22:33:44:55".parse().unwrap(),
+            AddressType::LeRandom,
+            0,
+            1,
+            2,
+            [3; 2],
+            [4; 8],
+            [5; 16],
+        );
+        e.pack(&mut b).unwrap();
+        let r = LongTermKey::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
+    }
+
+    #[test]
+    fn test_irks() {
+        let mut b = vec![];
+        let e = IdentityResolvingKey::new(
+            "00:11:22:33:44:55".parse().unwrap(),
+            AddressType::LeRandom,
+            [1; 16],
+        );
+        e.pack(&mut b).unwrap();
+        let r = IdentityResolvingKey::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

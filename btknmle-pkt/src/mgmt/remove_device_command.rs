@@ -1,11 +1,11 @@
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut};
 
 use super::ManagementCommand;
 use super::{Address, AddressType};
 use super::{Code, CommandItem, ControlIndex, MgmtCommand};
-use super::{Codec, Result};
+use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct RemoveDeviceCommand {
     ctrl_idx: u16,
     address: Address,
@@ -22,12 +22,8 @@ impl RemoveDeviceCommand {
     }
 }
 
-impl ManagementCommand<(Address, AddressType)> for RemoveDeviceCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<(Address, AddressType)> {
-        let address = Address::parse(buf)?;
-        let address_type = AddressType::parse(buf)?;
-        Ok((address, address_type))
-    }
+impl ManagementCommand for RemoveDeviceCommand {
+    type Result = (Address, AddressType);
 }
 
 impl CommandItem for RemoveDeviceCommand {
@@ -38,20 +34,43 @@ impl CommandItem for RemoveDeviceCommand {
     }
 }
 
-impl Codec for RemoveDeviceCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        self.address.write_to(buf)?;
-        self.address_type.write_to(buf)?;
-        Ok(())
+impl PacketData for RemoveDeviceCommand {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let address = PacketData::unpack(buf)?;
+        let address_type = PacketData::unpack(buf)?;
+        Ok(Self {
+            ctrl_idx: Default::default(),
+            address,
+            address_type,
+        })
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
-        unimplemented!()
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.address.pack(buf)?;
+        self.address_type.pack(buf)
     }
 }
 
 impl From<RemoveDeviceCommand> for MgmtCommand {
     fn from(v: RemoveDeviceCommand) -> Self {
         Self::RemoveDeviceCommand(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut b = vec![];
+        let e = RemoveDeviceCommand::new(
+            Default::default(),
+            "00:11:22:33:44:55".parse().unwrap(),
+            AddressType::LeRandom,
+        );
+        e.pack(&mut b).unwrap();
+        let r = RemoveDeviceCommand::unpack(&mut b.as_ref()).unwrap();
+        assert_eq!(e, r);
     }
 }

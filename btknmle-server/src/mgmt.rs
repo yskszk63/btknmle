@@ -16,16 +16,13 @@ use crate::pkt::mgmt::{
     MgmtEvent, ReadControllerInformationResult, SecureConnections, SetLocalNameCommandResult,
     Status,
 };
-use crate::pkt::{Codec as _, CodecError};
+use crate::pkt::{PackError, PacketData, UnpackError};
 use crate::sock::{Framed, MgmtSocket};
 
 pub use crate::pkt::mgmt as model;
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "CodecError {}", _0)]
-    CodecError(#[fail(cause)] CodecError),
-
     #[fail(display = "Io Error occurred {}", _0)]
     Io(#[fail(cause)] io::Error),
 
@@ -37,17 +34,29 @@ pub enum Error {
 
     #[fail(display = "Invalid event {:?}", _0)]
     InvalidEvent(MgmtEvent),
-}
 
-impl From<CodecError> for Error {
-    fn from(v: CodecError) -> Self {
-        Self::CodecError(v)
-    }
+    #[fail(display = "unpack error {:?}", _0)]
+    UnpackError(UnpackError),
+
+    #[fail(display = "pack error {:?}", _0)]
+    PackError(PackError),
 }
 
 impl From<io::Error> for Error {
     fn from(v: io::Error) -> Self {
         Self::Io(v)
+    }
+}
+
+impl From<UnpackError> for Error {
+    fn from(v: UnpackError) -> Self {
+        Self::UnpackError(v)
+    }
+}
+
+impl From<PackError> for Error {
+    fn from(v: PackError) -> Self {
+        Self::PackError(v)
     }
 }
 
@@ -60,7 +69,7 @@ impl Encoder for MgmtCodec {
 
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         debug!("> {:?}", item);
-        item.write_to(dst)?;
+        item.pack(dst)?;
         Ok(())
     }
 }
@@ -70,7 +79,7 @@ impl Decoder for MgmtCodec {
     type Error = Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let result = Self::Item::parse(buf)?;
+        let result = Self::Item::unpack(buf)?;
         debug!("< {:?}", result);
         Ok(Some(result))
     }
@@ -298,7 +307,8 @@ where
 
     async fn invoke<I, O>(&mut self, msg: I) -> Result<O, Error>
     where
-        I: ManagementCommand<O>,
+        O: PacketData,
+        I: ManagementCommand<Result = O>,
     {
         self.io.send(msg.into()).await?;
 
@@ -306,7 +316,7 @@ where
             let evt = evt?;
             match evt {
                 MgmtEvent::CommandCompleteEvent(evt) => {
-                    return Ok(I::parse_result(&mut evt.parameters())?)
+                    return Ok(I::unpack_result(&mut evt.parameters())?)
                 }
                 MgmtEvent::CommandStatusEvent(evt) => {
                     return Err(Error::CommandError(evt.status()))

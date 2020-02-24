@@ -1,16 +1,29 @@
+use std::fmt;
+
 use bytes::{Buf, BufMut, Bytes};
 
+use super::MgmtCommand;
 use super::Status;
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
-use crate::util::HexDisplay;
 use crate::{PackError, PacketData, UnpackError};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct CommandCompleteEvent {
     controller_index: ControlIndex,
     command_opcode: Code,
     status: Status,
-    parameters: HexDisplay<Bytes>,
+    parameters: Bytes,
+}
+
+impl fmt::Debug for CommandCompleteEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f,
+            "CommandCompleteEvent {{ controller_index: {:?}, command_opcode: {:?}, status: {:?}, parameters: {} }}",
+            self.controller_index,
+            &self.command_opcode,
+            self.status,
+            MgmtCommand::debug_result(&self.command_opcode, &mut self.parameters.clone()))
+    }
 }
 
 impl CommandCompleteEvent {
@@ -20,7 +33,6 @@ impl CommandCompleteEvent {
         status: Status,
         parameters: Bytes,
     ) -> Self {
-        let parameters = parameters.into();
         Self {
             controller_index,
             command_opcode,
@@ -59,7 +71,7 @@ impl PacketData for CommandCompleteEvent {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let command_opcode = PacketData::unpack(buf)?;
         let status = PacketData::unpack(buf)?;
-        let parameters = buf.to_bytes().into();
+        let parameters = buf.to_bytes();
         Ok(Self {
             controller_index: Default::default(),
             command_opcode,

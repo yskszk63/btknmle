@@ -17,10 +17,8 @@ impl SetBondableCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetBondableCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
-        Ok(CurrentSettings::unpack(buf)?)
-    }
+impl ManagementCommand for SetBondableCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetBondableCommand {

@@ -102,6 +102,33 @@ impl PacketData for u128 {
     }
 }
 
+impl<T1, T2> PacketData for (T1, T2)
+where
+    T1: PacketData,
+    T2: PacketData,
+{
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let t1 = PacketData::unpack(buf)?;
+        let t2 = PacketData::unpack(buf)?;
+        Ok((t1, t2))
+    }
+
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        self.0.pack(buf)?;
+        self.1.pack(buf)
+    }
+}
+
+impl PacketData for () {
+    fn unpack(_buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        Ok(())
+    }
+
+    fn pack(&self, _buf: &mut impl BufMut) -> Result<(), PackError> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

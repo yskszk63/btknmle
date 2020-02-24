@@ -22,12 +22,8 @@ impl UserConfirmationReplyCommand {
     }
 }
 
-impl ManagementCommand<(Address, AddressType)> for UserConfirmationReplyCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<(Address, AddressType), crate::CodecError> {
-        let address = Address::unpack(buf)?;
-        let address_type = AddressType::unpack(buf)?;
-        Ok((address, address_type))
-    }
+impl ManagementCommand for UserConfirmationReplyCommand {
+    type Result = (Address, AddressType);
 }
 
 impl CommandItem for UserConfirmationReplyCommand {

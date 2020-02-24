@@ -17,10 +17,8 @@ impl LoadIdentityResolvingKeysCommand {
     }
 }
 
-impl ManagementCommand<()> for LoadIdentityResolvingKeysCommand {
-    fn parse_result(_buf: &mut impl Buf) -> Result<(), crate::CodecError> {
-        Ok(())
-    }
+impl ManagementCommand for LoadIdentityResolvingKeysCommand {
+    type Result = ();
 }
 
 impl CommandItem for LoadIdentityResolvingKeysCommand {

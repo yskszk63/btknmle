@@ -52,10 +52,8 @@ impl SetIoCapabilityCommand {
     }
 }
 
-impl ManagementCommand<()> for SetIoCapabilityCommand {
-    fn parse_result(_buf: &mut impl Buf) -> Result<(), crate::CodecError> {
-        Ok(())
-    }
+impl ManagementCommand for SetIoCapabilityCommand {
+    type Result = ();
 }
 
 impl CommandItem for SetIoCapabilityCommand {

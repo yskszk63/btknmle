@@ -17,10 +17,8 @@ impl SetBrEdrCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetBrEdrCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
-        Ok(CurrentSettings::unpack(buf)?)
-    }
+impl ManagementCommand for SetBrEdrCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetBrEdrCommand {

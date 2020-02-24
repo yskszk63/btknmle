@@ -20,10 +20,8 @@ impl SetLowEnergyCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetLowEnergyCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
-        Ok(CurrentSettings::unpack(buf)?)
-    }
+impl ManagementCommand for SetLowEnergyCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetLowEnergyCommand {

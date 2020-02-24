@@ -1,8 +1,8 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::convert::TryInto;
 
 use bytes::Bytes;
 use futures::channel::mpsc;
@@ -11,7 +11,7 @@ use futures::{Sink, SinkExt as _, Stream, StreamExt as _};
 use super::{Database, Result};
 use crate::gatt;
 use crate::pkt::att::{self, Att};
-use crate::pkt::{Uuid, Uuid16, Uuid128};
+use crate::pkt::{Uuid, Uuid128, Uuid16};
 
 #[derive(Debug)]
 pub struct Notify {
@@ -180,14 +180,20 @@ where
                 let head = iter.next().unwrap();
                 let response = match head.1 {
                     Uuid::Uuid16(uuid) => {
-                        let mut b = att::FindInformationResponse::builder(head.0.clone(), Uuid16::from(uuid));
+                        let mut b = att::FindInformationResponse::builder(
+                            head.0.clone(),
+                            Uuid16::from(uuid),
+                        );
                         for item in iter {
                             b.add(item.0.clone(), item.1.clone().try_into().unwrap());
                         }
                         b.build()
                     }
                     Uuid::Uuid128(uuid) => {
-                        let mut b = att::FindInformationResponse::builder(head.0.clone(), Uuid128::from(uuid));
+                        let mut b = att::FindInformationResponse::builder(
+                            head.0.clone(),
+                            Uuid128::from(uuid),
+                        );
                         for item in iter {
                             b.add(item.0.clone(), item.1.clone().try_into().unwrap());
                         }

@@ -19,10 +19,8 @@ impl SetAppearanceCommand {
     }
 }
 
-impl ManagementCommand<()> for SetAppearanceCommand {
-    fn parse_result(_buf: &mut impl Buf) -> Result<(), crate::CodecError> {
-        Ok(())
-    }
+impl ManagementCommand for SetAppearanceCommand {
+    type Result = ();
 }
 
 impl CommandItem for SetAppearanceCommand {

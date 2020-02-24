@@ -20,10 +20,8 @@ impl SetConnectableCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetConnectableCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
-        Ok(CurrentSettings::unpack(buf)?)
-    }
+impl ManagementCommand for SetConnectableCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetConnectableCommand {

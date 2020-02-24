@@ -27,10 +27,8 @@ impl SetSecureConnectionsCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetSecureConnectionsCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
-        Ok(CurrentSettings::unpack(buf)?)
-    }
+impl ManagementCommand for SetSecureConnectionsCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetSecureConnectionsCommand {

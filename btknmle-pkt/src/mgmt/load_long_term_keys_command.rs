@@ -17,10 +17,8 @@ impl LoadLongTermKeysCommand {
     }
 }
 
-impl ManagementCommand<()> for LoadLongTermKeysCommand {
-    fn parse_result(_buf: &mut impl Buf) -> Result<(), crate::CodecError> {
-        Ok(())
-    }
+impl ManagementCommand for LoadLongTermKeysCommand {
+    type Result = ();
 }
 
 impl CommandItem for LoadLongTermKeysCommand {

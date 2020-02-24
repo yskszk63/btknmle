@@ -126,12 +126,8 @@ impl ReadControllerInformationCommand {
     }
 }
 
-impl ManagementCommand<ReadControllerInformationResult> for ReadControllerInformationCommand {
-    fn parse_result(
-        buf: &mut impl Buf,
-    ) -> Result<ReadControllerInformationResult, crate::CodecError> {
-        Ok(ReadControllerInformationResult::unpack(buf)?)
-    }
+impl ManagementCommand for ReadControllerInformationCommand {
+    type Result = ReadControllerInformationResult;
 }
 
 impl CommandItem for ReadControllerInformationCommand {

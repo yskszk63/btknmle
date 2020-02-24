@@ -19,10 +19,8 @@ impl RemoveAdvertisingCommand {
     }
 }
 
-impl ManagementCommand<u8> for RemoveAdvertisingCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<u8, crate::CodecError> {
-        Ok(u8::unpack(buf)?)
-    }
+impl ManagementCommand for RemoveAdvertisingCommand {
+    type Result = u8;
 }
 
 impl CommandItem for RemoveAdvertisingCommand {

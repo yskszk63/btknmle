@@ -68,12 +68,8 @@ impl AddDeviceCommand {
     }
 }
 
-impl ManagementCommand<(Address, AddressType)> for AddDeviceCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<(Address, AddressType), crate::CodecError> {
-        let address = Address::unpack(buf)?;
-        let address_type = AddressType::unpack(buf)?;
-        Ok((address, address_type))
-    }
+impl ManagementCommand for AddDeviceCommand {
+    type Result = (Address, AddressType);
 }
 
 impl CommandItem for AddDeviceCommand {

@@ -24,10 +24,8 @@ impl SetPrivacyCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetPrivacyCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
-        Ok(CurrentSettings::unpack(buf)?)
-    }
+impl ManagementCommand for SetPrivacyCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetPrivacyCommand {

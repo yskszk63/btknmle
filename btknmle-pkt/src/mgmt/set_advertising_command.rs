@@ -64,10 +64,8 @@ impl SetAdvertisingCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetAdvertisingCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
-        Ok(CurrentSettings::unpack(buf)?)
-    }
+impl ManagementCommand for SetAdvertisingCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetAdvertisingCommand {

@@ -50,10 +50,8 @@ impl SetDiscoverableCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetDiscoverableCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
-        Ok(CurrentSettings::unpack(buf)?)
-    }
+impl ManagementCommand for SetDiscoverableCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetDiscoverableCommand {

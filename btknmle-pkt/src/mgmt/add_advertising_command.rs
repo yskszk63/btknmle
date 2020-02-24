@@ -42,10 +42,8 @@ impl AddAdvertisingCommand {
     }
 }
 
-impl ManagementCommand<u8> for AddAdvertisingCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<u8, crate::CodecError> {
-        Ok(buf.get_u8())
-    }
+impl ManagementCommand for AddAdvertisingCommand {
+    type Result = u8;
 }
 
 impl CommandItem for AddAdvertisingCommand {

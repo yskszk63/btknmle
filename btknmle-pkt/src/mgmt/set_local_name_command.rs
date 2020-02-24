@@ -51,10 +51,8 @@ impl SetLocalNameCommand {
     }
 }
 
-impl ManagementCommand<SetLocalNameCommandResult> for SetLocalNameCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<SetLocalNameCommandResult, crate::CodecError> {
-        Ok(SetLocalNameCommandResult::unpack(buf)?)
-    }
+impl ManagementCommand for SetLocalNameCommand {
+    type Result = SetLocalNameCommandResult;
 }
 
 impl CommandItem for SetLocalNameCommand {
@@ -84,7 +82,7 @@ impl PacketData for SetLocalNameCommand {
 
 impl From<SetLocalNameCommand> for MgmtCommand {
     fn from(v: SetLocalNameCommand) -> Self {
-        Self::SetLocalNameCommand(v)
+        Self::SetLocalNameCommand(Box::new(v))
     }
 }
 

@@ -22,12 +22,8 @@ impl RemoveDeviceCommand {
     }
 }
 
-impl ManagementCommand<(Address, AddressType)> for RemoveDeviceCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<(Address, AddressType), crate::CodecError> {
-        let address = PacketData::unpack(buf)?;
-        let address_type = PacketData::unpack(buf)?;
-        Ok((address, address_type))
-    }
+impl ManagementCommand for RemoveDeviceCommand {
+    type Result = (Address, AddressType);
 }
 
 impl CommandItem for RemoveDeviceCommand {

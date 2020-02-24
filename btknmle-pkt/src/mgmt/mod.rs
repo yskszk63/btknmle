@@ -3,7 +3,7 @@ use std::fmt;
 use bytes::buf::BufExt as _;
 use bytes::{Buf, BufMut, BytesMut};
 
-use super::{Codec, CodecError, Result};
+use crate::util::HexDisplay;
 use crate::{PackError, PacketData, UnpackError};
 
 pub use add_advertising_command::*;
@@ -118,11 +118,11 @@ impl From<Code> for u16 {
 }
 
 impl PacketData for Code {
-    fn unpack(buf: &mut impl Buf) -> std::result::Result<Self, UnpackError> {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         u16::unpack(buf).map(Into::into)
     }
 
-    fn pack(&self, buf: &mut impl BufMut) -> std::result::Result<(), PackError> {
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         u16::from(self.clone()).pack(buf)
     }
 }
@@ -161,17 +161,31 @@ impl From<ControlIndex> for u16 {
     }
 }
 
+impl PacketData for ControlIndex {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        u16::unpack(buf).map(Into::into)
+    }
+
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        u16::from(self.clone()).pack(buf)
+    }
+}
+
 impl Default for ControlIndex {
     fn default() -> Self {
         ControlIndex::NonController
     }
 }
 
-pub trait ManagementCommand<T>: Into<MgmtCommand> {
-    fn parse_result(buf: &mut impl Buf) -> Result<T>;
+pub trait ManagementCommand: Into<MgmtCommand> {
+    type Result: PacketData;
+
+    fn unpack_result(buf: &mut impl Buf) -> Result<Self::Result, UnpackError> {
+        Self::Result::unpack(buf)
+    }
 }
 
-trait CommandItem: Codec + Into<MgmtCommand> {
+trait CommandItem: PacketData + Into<MgmtCommand> {
     const CODE: Code;
 
     fn controller_index(&self) -> ControlIndex;
@@ -179,15 +193,30 @@ trait CommandItem: Codec + Into<MgmtCommand> {
     fn code(&self) -> Code {
         Self::CODE
     }
+
+    fn pack_mgmt(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
+        u16::from(self.code()).pack(buf)?;
+        self.controller_index().pack(buf)?;
+        let mut b = BytesMut::new();
+        self.pack(&mut b)?;
+        let mut b = b.freeze();
+        (b.len() as u16).pack(buf)?;
+        buf.put(&mut b);
+        Ok(())
+    }
 }
 
-trait EventItem: Codec + Into<MgmtEvent> {
+trait EventItem: PacketData + Into<MgmtEvent> {
     const CODE: Code;
 
     fn with_controller_index(self, idx: ControlIndex) -> Self;
 
     fn code(&self) -> Code {
         Self::CODE
+    }
+
+    fn unpack_event(buf: &mut impl Buf, index: ControlIndex) -> Result<MgmtEvent, UnpackError> {
+        Ok(Self::unpack(buf)?.with_controller_index(index).into())
     }
 }
 
@@ -196,7 +225,7 @@ pub enum MgmtCommand {
     SetConnectableCommand(SetConnectableCommand),
     SetBondableCommand(SetBondableCommand),
     SetLowEnergyCommand(SetLowEnergyCommand),
-    SetLocalNameCommand(SetLocalNameCommand),
+    SetLocalNameCommand(Box<SetLocalNameCommand>),
     SetAdvertisingCommand(SetAdvertisingCommand),
     SetBrEdrCommand(SetBrEdrCommand),
     SetDiscoverableCommand(SetDiscoverableCommand),
@@ -214,6 +243,69 @@ pub enum MgmtCommand {
     RemoveDeviceCommand(RemoveDeviceCommand),
     ReadControllerInformationCommand(ReadControllerInformationCommand),
     RemoveAdvertisingCommand(RemoveAdvertisingCommand),
+}
+
+impl MgmtCommand {
+    fn debug<B, T>(parameters: &mut B) -> String
+    where
+        B: Buf + Clone,
+        T: ManagementCommand,
+        <T as ManagementCommand>::Result: fmt::Debug,
+    {
+        let mut parameters = parameters.clone();
+        match T::unpack_result(&mut parameters) {
+            Ok(result) => format!("{:?}", result),
+            Err(e) => format!(
+                "{:?} (parse failure {})",
+                HexDisplay::new(parameters.to_bytes()),
+                e
+            ),
+        }
+    }
+
+    fn debug_result<B>(code: &Code, parameters: &mut B) -> String
+    where
+        B: Buf + Clone,
+    {
+        match code.clone() {
+            // ?
+            SetPoweredCommand::CODE => Self::debug::<B, SetPoweredCommand>(parameters),
+            SetConnectableCommand::CODE => Self::debug::<B, SetConnectableCommand>(parameters),
+            SetBondableCommand::CODE => Self::debug::<B, SetBondableCommand>(parameters),
+            SetLowEnergyCommand::CODE => Self::debug::<B, SetLowEnergyCommand>(parameters),
+            SetLocalNameCommand::CODE => Self::debug::<B, SetLocalNameCommand>(parameters),
+            SetAdvertisingCommand::CODE => Self::debug::<B, SetAdvertisingCommand>(parameters),
+            SetBrEdrCommand::CODE => Self::debug::<B, SetBrEdrCommand>(parameters),
+            SetDiscoverableCommand::CODE => Self::debug::<B, SetDiscoverableCommand>(parameters),
+            UserConfirmationReplyCommand::CODE => {
+                Self::debug::<B, UserConfirmationReplyCommand>(parameters)
+            }
+            UserConfirmationNegativeReplyCommand::CODE => {
+                Self::debug::<B, UserConfirmationNegativeReplyCommand>(parameters)
+            }
+            SetSecureConnectionsCommand::CODE => {
+                Self::debug::<B, SetSecureConnectionsCommand>(parameters)
+            }
+            SetPrivacyCommand::CODE => Self::debug::<B, SetPrivacyCommand>(parameters),
+            SetIoCapabilityCommand::CODE => Self::debug::<B, SetIoCapabilityCommand>(parameters),
+            LoadIdentityResolvingKeysCommand::CODE => {
+                Self::debug::<B, LoadIdentityResolvingKeysCommand>(parameters)
+            }
+            LoadLongTermKeysCommand::CODE => Self::debug::<B, LoadLongTermKeysCommand>(parameters),
+            SetAppearanceCommand::CODE => Self::debug::<B, SetAppearanceCommand>(parameters),
+            AddAdvertisingCommand::CODE => Self::debug::<B, AddAdvertisingCommand>(parameters),
+            UserPasskeyReplyCommand::CODE => Self::debug::<B, UserPasskeyReplyCommand>(parameters),
+            AddDeviceCommand::CODE => Self::debug::<B, AddDeviceCommand>(parameters),
+            RemoveDeviceCommand::CODE => Self::debug::<B, RemoveDeviceCommand>(parameters),
+            ReadControllerInformationCommand::CODE => {
+                Self::debug::<B, ReadControllerInformationCommand>(parameters)
+            }
+            RemoveAdvertisingCommand::CODE => {
+                Self::debug::<B, RemoveAdvertisingCommand>(parameters)
+            }
+            _ => format!("{:?}", HexDisplay::new(parameters.to_bytes())),
+        }
+    }
 }
 
 impl fmt::Debug for MgmtCommand {
@@ -245,95 +337,35 @@ impl fmt::Debug for MgmtCommand {
     }
 }
 
-impl Codec for MgmtCommand {
-    fn write_to(&self, buf: &mut BytesMut) -> Result<()> {
-        let code = match self {
-            MgmtCommand::SetPoweredCommand(v) => v.code(),
-            MgmtCommand::SetConnectableCommand(v) => v.code(),
-            MgmtCommand::SetBondableCommand(v) => v.code(),
-            MgmtCommand::SetLowEnergyCommand(v) => v.code(),
-            MgmtCommand::SetLocalNameCommand(v) => v.code(),
-            MgmtCommand::SetAdvertisingCommand(v) => v.code(),
-            MgmtCommand::SetBrEdrCommand(v) => v.code(),
-            MgmtCommand::SetDiscoverableCommand(v) => v.code(),
-            MgmtCommand::UserConfirmationReplyCommand(v) => v.code(),
-            MgmtCommand::UserConfirmationNegativeReplyCommand(v) => v.code(),
-            MgmtCommand::SetSecureConnectionsCommand(v) => v.code(),
-            MgmtCommand::SetPrivacyCommand(v) => v.code(),
-            MgmtCommand::SetIoCapabilityCommand(v) => v.code(),
-            MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.code(),
-            MgmtCommand::LoadLongTermKeysCommand(v) => v.code(),
-            MgmtCommand::SetAppearanceCommand(v) => v.code(),
-            MgmtCommand::AddAdvertisingCommand(v) => v.code(),
-            MgmtCommand::UserPasskeyReplyCommand(v) => v.code(),
-            MgmtCommand::AddDeviceCommand(v) => v.code(),
-            MgmtCommand::RemoveDeviceCommand(v) => v.code(),
-            MgmtCommand::ReadControllerInformationCommand(v) => v.code(),
-            MgmtCommand::RemoveAdvertisingCommand(v) => v.code(),
-        };
-        buf.put_u16_le(code.into());
-
-        let mut b = BytesMut::new();
+impl PacketData for MgmtCommand {
+    fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         match self {
-            MgmtCommand::SetPoweredCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetConnectableCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetBondableCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetLowEnergyCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetLocalNameCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetAdvertisingCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetBrEdrCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetDiscoverableCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::UserConfirmationReplyCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::UserConfirmationNegativeReplyCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetSecureConnectionsCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetPrivacyCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetIoCapabilityCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::LoadLongTermKeysCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::SetAppearanceCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::AddAdvertisingCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::UserPasskeyReplyCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::AddDeviceCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::RemoveDeviceCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::ReadControllerInformationCommand(v) => v.write_to(&mut b)?,
-            MgmtCommand::RemoveAdvertisingCommand(v) => v.write_to(&mut b)?,
-        };
-        let b = b.freeze();
-
-        buf.put_u16_le(
-            match self {
-                MgmtCommand::SetPoweredCommand(v) => v.controller_index(),
-                MgmtCommand::SetConnectableCommand(v) => v.controller_index(),
-                MgmtCommand::SetBondableCommand(v) => v.controller_index(),
-                MgmtCommand::SetLowEnergyCommand(v) => v.controller_index(),
-                MgmtCommand::SetLocalNameCommand(v) => v.controller_index(),
-                MgmtCommand::SetAdvertisingCommand(v) => v.controller_index(),
-                MgmtCommand::SetBrEdrCommand(v) => v.controller_index(),
-                MgmtCommand::SetDiscoverableCommand(v) => v.controller_index(),
-                MgmtCommand::UserConfirmationReplyCommand(v) => v.controller_index(),
-                MgmtCommand::UserConfirmationNegativeReplyCommand(v) => v.controller_index(),
-                MgmtCommand::SetSecureConnectionsCommand(v) => v.controller_index(),
-                MgmtCommand::SetPrivacyCommand(v) => v.controller_index(),
-                MgmtCommand::SetIoCapabilityCommand(v) => v.controller_index(),
-                MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.controller_index(),
-                MgmtCommand::LoadLongTermKeysCommand(v) => v.controller_index(),
-                MgmtCommand::SetAppearanceCommand(v) => v.controller_index(),
-                MgmtCommand::AddAdvertisingCommand(v) => v.controller_index(),
-                MgmtCommand::UserPasskeyReplyCommand(v) => v.controller_index(),
-                MgmtCommand::AddDeviceCommand(v) => v.controller_index(),
-                MgmtCommand::RemoveDeviceCommand(v) => v.controller_index(),
-                MgmtCommand::ReadControllerInformationCommand(v) => v.controller_index(),
-                MgmtCommand::RemoveAdvertisingCommand(v) => v.controller_index(),
-            }
-            .into(),
-        );
-
-        buf.put_u16_le(b.len() as u16);
-        buf.put(b);
-        Ok(())
+            MgmtCommand::SetPoweredCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetConnectableCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetBondableCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetLowEnergyCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetLocalNameCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetAdvertisingCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetBrEdrCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetDiscoverableCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::UserConfirmationReplyCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::UserConfirmationNegativeReplyCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetSecureConnectionsCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetPrivacyCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetIoCapabilityCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::LoadIdentityResolvingKeysCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::LoadLongTermKeysCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::SetAppearanceCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::AddAdvertisingCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::UserPasskeyReplyCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::AddDeviceCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::RemoveDeviceCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::ReadControllerInformationCommand(v) => v.pack_mgmt(buf),
+            MgmtCommand::RemoveAdvertisingCommand(v) => v.pack_mgmt(buf),
+        }
     }
 
-    fn parse(_buf: &mut impl Buf) -> Result<Self> {
+    fn unpack(_buf: &mut impl Buf) -> Result<Self, UnpackError> {
         unimplemented!()
     }
 }
@@ -378,66 +410,47 @@ impl fmt::Debug for MgmtEvent {
     }
 }
 
-impl Codec for MgmtEvent {
-    fn parse(buf: &mut impl Buf) -> Result<Self> {
-        let code = buf.get_u16_le().into();
-        let controller_index = buf.get_u16_le().into();
-        let len = buf.get_u16_le() as usize;
+impl PacketData for MgmtEvent {
+    fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
+        let code = u16::unpack(buf)?.into();
+        let index = PacketData::unpack(buf)?;
+        let len = u16::unpack(buf)? as usize;
 
-        let mut data = buf.take(len);
-        Ok(match code {
-            AuthenticationFailedEvent::CODE => AuthenticationFailedEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            CommandCompleteEvent::CODE => CommandCompleteEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            CommandStatusEvent::CODE => CommandStatusEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            DeviceConnectedEvent::CODE => DeviceConnectedEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            DeviceFoundEvent::CODE => DeviceFoundEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            DeviceDisconnectedEvent::CODE => DeviceDisconnectedEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            NewLongTermKeyEvent::CODE => NewLongTermKeyEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            NewSignatureResolvingKeyEvent::CODE => NewSignatureResolvingKeyEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            ExtendedControllerInformationChangedEvent::CODE => {
-                ExtendedControllerInformationChangedEvent::parse(&mut data)?
-                    .with_controller_index(controller_index)
-                    .into()
+        let mut buf = buf.take(len);
+        match code {
+            AuthenticationFailedEvent::CODE => {
+                AuthenticationFailedEvent::unpack_event(&mut buf, index)
             }
-            UserPasskeyRequestEvent::CODE => UserPasskeyRequestEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            UserConfirmationRequestEvent::CODE => UserConfirmationRequestEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            PasskeyNotifyEvent::CODE => PasskeyNotifyEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            NewIdentityResolvingKeyEvent::CODE => NewIdentityResolvingKeyEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            NewSettingsEvent::CODE => NewSettingsEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            DiscoveringEvent::CODE => DiscoveringEvent::parse(&mut data)?
-                .with_controller_index(controller_index)
-                .into(),
-            x => return Err(CodecError::UnknownMgmt(x.into())),
-        })
+            CommandCompleteEvent::CODE => CommandCompleteEvent::unpack_event(&mut buf, index),
+            CommandStatusEvent::CODE => CommandStatusEvent::unpack_event(&mut buf, index),
+            DeviceConnectedEvent::CODE => DeviceConnectedEvent::unpack_event(&mut buf, index),
+            DeviceFoundEvent::CODE => DeviceFoundEvent::unpack_event(&mut buf, index),
+            DeviceDisconnectedEvent::CODE => DeviceDisconnectedEvent::unpack_event(&mut buf, index),
+            NewLongTermKeyEvent::CODE => NewLongTermKeyEvent::unpack_event(&mut buf, index),
+            NewSignatureResolvingKeyEvent::CODE => {
+                NewSignatureResolvingKeyEvent::unpack_event(&mut buf, index)
+            }
+            ExtendedControllerInformationChangedEvent::CODE => {
+                ExtendedControllerInformationChangedEvent::unpack_event(&mut buf, index)
+            }
+            UserPasskeyRequestEvent::CODE => UserPasskeyRequestEvent::unpack_event(&mut buf, index),
+            UserConfirmationRequestEvent::CODE => {
+                UserConfirmationRequestEvent::unpack_event(&mut buf, index)
+            }
+            PasskeyNotifyEvent::CODE => PasskeyNotifyEvent::unpack_event(&mut buf, index),
+            NewIdentityResolvingKeyEvent::CODE => {
+                NewIdentityResolvingKeyEvent::unpack_event(&mut buf, index)
+            }
+            NewSettingsEvent::CODE => NewSettingsEvent::unpack_event(&mut buf, index),
+            DiscoveringEvent::CODE => DiscoveringEvent::unpack_event(&mut buf, index),
+            x => Err(UnpackError::unexpected(format!(
+                "unknown event code {:?}",
+                x
+            ))),
+        }
     }
 
-    fn write_to(&self, _buf: &mut BytesMut) -> Result<()> {
+    fn pack(&self, _buf: &mut impl BufMut) -> Result<(), PackError> {
         unimplemented!()
     }
 }

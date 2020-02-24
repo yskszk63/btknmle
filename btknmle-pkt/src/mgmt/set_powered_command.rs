@@ -17,10 +17,8 @@ impl SetPoweredCommand {
     }
 }
 
-impl ManagementCommand<CurrentSettings> for SetPoweredCommand {
-    fn parse_result(buf: &mut impl Buf) -> Result<CurrentSettings, crate::CodecError> {
-        Ok(CurrentSettings::unpack(buf)?)
-    }
+impl ManagementCommand for SetPoweredCommand {
+    type Result = CurrentSettings;
 }
 
 impl CommandItem for SetPoweredCommand {

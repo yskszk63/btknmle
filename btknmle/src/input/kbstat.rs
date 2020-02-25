@@ -53,6 +53,10 @@ impl KbStat {
         }
     }
 
+    pub fn keys(&self) -> &HashSet<KeyboardUsageId> {
+        &self.keys
+    }
+
     pub fn recv(&mut self, evt: &KeyboardEvent) {
         let code = KeyCodes::from(evt.key());
         let code = KeyboardUsageId::try_from(code);

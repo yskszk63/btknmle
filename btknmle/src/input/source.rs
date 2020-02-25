@@ -1,19 +1,19 @@
 use std::future::Future;
 use std::io;
 
-use thiserror::Error;
-use tokio::stream::StreamExt as _;
 use futures::stream::TryStreamExt as _;
+use thiserror::Error;
 use tokio::stream::Stream;
+use tokio::stream::StreamExt as _;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 
-use btknmle_input::event::Event as LibinputEvent;
-use btknmle_input::event::PointerEvent;
 use btknmle_input::event::DeviceEvent;
+use btknmle_input::event::Event as LibinputEvent;
 use btknmle_input::event::EventTrait as _;
-use btknmle_input::LibinputStream;
+use btknmle_input::event::PointerEvent;
 use btknmle_input::model::{Device, DeviceCapability};
+use btknmle_input::LibinputStream;
 
 use super::kbstat::KbStat;
 use super::mousestat::MouseStat;
@@ -54,7 +54,6 @@ impl From<MouseStat> for InputEvent {
 
 #[derive(Debug)]
 pub struct InputSource {
-    stream: Option<LibinputStream>,
     input_channel_tx: broadcast::Sender<InputEvent>,
     grab_channel_tx: mpsc::Sender<GrabRequest>,
     grab_channel_rx: Option<mpsc::Receiver<GrabRequest>>,
@@ -117,10 +116,10 @@ fn process_event(
 }
 
 async fn run(
-    mut stream: LibinputStream,
     mut input_channel_tx: broadcast::Sender<InputEvent>,
     mut grab_channel_rx: mpsc::Receiver<GrabRequest>,
 ) -> Result<(), RunError> {
+    let mut stream = LibinputStream::new_from_udev("seat0")?; // TODO seat name
     let mut kbstate = KbStat::new();
     let mut mousestate = MouseStat::new();
 
@@ -145,43 +144,42 @@ async fn run(
 }
 
 impl InputSource {
-    pub fn new() -> io::Result<Self> {
-        let stream = LibinputStream::new_from_udev("seat0")?; // TODO seat name
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
         let (input_channel_tx, _) = broadcast::channel(32); // size
         let (grab_channel_tx, grab_channel_rx) = mpsc::channel(1);
 
-        let stream = Some(stream);
         let grab_channel_rx = Some(grab_channel_rx);
-        Ok(Self {
-            stream,
+        Self {
             input_channel_tx,
             grab_channel_tx,
             grab_channel_rx,
-        })
+        }
     }
 
     pub fn runner(&mut self) -> Result<impl Future<Output = Result<(), RunError>>, RunError> {
-        let stream = self.stream.take();
         let grab_channel_rx = self.grab_channel_rx.take();
-        if stream.is_none() || grab_channel_rx.is_none() {
+        if grab_channel_rx.is_none() {
             return Err(RunError::InvalidState);
         }
-        Ok(run(
-            stream.unwrap(),
-            self.input_channel_tx.clone(),
-            grab_channel_rx.unwrap(),
-        ))
+        Ok(run(self.input_channel_tx.clone(), grab_channel_rx.unwrap()))
     }
 
-    pub fn subscribe(&self) -> impl Stream<Item=Result<InputEvent, SubscribeError>> {
+    pub fn subscribe(&self) -> impl Stream<Item = Result<InputEvent, SubscribeError>> {
         self.input_channel_tx.subscribe().map_err(Into::into)
     }
 
     pub async fn grab(&mut self) -> Result<(), GrabRequestError> {
-        self.grab_channel_tx.send(GrabRequest::Grab).await.map_err(|_| GrabRequestError)
+        self.grab_channel_tx
+            .send(GrabRequest::Grab)
+            .await
+            .map_err(|_| GrabRequestError)
     }
 
     pub async fn ungrab(&mut self) -> Result<(), GrabRequestError> {
-        self.grab_channel_tx.send(GrabRequest::Ungrab).await.map_err(|_| GrabRequestError)
+        self.grab_channel_tx
+            .send(GrabRequest::Ungrab)
+            .await
+            .map_err(|_| GrabRequestError)
     }
 }

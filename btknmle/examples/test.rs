@@ -1,5 +1,5 @@
-use tokio::stream::StreamExt;
 use btknmle::input::source::InputSource;
+use tokio::stream::StreamExt;
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();

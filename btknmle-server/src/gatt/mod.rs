@@ -23,6 +23,9 @@ pub enum GattError {
 
     #[error(transparent)]
     Send(#[from] mpsc::SendError),
+
+    #[error(transparent)]
+    Other(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 pub type Result<T> = std::result::Result<T, GattError>;

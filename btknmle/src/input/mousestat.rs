@@ -7,21 +7,21 @@ use btknmle_input::event::pointer::{
 use btknmle_input::ButtonCodes;
 
 bitflags! {
-    struct Button: u8 {
+    pub struct Button: u8 {
         const LEFT = 0b0000_0001;
         const RIGHT = 0b0000_0010;
         const MIDDLE = 0b0000_0100;
     }
 }
 
-#[derive(Debug)]
-enum Value {
+#[derive(Debug, Clone)]
+pub enum Value {
     None,
     Move(f64, f64),
     Wheel(f64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MouseStat {
     button: Button,
     value: Value,

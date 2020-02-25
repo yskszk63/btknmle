@@ -11,7 +11,7 @@ use btknmle_input::event::KeyboardEvent;
 use btknmle_input::KeyCodes;
 
 bitflags! {
-    struct MetaKeys: u8 {
+    pub struct MetaKeys: u8 {
         const LEFT_CTRL = 0b0000_0001;
         const LEFT_SHIFT = 0b0000_0010;
         const LEFT_ALT = 0b0000_0100;
@@ -39,7 +39,7 @@ impl MetaKeys {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct KbStat {
     meta: MetaKeys,
     keys: HashSet<KeyboardUsageId>,
@@ -51,6 +51,10 @@ impl KbStat {
             meta: MetaKeys::empty(),
             keys: Default::default(),
         }
+    }
+
+    pub fn keys(&self) -> &HashSet<KeyboardUsageId> {
+        &self.keys
     }
 
     pub fn recv(&mut self, evt: &KeyboardEvent) {

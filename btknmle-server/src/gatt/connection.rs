@@ -1,31 +1,19 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::error::Error as StdError;
 use std::io;
 use std::pin::Pin;
+use std::result::Result as StdResult;
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
 use futures::channel::mpsc;
 use futures::{Sink, SinkExt as _, Stream, StreamExt as _};
 
-use super::{Database, Result};
+use super::{Database, GattError, Result};
 use crate::gatt;
 use crate::pkt::att::{self, Att};
 use crate::pkt::{Uuid, Uuid128, Uuid16};
-
-#[derive(Debug)]
-pub struct Notify {
-    handle: att::Handle,
-    tx: mpsc::Sender<Att>,
-}
-
-impl Notify {
-    pub async fn send(&mut self, data: impl Into<Bytes>) -> Result<()> {
-        let data = att::HandleValueNotification::new(self.handle.clone(), data.into());
-        self.tx.send(data.into()).await?;
-        Ok(())
-    }
-}
 
 #[derive(Debug)]
 pub struct Writed {
@@ -44,37 +32,19 @@ impl Stream for Writed {
 pub struct GattConnection<IO> {
     db: Database,
     io: IO,
-    rx: mpsc::Receiver<Att>,
-    tx: mpsc::Sender<Att>,
     listeners: HashMap<att::Handle, mpsc::Sender<Bytes>>,
-}
-
-impl<IO> GattConnection<IO>
-where
-    IO: Stream,
-{
-    pub fn new(db: Database, io: IO) -> Self {
-        let (tx, rx) = mpsc::channel(2);
-        Self {
-            db,
-            io,
-            rx,
-            tx,
-            listeners: HashMap::new(),
-        }
-    }
 }
 
 impl<IO> GattConnection<IO>
 where
     IO: Sink<Att, Error = io::Error> + Stream<Item = io::Result<Att>> + Unpin,
 {
-    pub fn notify_for(&self, handle: &att::Handle) -> Result<Notify> {
-        // FIXME CHECK
-        Ok(Notify {
-            handle: handle.clone(),
-            tx: self.tx.clone(),
-        })
+    pub fn new(db: Database, io: IO) -> Self {
+        Self {
+            db,
+            io,
+            listeners: HashMap::new(),
+        }
     }
 
     pub fn writed_for(&mut self, handle: &att::Handle) -> Result<Writed> {
@@ -364,7 +334,11 @@ where
         Ok(())
     }
 
-    pub async fn run(mut self) -> Result<()> {
+    pub async fn run<Notify, NotifyError>(mut self, mut notify_rx: Notify) -> Result<()>
+    where
+        NotifyError: StdError + Send + Sync + 'static,
+        Notify: Stream<Item = StdResult<(att::Handle, Bytes), NotifyError>> + Unpin,
+    {
         loop {
             tokio::select! {
                 Some(pkt) = self.io.next() => {
@@ -380,8 +354,10 @@ where
                         _ => unimplemented!(),
                     }
                 }
-                Some(pkt) = self.rx.next() => {
-                    self.send(pkt).await?;
+                Some(notify) = notify_rx.next() => {
+                    let (handle, data) = notify.map_err(|e| GattError::Other(Box::new(e)))?;
+                    let pkt = att::HandleValueNotification::new(handle, data);
+                    self.send(Att::from(pkt)).await?;
                 }
                 else => {
                     break;

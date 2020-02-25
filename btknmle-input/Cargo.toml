@@ -16,6 +16,7 @@ log = "0.4"
 
 [dev-dependencies]
 tokio = { version="0.2", features=["macros", "rt-core", "stream", "time"] }
+anyhow = "1.0"
 
 [build-dependencies]
 bindgen = "0.52"

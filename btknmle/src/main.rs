@@ -1,79 +1,134 @@
 #![warn(clippy::all)]
 
+use std::sync::Arc;
+
 use anyhow::{Error, Result};
-use futures::future::TryFutureExt as _;
 use futures::stream::StreamExt as _;
+use futures::stream::TryStreamExt as _;
+use tokio::sync::Mutex;
 
 use btknmle::hogp;
-use btknmle::input::input_loop;
-use btknmle::input::PasskeyFilter;
+use btknmle::input::{InputEvent, InputSource};
 use btknmle_keydb::KeyDb;
 use btknmle_server::{gap, gatt};
+
+#[derive(Debug)]
+struct Callback {
+    input: Arc<Mutex<InputSource>>,
+    grab: bool,
+}
+
+#[async_trait::async_trait]
+impl gap::GapCallback for Callback {
+    async fn passkey_request(&mut self) -> String {
+        let mut buf = String::new();
+        let mut rx = self.input.lock().await.subscribe();
+        while let Some(key) = rx.next().await {
+            match key.unwrap() {
+                InputEvent::Keyboard(k) if k.keys().len() == 1 => {
+                    use btknmle_hid::KeyboardUsageId::*;
+                    match k.keys().iter().next().unwrap() {
+                        KEY_0 => buf.push('0'),
+                        KEY_1 => buf.push('1'),
+                        KEY_2 => buf.push('2'),
+                        KEY_3 => buf.push('3'),
+                        KEY_4 => buf.push('4'),
+                        KEY_5 => buf.push('5'),
+                        KEY_6 => buf.push('6'),
+                        KEY_7 => buf.push('7'),
+                        KEY_8 => buf.push('8'),
+                        KEY_9 => buf.push('9'),
+                        KEY_ENTER => break,
+                        b => log::debug!("ignore {:?}", b),
+                    }
+                }
+                _ => {}
+            }
+        }
+        buf
+    }
+
+    async fn device_connected(&mut self) {
+        if self.grab {
+            self.input
+                .lock()
+                .await
+                .grab()
+                .await
+                .unwrap_or_else(|e| on_err(e.into()))
+        }
+    }
+
+    async fn device_disconnected(&mut self) {
+        if self.grab {
+            self.input
+                .lock()
+                .await
+                .ungrab()
+                .await
+                .unwrap_or_else(|e| on_err(e.into()))
+        }
+    }
+}
 
 fn on_err(e: Error) {
     log::error!("{}", e)
 }
 
 async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
-    let passkey_filter = PasskeyFilter::new();
+    let mut input = InputSource::new();
+    let mut input_loop = tokio::task::spawn_local(input.runner()?);
+    let input = Arc::new(Mutex::new(input));
 
     let gap = {
-        let passkey_filter = passkey_filter.clone();
         let adv_uuid = gap::Uuid16::from(0x1812).into();
+        let callback = Callback {
+            input: input.clone(),
+            grab,
+        };
         gap::Gap::setup(
             devid,
             adv_uuid,
             "btknmle",
             "btknmle",
             KeyDb::new(varfile).await?,
-            move || {
-                let passkey_filter = passkey_filter.clone();
-                async move {
-                    let mut buf = String::new();
-                    let mut rx = passkey_filter.subscribe();
-                    while let Ok(key) = rx.recv().await {
-                        match key {
-                            b @ b'0'..=b'9' => buf.push(b.into()),
-                            b'\n' => break,
-                            b => log::debug!("ignore {}", b),
-                        }
-                    }
-                    buf
-                }
-            },
+            callback,
         )
         .await?
     };
-    let mut gap_working = tokio::spawn(gap.run());
+    let mut gap_working = tokio::task::spawn(gap.run());
 
     let (db, kbd, mouse) = hogp::new();
     let mut listener = gatt::GattListener::new(db, gatt::AttSecurityLevel::NeedsBoundMitm)?;
 
     loop {
         tokio::select! {
-            maybe_sock = listener.next() => {
+            Some(svc) = listener.next() => {
                 log::debug!("connected");
-                match maybe_sock {
-                    Some(Ok(svc)) => {
-                        let kbd_notify = svc.notify_for(&kbd)?;
-                        let mouse_notify = svc.notify_for(&mouse)?;
-                        let passkey_filter = passkey_filter.clone();
+                match svc {
+                    Ok(svc) => {
+                        let kbd = kbd.clone();
+                        let mouse = mouse.clone();
+                        let notify = input.lock().await.subscribe();
+                        let notify = notify.map_ok(move |evt| {
+                            match evt {
+                                InputEvent::Keyboard(k) => (kbd.clone(), k.to_bytes()),
+                                InputEvent::Mouse(m) => (mouse.clone(), m.to_bytes()),
+                            }
+                        });
 
-                        tokio::task::spawn_local(async move {
+                        tokio::task::spawn(async move {
                             log::debug!("begin");
-                            let tasks = tokio::try_join!(
-                                input_loop(kbd_notify, mouse_notify, grab, passkey_filter).map_err(Into::<Error>::into),
-                                svc.run().map_err(Into::<Error>::into),
-                            );
+                            svc.run(notify).await.map_err(Into::into).unwrap_or_else(on_err);
                             log::debug!("done");
-                            tasks.map(|_|()).unwrap_or_else(on_err);
                         });
                     }
-                    Some(Err(e)) => on_err(e.into()),
-                    None => break,
+                    Err(e) => on_err(e.into()),
                 }
             }
-            gap_done = &mut gap_working => gap_done??
+            gap_done = &mut gap_working => gap_done??,
+            input_done = &mut input_loop => input_done??,
+            else => break
         }
     }
     Ok(())

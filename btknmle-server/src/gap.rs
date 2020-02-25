@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -17,22 +16,27 @@ use crate::mgmt::MgmtCodec;
 use crate::sock::{Framed, MgmtSocket};
 use crate::KeyStore;
 
+#[async_trait::async_trait]
+pub trait GapCallback: Send + Sync + 'static {
+    async fn passkey_request(&mut self) -> String;
+    async fn device_connected(&mut self);
+    async fn device_disconnected(&mut self);
+}
+
 #[derive(Debug)]
-pub struct Gap<K, C, F>
+pub struct Gap<K, C>
 where
-    F: Future<Output = String>,
-    C: FnMut() -> F,
+    C: GapCallback,
 {
     mgmt: mgmt::Mgmt<Framed<MgmtSocket, MgmtCodec>>,
     keystore: K,
-    passkey_callback: Arc<Mutex<C>>,
+    callback: Arc<Mutex<C>>,
     scan_data: Vec<u8>,
 }
 
-impl<K, C, F> Gap<K, C, F>
+impl<K, C> Gap<K, C>
 where
-    F: Future<Output = String> + Send,
-    C: (FnMut() -> F) + Send + Sync + 'static,
+    C: GapCallback,
     K: KeyStore,
 {
     pub async fn setup(
@@ -41,10 +45,10 @@ where
         local_name: &str,
         short_local_name: &str,
         mut keystore: K,
-        passkey_callback: C,
+        callback: C,
     ) -> Result<Self, mgmt::Error> {
         let mut mgmt = mgmt::Mgmt::new(devid).await?;
-        let passkey_callback = Arc::new(Mutex::new(passkey_callback));
+        let callback = Arc::new(Mutex::new(callback));
 
         let scan_data = match adv_uuid {
             Uuid::Uuid16(uuid) => {
@@ -70,7 +74,7 @@ where
         Ok(Gap {
             mgmt,
             keystore,
-            passkey_callback,
+            callback,
             scan_data,
         })
     }
@@ -79,7 +83,7 @@ where
         let Self {
             mut mgmt,
             mut keystore,
-            passkey_callback,
+            callback,
             scan_data,
         } = self;
 
@@ -111,17 +115,19 @@ where
                 MgmtEvent::UserPasskeyRequestEvent(evt) => {
                     log::debug!("{:?}", evt);
                     let mut tx = tx.clone();
-                    let passkey_callback = passkey_callback.clone();
+                    let callback = callback.clone();
                     tokio::spawn(async move {
-                        use std::ops::DerefMut;
-                        let mut passkey_callback = passkey_callback.lock().await;
-                        let passkey = (passkey_callback.deref_mut())().await;
+                        let mut callback = callback.lock().await;
+                        let passkey = callback.passkey_request().await;
                         let passkey = passkey.parse().unwrap();
                         tx.send((evt.address(), evt.address_type(), passkey)).await.unwrap();
                     });
                 }
                 MgmtEvent::DeviceConnectedEvent(..) => {
                     mgmt.remove_advertising(None).await?;
+
+                    let mut callback = callback.lock().await;
+                    callback.device_connected().await;
                 }
                 MgmtEvent::DeviceDisconnectedEvent(..) => {
                     mgmt.add_advertising(
@@ -137,6 +143,9 @@ where
                         scan_data.as_ref(),
                     )
                     .await?;
+
+                    let mut callback = callback.lock().await;
+                    callback.device_disconnected().await;
                 }
                 evt => log::debug!("UNHANDLED {:?}", evt),
             }

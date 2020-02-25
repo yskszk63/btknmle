@@ -1,10 +1,12 @@
 #![warn(clippy::all)]
 
+use std::collections::HashSet;
 use std::io;
 use std::os::unix::ffi::OsStrExt as _;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::Path;
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
 use futures::{ready, Stream};
@@ -17,6 +19,9 @@ use tokio::io::PollEvented;
 
 pub use codes::{ButtonCodes, KeyCodes};
 
+pub mod model {
+    pub use input::{Device, DeviceCapability};
+}
 mod codes;
 mod sys;
 
@@ -35,7 +40,47 @@ fn grab(fd: RawFd, grab: bool) -> io::Result<()> {
     }
 }
 
-struct Env(bool);
+#[derive(Debug, Default)]
+struct GrabCollection {
+    grabbed: bool,
+    fds: HashSet<RawFd>,
+}
+
+impl GrabCollection {
+    fn add(&mut self, fd: RawFd) -> io::Result<()> {
+        self.fds.insert(fd);
+        if self.grabbed {
+            grab(fd, true)?;
+        }
+        Ok(())
+    }
+
+    fn remove(&mut self, fd: RawFd) -> io::Result<()> {
+        self.fds.remove(&fd);
+        if self.grabbed {
+            grab(fd, false)?;
+        }
+        Ok(())
+    }
+
+    fn grab(&mut self) -> io::Result<()> {
+        self.grabbed = true;
+        for fd in &self.fds {
+            grab(*fd, true)?;
+        }
+        Ok(())
+    }
+
+    fn ungrab(&mut self) -> io::Result<()> {
+        self.grabbed = false;
+        for fd in &self.fds {
+            grab(*fd, false)?;
+        }
+        Ok(())
+    }
+}
+
+struct Env(Arc<Mutex<GrabCollection>>);
 
 impl LibinputInterface for Env {
     fn open_restricted(&mut self, path: &Path, flags: i32) -> Result<RawFd, i32> {
@@ -44,9 +89,14 @@ impl LibinputInterface for Env {
             err if err < 0 => Err(io::Error::last_os_error().raw_os_error().unwrap_or(err)),
             fd => {
                 debug!("open {:?} {}", path, fd);
-                if self.0 {
-                    if let Err(e) = grab(fd, true) {
-                        warn!("grab failed {:?} {}", path, e)
+                match self.0.lock() {
+                    Ok(mut fds) => {
+                        if let Err(e) = fds.add(fd) {
+                            warn!("failed to add for grab collection {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("failed to add for grab collection {}", e);
                     }
                 }
                 Ok(fd)
@@ -56,15 +106,21 @@ impl LibinputInterface for Env {
 
     fn close_restricted(&mut self, fd: RawFd) {
         debug!("close {}", fd);
-        if self.0 {
-            if let Err(e) = grab(fd, false) {
-                warn!("ungrab failed {}", e)
+        match self.0.lock() {
+            Ok(mut fds) => {
+                if let Err(e) = fds.remove(fd) {
+                    warn!("failed to remove for grab collection {}", e);
+                }
+            }
+            Err(e) => {
+                warn!("failed to remove for grab collection {}", e);
             }
         }
         unsafe { libc::close(fd) };
     }
 }
 
+#[derive(Debug)]
 struct EventedLibinput(Libinput);
 
 impl Evented for EventedLibinput {
@@ -91,15 +147,37 @@ impl Evented for EventedLibinput {
     }
 }
 
-pub struct LibinputStream(PollEvented<EventedLibinput>);
+#[derive(Debug)]
+pub struct LibinputStream {
+    grabs: Arc<Mutex<GrabCollection>>,
+    io: PollEvented<EventedLibinput>,
+}
 
 impl LibinputStream {
-    pub fn new_from_udev(udev_seat: &str, grab: bool) -> io::Result<LibinputStream> {
+    pub fn new_from_udev(udev_seat: &str) -> io::Result<LibinputStream> {
+        let grabs = Arc::new(Mutex::new(Default::default()));
         let udevcx = udev::Context::new()?;
-        let mut libinput = Libinput::new_from_udev(Env(grab), &udevcx);
+        let mut libinput = Libinput::new_from_udev(Env(grabs.clone()), &udevcx);
         libinput.udev_assign_seat(udev_seat).unwrap();
         libinput.dispatch()?;
-        Ok(LibinputStream(PollEvented::new(EventedLibinput(libinput))?))
+        Ok(LibinputStream {
+            grabs,
+            io: PollEvented::new(EventedLibinput(libinput))?,
+        })
+    }
+
+    pub fn grab(&mut self) -> io::Result<()> {
+        match self.grabs.lock() {
+            Ok(mut grabs) => grabs.grab(),
+            Err(..) => Err(io::Error::new(io::ErrorKind::Other, "failed to lock")),
+        }
+    }
+
+    pub fn ungrab(&mut self) -> io::Result<()> {
+        match self.grabs.lock() {
+            Ok(mut grabs) => grabs.ungrab(),
+            Err(..) => Err(io::Error::new(io::ErrorKind::Other, "failed to lock")),
+        }
     }
 }
 
@@ -107,20 +185,20 @@ impl Stream for LibinputStream {
     type Item = Result<Event, io::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match (self.0).get_mut().0.next() {
+        match (self.io).get_mut().0.next() {
             Some(evt) => Poll::Ready(Some(Ok(evt))),
             None => {
-                ready!(self.0.poll_read_ready(cx, Ready::readable()))?;
-                match (self.0).get_mut().0.dispatch() {
-                    Ok(..) => match (self.0).get_mut().0.next() {
+                ready!(self.io.poll_read_ready(cx, Ready::readable()))?;
+                match (self.io).get_mut().0.dispatch() {
+                    Ok(..) => match (self.io).get_mut().0.next() {
                         Some(evt) => Poll::Ready(Some(Ok(evt))),
                         None => {
-                            self.0.clear_read_ready(cx, Ready::readable())?;
+                            self.io.clear_read_ready(cx, Ready::readable())?;
                             Poll::Pending
                         }
                     },
                     Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                        self.0.clear_read_ready(cx, Ready::readable())?;
+                        self.io.clear_read_ready(cx, Ready::readable())?;
                         Poll::Pending
                     }
                     Err(x) => Poll::Ready(Some(Err(x))),
@@ -160,7 +238,8 @@ mod tests {
                 .unwrap();
         }
 
-        let mut env = Env(false);
+        let grabs = Arc::new(Mutex::new(Default::default()));
+        let mut env = Env(grabs);
         if let Ok(fd) = env.open_restricted(&path, 0) {
             env.close_restricted(fd)
         }
@@ -169,7 +248,7 @@ mod tests {
     #[tokio::test]
     async fn test_libinput() {
         use tokio::stream::StreamExt;
-        let stream = LibinputStream::new_from_udev("default", false).unwrap();
+        let stream = LibinputStream::new_from_udev("default").unwrap();
         let mut stream = stream
             .timeout(tokio::time::Duration::from_millis(100))
             .take_while(Result::is_ok);

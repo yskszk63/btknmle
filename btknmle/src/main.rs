@@ -12,6 +12,65 @@ use btknmle::input::{InputEvent, InputSource};
 use btknmle_keydb::KeyDb;
 use btknmle_server::{gap, gatt};
 
+#[derive(Debug)]
+struct Callback {
+    input: Arc<Mutex<InputSource>>,
+    grab: bool,
+}
+
+#[async_trait::async_trait]
+impl gap::GapCallback for Callback {
+    async fn passkey_request(&mut self) -> String {
+        let mut buf = String::new();
+        let mut rx = self.input.lock().await.subscribe();
+        while let Some(key) = rx.next().await {
+            match key.unwrap() {
+                InputEvent::Keyboard(k) if k.keys().len() == 1 => {
+                    use btknmle_hid::KeyboardUsageId::*;
+                    match k.keys().iter().next().unwrap() {
+                        KEY_0 => buf.push('0'),
+                        KEY_1 => buf.push('1'),
+                        KEY_2 => buf.push('2'),
+                        KEY_3 => buf.push('3'),
+                        KEY_4 => buf.push('4'),
+                        KEY_5 => buf.push('5'),
+                        KEY_6 => buf.push('6'),
+                        KEY_7 => buf.push('7'),
+                        KEY_8 => buf.push('8'),
+                        KEY_9 => buf.push('9'),
+                        KEY_ENTER => break,
+                        b => log::debug!("ignore {:?}", b),
+                    }
+                }
+                _ => {}
+            }
+        }
+        buf
+    }
+
+    async fn device_connected(&mut self) {
+        if self.grab {
+            self.input
+                .lock()
+                .await
+                .grab()
+                .await
+                .unwrap_or_else(|e| on_err(e.into()))
+        }
+    }
+
+    async fn device_disconnected(&mut self) {
+        if self.grab {
+            self.input
+                .lock()
+                .await
+                .ungrab()
+                .await
+                .unwrap_or_else(|e| on_err(e.into()))
+        }
+    }
+}
+
 fn on_err(e: Error) {
     log::error!("{}", e)
 }
@@ -23,43 +82,17 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
 
     let gap = {
         let adv_uuid = gap::Uuid16::from(0x1812).into();
-        let input = input.clone();
+        let callback = Callback {
+            input: input.clone(),
+            grab,
+        };
         gap::Gap::setup(
             devid,
             adv_uuid,
             "btknmle",
             "btknmle",
             KeyDb::new(varfile).await?,
-            move || {
-                let input = input.clone();
-                async move {
-                    let mut buf = String::new();
-                    let mut rx = input.lock().await.subscribe();
-                    while let Some(key) = rx.next().await {
-                        match key.unwrap() {
-                            InputEvent::Keyboard(k) if k.keys().len() == 1 => {
-                                use btknmle_hid::KeyboardUsageId::*;
-                                match k.keys().iter().next().unwrap() {
-                                    KEY_0 => buf.push('0'),
-                                    KEY_1 => buf.push('1'),
-                                    KEY_2 => buf.push('2'),
-                                    KEY_3 => buf.push('3'),
-                                    KEY_4 => buf.push('4'),
-                                    KEY_5 => buf.push('5'),
-                                    KEY_6 => buf.push('6'),
-                                    KEY_7 => buf.push('7'),
-                                    KEY_8 => buf.push('8'),
-                                    KEY_9 => buf.push('9'),
-                                    KEY_ENTER => break,
-                                    b => log::debug!("ignore {:?}", b),
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    buf
-                }
-            },
+            callback,
         )
         .await?
     };

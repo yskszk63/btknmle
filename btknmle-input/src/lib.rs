@@ -19,6 +19,9 @@ use tokio::io::PollEvented;
 
 pub use codes::{ButtonCodes, KeyCodes};
 
+pub mod model {
+    pub use input::{Device, DeviceCapability};
+}
 mod codes;
 mod sys;
 
@@ -117,6 +120,7 @@ impl LibinputInterface for Env {
     }
 }
 
+#[derive(Debug)]
 struct EventedLibinput(Libinput);
 
 impl Evented for EventedLibinput {
@@ -143,6 +147,7 @@ impl Evented for EventedLibinput {
     }
 }
 
+#[derive(Debug)]
 pub struct LibinputStream {
     grabs: Arc<Mutex<GrabCollection>>,
     io: PollEvented<EventedLibinput>,

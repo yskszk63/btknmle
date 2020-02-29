@@ -10,7 +10,9 @@ pub use btknmle_pkt::{Uuid, Uuid16};
 
 use crate::mgmt;
 use crate::mgmt::model::{
-    Address, AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent, SecureConnections,
+    command::{IoCapability, MgmtCommand, SecureConnections},
+    event::MgmtEvent,
+    Address, AdvertisingFlags,
 };
 use crate::mgmt::MgmtCodec;
 use crate::sock::{Framed, MgmtSocket};
@@ -93,26 +95,26 @@ where
             tokio::select! {
                 Some(evt) = mgmt.next() => {
             match evt? {
-                MgmtEvent::NewLongTermKeyEvent(evt) => {
+                MgmtEvent::NewLongTermKeyEvent(_, evt) => {
                     if evt.store_hint() {
                         let key = evt.key();
                         log::debug!("{:?}", key);
                         keystore.store_ltks(key.clone()).await?;
                     }
                 }
-                MgmtEvent::NewIdentityResolvingKeyEvent(evt) => {
+                MgmtEvent::NewIdentityResolvingKeyEvent(_, evt) => {
                     if evt.store_hint() {
                         let key = evt.key();
                         log::debug!("{:?}", key);
                         keystore.store_irks(key.clone()).await?;
                     }
                 }
-                MgmtEvent::UserConfirmationRequestEvent(evt) => {
+                MgmtEvent::UserConfirmationRequestEvent(_, evt) => {
                     log::debug!("{:?}", evt);
                     //mgmt.user_confirmation(evt.address(), evt.address_type()).await?;
                     //sock.user_confirmation_negative(evt.address(), evt.address_type()).await?;
                 }
-                MgmtEvent::UserPasskeyRequestEvent(evt) => {
+                MgmtEvent::UserPasskeyRequestEvent(_, evt) => {
                     log::debug!("{:?}", evt);
                     let mut tx = tx.clone();
                     let callback = callback.clone();

@@ -2,8 +2,7 @@ use std::fmt;
 
 use bytes::{Buf, BufMut, Bytes};
 
-use super::MgmtCommand;
-use super::Status;
+use super::{MgmtCommand, Status};
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
 use crate::{PackError, PacketData, UnpackError};
 

@@ -10,7 +10,9 @@ pub use btknmle_pkt::{Uuid, Uuid16};
 
 use crate::mgmt;
 use crate::mgmt::model::{
-    Address, AdvertisingFlags, IoCapability, MgmtCommand, MgmtEvent, SecureConnections,
+    command::{IoCapability, MgmtCommand, SecureConnections},
+    event::MgmtEvent,
+    Address, AdvertisingFlags,
 };
 use crate::mgmt::MgmtCodec;
 use crate::sock::{Framed, MgmtSocket};

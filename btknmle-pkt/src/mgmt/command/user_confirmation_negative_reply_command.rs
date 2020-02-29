@@ -7,15 +7,13 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct UserConfirmationNegativeReplyCommand {
-    ctrl_idx: u16,
     address: Address,
     address_type: AddressType,
 }
 
 impl UserConfirmationNegativeReplyCommand {
-    pub fn new(ctrl_idx: u16, address: Address, address_type: AddressType) -> Self {
+    pub fn new(address: Address, address_type: AddressType) -> Self {
         Self {
-            ctrl_idx,
             address,
             address_type,
         }
@@ -24,14 +22,14 @@ impl UserConfirmationNegativeReplyCommand {
 
 impl ManagementCommand for UserConfirmationNegativeReplyCommand {
     type Result = (Address, AddressType);
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::UserConfirmationNegativeReplyCommand(i, self)
+    }
 }
 
 impl CommandItem for UserConfirmationNegativeReplyCommand {
     const CODE: Code = Code(0x001D);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for UserConfirmationNegativeReplyCommand {
@@ -39,7 +37,6 @@ impl PacketData for UserConfirmationNegativeReplyCommand {
         let address = PacketData::unpack(buf)?;
         let address_type = PacketData::unpack(buf)?;
         Ok(Self {
-            ctrl_idx: Default::default(),
             address,
             address_type,
         })
@@ -51,12 +48,6 @@ impl PacketData for UserConfirmationNegativeReplyCommand {
     }
 }
 
-impl From<UserConfirmationNegativeReplyCommand> for MgmtCommand {
-    fn from(v: UserConfirmationNegativeReplyCommand) -> Self {
-        Self::UserConfirmationNegativeReplyCommand(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -65,12 +56,12 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = UserConfirmationNegativeReplyCommand::new(
-            Default::default(),
             "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = UserConfirmationNegativeReplyCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

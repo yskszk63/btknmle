@@ -7,7 +7,6 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DeviceConnectedEvent {
-    controller_index: ControlIndex,
     address: Address,
     address_type: AddressType,
     flags: u32,
@@ -15,24 +14,13 @@ pub struct DeviceConnectedEvent {
 }
 
 impl DeviceConnectedEvent {
-    pub fn new(
-        controller_index: ControlIndex,
-        address: Address,
-        address_type: AddressType,
-        flags: u32,
-        eir_data: Bytes,
-    ) -> Self {
+    pub fn new(address: Address, address_type: AddressType, flags: u32, eir_data: Bytes) -> Self {
         Self {
-            controller_index,
             address,
             address_type,
             flags,
             eir_data,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn address(&self) -> Address {
@@ -55,9 +43,8 @@ impl DeviceConnectedEvent {
 impl EventItem for DeviceConnectedEvent {
     const CODE: Code = Code(0x000B);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::DeviceConnectedEvent(index, self)
     }
 }
 
@@ -73,7 +60,6 @@ impl PacketData for DeviceConnectedEvent {
         let eir_data = buf.take(len).to_bytes();
 
         Ok(Self {
-            controller_index: Default::default(),
             address,
             address_type,
             flags,
@@ -94,12 +80,6 @@ impl PacketData for DeviceConnectedEvent {
     }
 }
 
-impl From<DeviceConnectedEvent> for MgmtEvent {
-    fn from(v: DeviceConnectedEvent) -> Self {
-        Self::DeviceConnectedEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,14 +88,14 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = DeviceConnectedEvent::new(
-            Default::default(),
             "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
             3,
             Bytes::from("ok"),
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = DeviceConnectedEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

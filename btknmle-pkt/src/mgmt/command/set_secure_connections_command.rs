@@ -14,29 +14,25 @@ pub enum SecureConnections {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetSecureConnectionsCommand {
-    ctrl_idx: u16,
     secure_connections: SecureConnections,
 }
 
 impl SetSecureConnectionsCommand {
-    pub fn new(ctrl_idx: u16, secure_connections: SecureConnections) -> Self {
-        Self {
-            ctrl_idx,
-            secure_connections,
-        }
+    pub fn new(secure_connections: SecureConnections) -> Self {
+        Self { secure_connections }
     }
 }
 
 impl ManagementCommand for SetSecureConnectionsCommand {
     type Result = CurrentSettings;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::SetSecureConnectionsCommand(i, self)
+    }
 }
 
 impl CommandItem for SetSecureConnectionsCommand {
     const CODE: Code = Code(0x002D);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for SetSecureConnectionsCommand {
@@ -48,10 +44,7 @@ impl PacketData for SetSecureConnectionsCommand {
             0x02 => SecureConnections::Only,
             x => return Err(UnpackError::UnexpectedValue(x)),
         };
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            secure_connections,
-        })
+        Ok(Self { secure_connections })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
@@ -64,12 +57,6 @@ impl PacketData for SetSecureConnectionsCommand {
     }
 }
 
-impl From<SetSecureConnectionsCommand> for MgmtCommand {
-    fn from(v: SetSecureConnectionsCommand) -> Self {
-        Self::SetSecureConnectionsCommand(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -77,9 +64,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = SetSecureConnectionsCommand::new(Default::default(), SecureConnections::Only);
+        let e = SetSecureConnectionsCommand::new(SecureConnections::Only);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = SetSecureConnectionsCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

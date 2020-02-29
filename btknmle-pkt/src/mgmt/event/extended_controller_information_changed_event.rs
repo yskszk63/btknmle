@@ -6,20 +6,12 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ExtendedControllerInformationChangedEvent {
-    controller_index: ControlIndex,
     eir_data: Bytes,
 }
 
 impl ExtendedControllerInformationChangedEvent {
-    pub fn new(controller_index: ControlIndex, eir_data: Bytes) -> Self {
-        Self {
-            controller_index,
-            eir_data,
-        }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
+    pub fn new(eir_data: Bytes) -> Self {
+        Self { eir_data }
     }
 
     pub fn eir_data(&self) -> Bytes {
@@ -30,9 +22,8 @@ impl ExtendedControllerInformationChangedEvent {
 impl EventItem for ExtendedControllerInformationChangedEvent {
     const CODE: Code = Code(0x0025);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::ExtendedControllerInformationChangedEvent(index, self)
     }
 }
 
@@ -43,10 +34,7 @@ impl PacketData for ExtendedControllerInformationChangedEvent {
             return Err(UnpackError::UnexpectedEof);
         }
         let eir_data = buf.take(len).to_bytes();
-        Ok(Self {
-            controller_index: Default::default(),
-            eir_data,
-        })
+        Ok(Self { eir_data })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
@@ -59,12 +47,6 @@ impl PacketData for ExtendedControllerInformationChangedEvent {
     }
 }
 
-impl From<ExtendedControllerInformationChangedEvent> for MgmtEvent {
-    fn from(v: ExtendedControllerInformationChangedEvent) -> Self {
-        Self::ExtendedControllerInformationChangedEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -72,10 +54,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e =
-            ExtendedControllerInformationChangedEvent::new(Default::default(), Bytes::from("ok"));
+        let e = ExtendedControllerInformationChangedEvent::new(Bytes::from("ok"));
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = ExtendedControllerInformationChangedEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

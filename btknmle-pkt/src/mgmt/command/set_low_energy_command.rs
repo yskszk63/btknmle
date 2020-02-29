@@ -7,48 +7,35 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetLowEnergyCommand {
-    ctrl_idx: u16,
     low_energy: bool,
 }
 
 impl SetLowEnergyCommand {
-    pub fn new(ctrl_idx: u16, low_energy: bool) -> Self {
-        Self {
-            ctrl_idx,
-            low_energy,
-        }
+    pub fn new(low_energy: bool) -> Self {
+        Self { low_energy }
     }
 }
 
 impl ManagementCommand for SetLowEnergyCommand {
     type Result = CurrentSettings;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::SetLowEnergyCommand(i, self)
+    }
 }
 
 impl CommandItem for SetLowEnergyCommand {
     const CODE: Code = Code(0x000D);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for SetLowEnergyCommand {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let low_energy = u8::unpack(buf)? != 0;
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            low_energy,
-        })
+        Ok(Self { low_energy })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         (self.low_energy as u8).pack(buf)
-    }
-}
-
-impl From<SetLowEnergyCommand> for MgmtCommand {
-    fn from(v: SetLowEnergyCommand) -> Self {
-        Self::SetLowEnergyCommand(v)
     }
 }
 
@@ -59,9 +46,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = SetLowEnergyCommand::new(Default::default(), true);
+        let e = SetLowEnergyCommand::new(true);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = SetLowEnergyCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

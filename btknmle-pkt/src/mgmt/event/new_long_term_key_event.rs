@@ -6,22 +6,13 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct NewLongTermKeyEvent {
-    controller_index: ControlIndex,
     store_hint: bool,
     key: LongTermKey,
 }
 
 impl NewLongTermKeyEvent {
-    pub fn new(controller_index: ControlIndex, store_hint: bool, key: LongTermKey) -> Self {
-        Self {
-            controller_index,
-            store_hint,
-            key,
-        }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
+    pub fn new(store_hint: bool, key: LongTermKey) -> Self {
+        Self { store_hint, key }
     }
 
     pub fn store_hint(&self) -> bool {
@@ -36,9 +27,8 @@ impl NewLongTermKeyEvent {
 impl EventItem for NewLongTermKeyEvent {
     const CODE: Code = Code(0x000A);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::NewLongTermKeyEvent(index, self)
     }
 }
 
@@ -46,22 +36,12 @@ impl PacketData for NewLongTermKeyEvent {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let store_hint = u8::unpack(buf)? != 0;
         let key = PacketData::unpack(buf)?;
-        Ok(Self {
-            controller_index: Default::default(),
-            store_hint,
-            key,
-        })
+        Ok(Self { store_hint, key })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         (self.store_hint as u8).pack(buf)?;
         self.key.pack(buf)
-    }
-}
-
-impl From<NewLongTermKeyEvent> for MgmtEvent {
-    fn from(v: NewLongTermKeyEvent) -> Self {
-        Self::NewLongTermKeyEvent(v)
     }
 }
 
@@ -74,7 +54,6 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = NewLongTermKeyEvent::new(
-            Default::default(),
             true,
             LongTermKey::new(
                 "00:11:22:33:44:55".parse().unwrap(),
@@ -87,8 +66,9 @@ mod tests {
                 [5; 16],
             ),
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = NewLongTermKeyEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

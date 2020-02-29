@@ -6,26 +6,16 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct UserPasskeyRequestEvent {
-    controller_index: ControlIndex,
     address: Address,
     address_type: AddressType,
 }
 
 impl UserPasskeyRequestEvent {
-    pub fn new(
-        controller_index: ControlIndex,
-        address: Address,
-        address_type: AddressType,
-    ) -> Self {
+    pub fn new(address: Address, address_type: AddressType) -> Self {
         Self {
-            controller_index,
             address,
             address_type,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn address(&self) -> Address {
@@ -40,9 +30,8 @@ impl UserPasskeyRequestEvent {
 impl EventItem for UserPasskeyRequestEvent {
     const CODE: Code = Code(0x0010);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::UserPasskeyRequestEvent(index, self)
     }
 }
 
@@ -51,7 +40,6 @@ impl PacketData for UserPasskeyRequestEvent {
         let address = PacketData::unpack(buf)?;
         let address_type = PacketData::unpack(buf)?;
         Ok(Self {
-            controller_index: Default::default(),
             address,
             address_type,
         })
@@ -63,12 +51,6 @@ impl PacketData for UserPasskeyRequestEvent {
     }
 }
 
-impl From<UserPasskeyRequestEvent> for MgmtEvent {
-    fn from(v: UserPasskeyRequestEvent) -> Self {
-        Self::UserPasskeyRequestEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -77,12 +59,12 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = UserPasskeyRequestEvent::new(
-            Default::default(),
             "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = UserPasskeyRequestEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

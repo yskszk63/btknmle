@@ -7,26 +7,25 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct LoadIdentityResolvingKeysCommand {
-    ctrl_idx: u16,
     keys: Vec<IdentityResolvingKey>,
 }
 
 impl LoadIdentityResolvingKeysCommand {
-    pub fn new(ctrl_idx: u16, keys: Vec<IdentityResolvingKey>) -> Self {
-        Self { ctrl_idx, keys }
+    pub fn new(keys: Vec<IdentityResolvingKey>) -> Self {
+        Self { keys }
     }
 }
 
 impl ManagementCommand for LoadIdentityResolvingKeysCommand {
     type Result = ();
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::LoadIdentityResolvingKeysCommand(i, self)
+    }
 }
 
 impl CommandItem for LoadIdentityResolvingKeysCommand {
     const CODE: Code = Code(0x0030);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for LoadIdentityResolvingKeysCommand {
@@ -38,10 +37,7 @@ impl PacketData for LoadIdentityResolvingKeysCommand {
             keys.push(key)
         }
 
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            keys,
-        })
+        Ok(Self { keys })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
@@ -53,12 +49,6 @@ impl PacketData for LoadIdentityResolvingKeysCommand {
     }
 }
 
-impl From<LoadIdentityResolvingKeysCommand> for MgmtCommand {
-    fn from(v: LoadIdentityResolvingKeysCommand) -> Self {
-        Self::LoadIdentityResolvingKeysCommand(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::AddressType;
@@ -67,16 +57,14 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = LoadIdentityResolvingKeysCommand::new(
-            Default::default(),
-            vec![IdentityResolvingKey::new(
-                "00:11:22:33:44:55".parse().unwrap(),
-                AddressType::LeRandom,
-                [0; 16],
-            )],
-        );
+        let e = LoadIdentityResolvingKeysCommand::new(vec![IdentityResolvingKey::new(
+            "00:11:22:33:44:55".parse().unwrap(),
+            AddressType::LeRandom,
+            [0; 16],
+        )]);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = LoadIdentityResolvingKeysCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

@@ -6,7 +6,6 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct UserConfirmationRequestEvent {
-    controller_index: ControlIndex,
     address: Address,
     address_type: AddressType,
     confirm_hint: bool,
@@ -15,23 +14,17 @@ pub struct UserConfirmationRequestEvent {
 
 impl UserConfirmationRequestEvent {
     pub fn new(
-        controller_index: ControlIndex,
         address: Address,
         address_type: AddressType,
         confirm_hint: bool,
         value: u32,
     ) -> Self {
         Self {
-            controller_index,
             address,
             address_type,
             confirm_hint,
             value,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn address(&self) -> Address {
@@ -54,9 +47,8 @@ impl UserConfirmationRequestEvent {
 impl EventItem for UserConfirmationRequestEvent {
     const CODE: Code = Code(0x000F);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::UserConfirmationRequestEvent(index, self)
     }
 }
 
@@ -67,7 +59,6 @@ impl PacketData for UserConfirmationRequestEvent {
         let confirm_hint = u8::unpack(buf)? != 0;
         let value = PacketData::unpack(buf)?;
         Ok(Self {
-            controller_index: Default::default(),
             address,
             address_type,
             confirm_hint,
@@ -83,12 +74,6 @@ impl PacketData for UserConfirmationRequestEvent {
     }
 }
 
-impl From<UserConfirmationRequestEvent> for MgmtEvent {
-    fn from(v: UserConfirmationRequestEvent) -> Self {
-        Self::UserConfirmationRequestEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,14 +82,14 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = UserConfirmationRequestEvent::new(
-            Default::default(),
             "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
             true,
             3,
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = UserConfirmationRequestEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

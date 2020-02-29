@@ -6,26 +6,16 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DiscoveringEvent {
-    controller_index: ControlIndex,
     address_type: AddressType,
     discovering: bool,
 }
 
 impl DiscoveringEvent {
-    pub fn new(
-        controller_index: ControlIndex,
-        address_type: AddressType,
-        discovering: bool,
-    ) -> Self {
+    pub fn new(address_type: AddressType, discovering: bool) -> Self {
         Self {
-            controller_index,
             address_type,
             discovering,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn address_type(&self) -> AddressType {
@@ -40,9 +30,8 @@ impl DiscoveringEvent {
 impl EventItem for DiscoveringEvent {
     const CODE: Code = Code(0x0013);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::DiscoveringEvent(index, self)
     }
 }
 
@@ -51,7 +40,6 @@ impl PacketData for DiscoveringEvent {
         let address_type = PacketData::unpack(buf)?;
         let discovering = u8::unpack(buf)? != 0;
         Ok(Self {
-            controller_index: Default::default(),
             address_type,
             discovering,
         })
@@ -63,12 +51,6 @@ impl PacketData for DiscoveringEvent {
     }
 }
 
-impl From<DiscoveringEvent> for MgmtEvent {
-    fn from(v: DiscoveringEvent) -> Self {
-        Self::DiscoveringEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,9 +58,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = DiscoveringEvent::new(Default::default(), AddressType::LeRandom, true);
+        let e = DiscoveringEvent::new(AddressType::LeRandom, true);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = DiscoveringEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

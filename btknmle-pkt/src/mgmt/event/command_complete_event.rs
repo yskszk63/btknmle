@@ -2,13 +2,12 @@ use std::fmt;
 
 use bytes::{Buf, BufMut, Bytes};
 
-use super::{MgmtCommand, Status};
 use super::{Code, ControlIndex, EventItem, MgmtEvent};
+use super::{MgmtCommand, Status};
 use crate::{PackError, PacketData, UnpackError};
 
 #[derive(PartialEq, Eq)]
 pub struct CommandCompleteEvent {
-    controller_index: ControlIndex,
     command_opcode: Code,
     status: Status,
     parameters: Bytes,
@@ -16,32 +15,23 @@ pub struct CommandCompleteEvent {
 
 impl fmt::Debug for CommandCompleteEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f,
-            "CommandCompleteEvent {{ controller_index: {:?}, command_opcode: {:?}, status: {:?}, parameters: {} }}",
-            self.controller_index,
+        write!(
+            f,
+            "CommandCompleteEvent {{ command_opcode: {:?}, status: {:?}, parameters: {} }}",
             &self.command_opcode,
             self.status,
-            MgmtCommand::debug_result(&self.command_opcode, &mut self.parameters.clone()))
+            MgmtCommand::debug_result(&self.command_opcode, &mut self.parameters.clone())
+        )
     }
 }
 
 impl CommandCompleteEvent {
-    pub fn new(
-        controller_index: ControlIndex,
-        command_opcode: Code,
-        status: Status,
-        parameters: Bytes,
-    ) -> Self {
+    pub fn new(command_opcode: Code, status: Status, parameters: Bytes) -> Self {
         Self {
-            controller_index,
             command_opcode,
             status,
             parameters,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn command_opcode(&self) -> Code {
@@ -60,9 +50,8 @@ impl CommandCompleteEvent {
 impl EventItem for CommandCompleteEvent {
     const CODE: Code = Code(0x0001);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::CommandCompleteEvent(index, self)
     }
 }
 
@@ -72,7 +61,6 @@ impl PacketData for CommandCompleteEvent {
         let status = PacketData::unpack(buf)?;
         let parameters = buf.to_bytes();
         Ok(Self {
-            controller_index: Default::default(),
             command_opcode,
             status,
             parameters,
@@ -90,12 +78,6 @@ impl PacketData for CommandCompleteEvent {
     }
 }
 
-impl From<CommandCompleteEvent> for MgmtEvent {
-    fn from(v: CommandCompleteEvent) -> Self {
-        Self::CommandCompleteEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,14 +85,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = CommandCompleteEvent::new(
-            Default::default(),
-            Code(10),
-            Status::Busy,
-            Bytes::from("ok"),
-        );
+        let e = CommandCompleteEvent::new(Code(10), Status::Busy, Bytes::from("ok"));
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = CommandCompleteEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

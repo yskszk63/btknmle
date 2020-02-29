@@ -50,16 +50,14 @@ impl TryFrom<u8> for Action {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct AddDeviceCommand {
-    ctrl_idx: u16,
     address: Address,
     address_type: AddressType,
     action: Action,
 }
 
 impl AddDeviceCommand {
-    pub fn new(ctrl_idx: u16, address: Address, address_type: AddressType, action: Action) -> Self {
+    pub fn new(address: Address, address_type: AddressType, action: Action) -> Self {
         Self {
-            ctrl_idx,
             address,
             address_type,
             action,
@@ -69,14 +67,14 @@ impl AddDeviceCommand {
 
 impl ManagementCommand for AddDeviceCommand {
     type Result = (Address, AddressType);
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::AddDeviceCommand(i, self)
+    }
 }
 
 impl CommandItem for AddDeviceCommand {
     const CODE: Code = Code(0x0033);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for AddDeviceCommand {
@@ -86,7 +84,6 @@ impl PacketData for AddDeviceCommand {
         let action = PacketData::unpack(buf)?;
 
         Ok(Self {
-            ctrl_idx: Default::default(),
             address,
             address_type,
             action,
@@ -100,12 +97,6 @@ impl PacketData for AddDeviceCommand {
     }
 }
 
-impl From<AddDeviceCommand> for MgmtCommand {
-    fn from(v: AddDeviceCommand) -> Self {
-        Self::AddDeviceCommand(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,13 +105,13 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = AddDeviceCommand::new(
-            0,
             "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LePublic,
             Action::AutoConnectRemoteDevice,
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = AddDeviceCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

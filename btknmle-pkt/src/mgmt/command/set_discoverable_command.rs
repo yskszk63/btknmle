@@ -37,48 +37,35 @@ impl PacketData for Discoverable {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetDiscoverableCommand {
-    ctrl_idx: u16,
     discoverable: Discoverable,
 }
 
 impl SetDiscoverableCommand {
-    pub fn new(ctrl_idx: u16, discoverable: Discoverable) -> Self {
-        Self {
-            ctrl_idx,
-            discoverable,
-        }
+    pub fn new(discoverable: Discoverable) -> Self {
+        Self { discoverable }
     }
 }
 
 impl ManagementCommand for SetDiscoverableCommand {
     type Result = CurrentSettings;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::SetDiscoverableCommand(i, self)
+    }
 }
 
 impl CommandItem for SetDiscoverableCommand {
     const CODE: Code = Code(0x0006);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for SetDiscoverableCommand {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let discoverable = PacketData::unpack(buf)?;
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            discoverable,
-        })
+        Ok(Self { discoverable })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         self.discoverable.pack(buf)
-    }
-}
-
-impl From<SetDiscoverableCommand> for MgmtCommand {
-    fn from(v: SetDiscoverableCommand) -> Self {
-        Self::SetDiscoverableCommand(v)
     }
 }
 
@@ -89,9 +76,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = SetDiscoverableCommand::new(Default::default(), Discoverable::Limited(10));
+        let e = SetDiscoverableCommand::new(Discoverable::Limited(10));
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = SetDiscoverableCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

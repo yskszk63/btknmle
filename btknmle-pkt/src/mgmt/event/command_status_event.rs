@@ -6,22 +6,16 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct CommandStatusEvent {
-    controller_index: ControlIndex,
     command_opcode: Code,
     status: Status,
 }
 
 impl CommandStatusEvent {
-    pub fn new(controller_index: ControlIndex, command_opcode: Code, status: Status) -> Self {
+    pub fn new(command_opcode: Code, status: Status) -> Self {
         Self {
-            controller_index,
             command_opcode,
             status,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn command_opcode(&self) -> Code {
@@ -36,9 +30,8 @@ impl CommandStatusEvent {
 impl EventItem for CommandStatusEvent {
     const CODE: Code = Code(0x0002);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::CommandStatusEvent(index, self)
     }
 }
 
@@ -47,7 +40,6 @@ impl PacketData for CommandStatusEvent {
         let command_opcode = PacketData::unpack(buf)?;
         let status = PacketData::unpack(buf)?;
         Ok(Self {
-            controller_index: Default::default(),
             command_opcode,
             status,
         })
@@ -59,12 +51,6 @@ impl PacketData for CommandStatusEvent {
     }
 }
 
-impl From<CommandStatusEvent> for MgmtEvent {
-    fn from(v: CommandStatusEvent) -> Self {
-        Self::CommandStatusEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -72,9 +58,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = CommandStatusEvent::new(Default::default(), Code(10), Status::Failed);
+        let e = CommandStatusEvent::new(Code(10), Status::Failed);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = CommandStatusEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

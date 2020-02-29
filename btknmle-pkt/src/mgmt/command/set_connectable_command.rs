@@ -7,48 +7,35 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetConnectableCommand {
-    ctrl_idx: u16,
     connectable: bool,
 }
 
 impl SetConnectableCommand {
-    pub fn new(ctrl_idx: u16, connectable: bool) -> Self {
-        Self {
-            ctrl_idx,
-            connectable,
-        }
+    pub fn new(connectable: bool) -> Self {
+        Self { connectable }
     }
 }
 
 impl ManagementCommand for SetConnectableCommand {
     type Result = CurrentSettings;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::SetConnectableCommand(i, self)
+    }
 }
 
 impl CommandItem for SetConnectableCommand {
     const CODE: Code = Code(0x0007);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for SetConnectableCommand {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let connectable = u8::unpack(buf)? != 0;
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            connectable,
-        })
+        Ok(Self { connectable })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         (self.connectable as u8).pack(buf)
-    }
-}
-
-impl From<SetConnectableCommand> for MgmtCommand {
-    fn from(v: SetConnectableCommand) -> Self {
-        Self::SetConnectableCommand(v)
     }
 }
 
@@ -59,9 +46,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = SetConnectableCommand::new(Default::default(), true);
+        let e = SetConnectableCommand::new(true);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = SetConnectableCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

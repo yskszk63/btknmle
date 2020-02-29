@@ -7,45 +7,35 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetBondableCommand {
-    ctrl_idx: u16,
     bondable: bool,
 }
 
 impl SetBondableCommand {
-    pub fn new(ctrl_idx: u16, bondable: bool) -> Self {
-        Self { ctrl_idx, bondable }
+    pub fn new(bondable: bool) -> Self {
+        Self { bondable }
     }
 }
 
 impl ManagementCommand for SetBondableCommand {
     type Result = CurrentSettings;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::SetBondableCommand(i, self)
+    }
 }
 
 impl CommandItem for SetBondableCommand {
     const CODE: Code = Code(0x0009);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for SetBondableCommand {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let bondable = u8::unpack(buf)? != 0;
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            bondable,
-        })
+        Ok(Self { bondable })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         (self.bondable as u8).pack(buf)
-    }
-}
-
-impl From<SetBondableCommand> for MgmtCommand {
-    fn from(v: SetBondableCommand) -> Self {
-        Self::SetBondableCommand(v)
     }
 }
 
@@ -56,9 +46,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = SetBondableCommand::new(Default::default(), true);
+        let e = SetBondableCommand::new(true);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = SetBondableCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

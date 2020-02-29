@@ -6,48 +6,35 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetAppearanceCommand {
-    ctrl_idx: u16,
     appearance: u16,
 }
 
 impl SetAppearanceCommand {
-    pub fn new(ctrl_idx: u16, appearance: u16) -> Self {
-        Self {
-            ctrl_idx,
-            appearance,
-        }
+    pub fn new(appearance: u16) -> Self {
+        Self { appearance }
     }
 }
 
 impl ManagementCommand for SetAppearanceCommand {
     type Result = ();
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::SetAppearanceCommand(i, self)
+    }
 }
 
 impl CommandItem for SetAppearanceCommand {
     const CODE: Code = Code(0x0043);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for SetAppearanceCommand {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let appearance = PacketData::unpack(buf)?;
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            appearance,
-        })
+        Ok(Self { appearance })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         self.appearance.pack(buf)
-    }
-}
-
-impl From<SetAppearanceCommand> for MgmtCommand {
-    fn from(v: SetAppearanceCommand) -> Self {
-        Self::SetAppearanceCommand(v)
     }
 }
 
@@ -58,9 +45,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = SetAppearanceCommand::new(Default::default(), 3);
+        let e = SetAppearanceCommand::new(3);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = SetAppearanceCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

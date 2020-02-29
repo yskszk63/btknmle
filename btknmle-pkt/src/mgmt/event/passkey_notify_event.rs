@@ -33,7 +33,6 @@ impl fmt::Debug for Passkey {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct PasskeyNotifyEvent {
-    controller_index: ControlIndex,
     address: Address,
     address_type: AddressType,
     passkey: Passkey,
@@ -42,23 +41,17 @@ pub struct PasskeyNotifyEvent {
 
 impl PasskeyNotifyEvent {
     pub fn new(
-        controller_index: ControlIndex,
         address: Address,
         address_type: AddressType,
         passkey: Passkey,
         entered: bool,
     ) -> Self {
         Self {
-            controller_index,
             address,
             address_type,
             passkey,
             entered,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn address(&self) -> Address {
@@ -81,9 +74,8 @@ impl PasskeyNotifyEvent {
 impl EventItem for PasskeyNotifyEvent {
     const CODE: Code = Code(0x0017);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::PasskeyNotifyEvent(index, self)
     }
 }
 
@@ -94,7 +86,6 @@ impl PacketData for PasskeyNotifyEvent {
         let passkey = PacketData::unpack(buf)?;
         let entered = u8::unpack(buf)? != 0;
         Ok(Self {
-            controller_index: Default::default(),
             address,
             address_type,
             passkey,
@@ -110,12 +101,6 @@ impl PacketData for PasskeyNotifyEvent {
     }
 }
 
-impl From<PasskeyNotifyEvent> for MgmtEvent {
-    fn from(v: PasskeyNotifyEvent) -> Self {
-        Self::PasskeyNotifyEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,14 +109,14 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = PasskeyNotifyEvent::new(
-            Default::default(),
             "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
             Passkey(1234),
             true,
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = PasskeyNotifyEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

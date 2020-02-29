@@ -8,16 +8,14 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetPrivacyCommand {
-    ctrl_idx: u16,
     privacy: bool,
     identity_resolving_key: HexDisplay<[u8; 16]>,
 }
 
 impl SetPrivacyCommand {
-    pub fn new(ctrl_idx: u16, privacy: bool, identity_resolving_key: [u8; 16]) -> Self {
+    pub fn new(privacy: bool, identity_resolving_key: [u8; 16]) -> Self {
         let identity_resolving_key = HexDisplay::new(identity_resolving_key);
         Self {
-            ctrl_idx,
             privacy,
             identity_resolving_key,
         }
@@ -26,14 +24,14 @@ impl SetPrivacyCommand {
 
 impl ManagementCommand for SetPrivacyCommand {
     type Result = CurrentSettings;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::SetPrivacyCommand(i, self)
+    }
 }
 
 impl CommandItem for SetPrivacyCommand {
     const CODE: Code = Code(0x002F);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for SetPrivacyCommand {
@@ -45,7 +43,6 @@ impl PacketData for SetPrivacyCommand {
         let mut identity_resolving_key = HexDisplay::new([0; 16]);
         buf.copy_to_slice(identity_resolving_key.as_mut());
         Ok(Self {
-            ctrl_idx: Default::default(),
             privacy,
             identity_resolving_key,
         })
@@ -61,12 +58,6 @@ impl PacketData for SetPrivacyCommand {
     }
 }
 
-impl From<SetPrivacyCommand> for MgmtCommand {
-    fn from(v: SetPrivacyCommand) -> Self {
-        Self::SetPrivacyCommand(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,9 +65,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = SetPrivacyCommand::new(Default::default(), true, [0; 16]);
+        let e = SetPrivacyCommand::new(true, [0; 16]);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = SetPrivacyCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

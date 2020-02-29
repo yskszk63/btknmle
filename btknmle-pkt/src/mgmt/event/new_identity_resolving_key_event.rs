@@ -7,29 +7,18 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct NewIdentityResolvingKeyEvent {
-    controller_index: ControlIndex,
     store_hint: bool,
     random_address: Address,
     key: IdentityResolvingKey,
 }
 
 impl NewIdentityResolvingKeyEvent {
-    pub fn new(
-        controller_index: ControlIndex,
-        store_hint: bool,
-        random_address: Address,
-        key: IdentityResolvingKey,
-    ) -> Self {
+    pub fn new(store_hint: bool, random_address: Address, key: IdentityResolvingKey) -> Self {
         Self {
-            controller_index,
             store_hint,
             random_address,
             key,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn store_hint(&self) -> bool {
@@ -48,9 +37,8 @@ impl NewIdentityResolvingKeyEvent {
 impl EventItem for NewIdentityResolvingKeyEvent {
     const CODE: Code = Code(0x0018);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::NewIdentityResolvingKeyEvent(index, self)
     }
 }
 
@@ -60,7 +48,6 @@ impl PacketData for NewIdentityResolvingKeyEvent {
         let random_address = PacketData::unpack(buf)?;
         let key = PacketData::unpack(buf)?;
         Ok(Self {
-            controller_index: Default::default(),
             store_hint,
             random_address,
             key,
@@ -74,12 +61,6 @@ impl PacketData for NewIdentityResolvingKeyEvent {
     }
 }
 
-impl From<NewIdentityResolvingKeyEvent> for MgmtEvent {
-    fn from(v: NewIdentityResolvingKeyEvent) -> Self {
-        Self::NewIdentityResolvingKeyEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::AddressType;
@@ -89,7 +70,6 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = NewIdentityResolvingKeyEvent::new(
-            Default::default(),
             true,
             "00:11:22:33:44:55".parse().unwrap(),
             IdentityResolvingKey::new(
@@ -98,8 +78,9 @@ mod tests {
                 [1; 16],
             ),
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = NewIdentityResolvingKeyEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

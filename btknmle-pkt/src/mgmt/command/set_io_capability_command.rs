@@ -39,48 +39,35 @@ impl PacketData for IoCapability {
 }
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetIoCapabilityCommand {
-    ctrl_idx: u16,
     io_capability: IoCapability,
 }
 
 impl SetIoCapabilityCommand {
-    pub fn new(ctrl_idx: u16, io_capability: IoCapability) -> Self {
-        Self {
-            ctrl_idx,
-            io_capability,
-        }
+    pub fn new(io_capability: IoCapability) -> Self {
+        Self { io_capability }
     }
 }
 
 impl ManagementCommand for SetIoCapabilityCommand {
     type Result = ();
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::SetIoCapabilityCommand(i, self)
+    }
 }
 
 impl CommandItem for SetIoCapabilityCommand {
     const CODE: Code = Code(0x0018);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for SetIoCapabilityCommand {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let io_capability = PacketData::unpack(buf)?;
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            io_capability,
-        })
+        Ok(Self { io_capability })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         self.io_capability.pack(buf)
-    }
-}
-
-impl From<SetIoCapabilityCommand> for MgmtCommand {
-    fn from(v: SetIoCapabilityCommand) -> Self {
-        Self::SetIoCapabilityCommand(v)
     }
 }
 
@@ -91,9 +78,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = SetIoCapabilityCommand::new(Default::default(), IoCapability::KeyboardDisplay);
+        let e = SetIoCapabilityCommand::new(IoCapability::KeyboardDisplay);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = SetIoCapabilityCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

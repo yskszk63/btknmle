@@ -7,7 +7,6 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DeviceFoundEvent {
-    controller_index: ControlIndex,
     address: Address,
     address_type: AddressType,
     rssi: u8,
@@ -17,7 +16,6 @@ pub struct DeviceFoundEvent {
 
 impl DeviceFoundEvent {
     pub fn new(
-        controller_index: ControlIndex,
         address: Address,
         address_type: AddressType,
         rssi: u8,
@@ -25,17 +23,12 @@ impl DeviceFoundEvent {
         eir_data: Bytes,
     ) -> Self {
         Self {
-            controller_index,
             address,
             address_type,
             rssi,
             flags,
             eir_data,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn address(&self) -> Address {
@@ -62,9 +55,8 @@ impl DeviceFoundEvent {
 impl EventItem for DeviceFoundEvent {
     const CODE: Code = Code(0x0012);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::DeviceFoundEvent(index, self)
     }
 }
 
@@ -80,7 +72,6 @@ impl PacketData for DeviceFoundEvent {
         }
         let eir_data = buf.take(len).to_bytes();
         Ok(Self {
-            controller_index: Default::default(),
             address,
             address_type,
             rssi,
@@ -103,12 +94,6 @@ impl PacketData for DeviceFoundEvent {
     }
 }
 
-impl From<DeviceFoundEvent> for MgmtEvent {
-    fn from(v: DeviceFoundEvent) -> Self {
-        Self::DeviceFoundEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,15 +102,15 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = DeviceFoundEvent::new(
-            Default::default(),
             "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
             3,
             4,
             Bytes::from("ok"),
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = DeviceFoundEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

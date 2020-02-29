@@ -9,7 +9,6 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct AddAdvertisingCommand {
-    ctrl_idx: u16,
     instance: u8,
     flags: AdvertisingFlags,
     duration: u16,
@@ -20,7 +19,6 @@ pub struct AddAdvertisingCommand {
 
 impl AddAdvertisingCommand {
     pub fn new(
-        ctrl_idx: u16,
         instance: u8,
         flags: AdvertisingFlags,
         duration: u16,
@@ -31,7 +29,6 @@ impl AddAdvertisingCommand {
         let adv_data = HexDisplay::new(Bytes::copy_from_slice(adv_data));
         let scan_rsp = HexDisplay::new(Bytes::copy_from_slice(scan_rsp));
         Self {
-            ctrl_idx,
             instance,
             flags,
             duration,
@@ -44,14 +41,14 @@ impl AddAdvertisingCommand {
 
 impl ManagementCommand for AddAdvertisingCommand {
     type Result = u8;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::AddAdvertisingCommand(i, self)
+    }
 }
 
 impl CommandItem for AddAdvertisingCommand {
     const CODE: Code = Code(0x003e);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for AddAdvertisingCommand {
@@ -69,7 +66,6 @@ impl PacketData for AddAdvertisingCommand {
         let scan_rsp = buf.take(scan_rsp_len).to_bytes().into();
 
         Ok(Self {
-            ctrl_idx: Default::default(),
             instance,
             flags,
             duration,
@@ -95,12 +91,6 @@ impl PacketData for AddAdvertisingCommand {
     }
 }
 
-impl From<AddAdvertisingCommand> for MgmtCommand {
-    fn from(v: AddAdvertisingCommand) -> Self {
-        Self::AddAdvertisingCommand(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,7 +99,6 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = AddAdvertisingCommand::new(
-            0,
             2,
             AdvertisingFlags::SWITCH_INTO_CONNECTABLE_MODE,
             3,
@@ -117,8 +106,9 @@ mod tests {
             b"aa",
             b"bb",
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = AddAdvertisingCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

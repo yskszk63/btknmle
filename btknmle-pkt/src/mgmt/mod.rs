@@ -15,12 +15,12 @@ pub use status::*;
 mod address;
 mod address_type;
 mod advertising_flags;
+pub mod command;
 mod current_settings;
+pub mod event;
 mod key;
 mod name;
 mod status;
-pub mod command;
-pub mod event;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Code(u16);

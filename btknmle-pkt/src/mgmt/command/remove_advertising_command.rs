@@ -8,47 +8,37 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct RemoveAdvertisingCommand {
-    ctrl_idx: u16,
     instance: u8,
 }
 
 impl RemoveAdvertisingCommand {
-    pub fn new(ctrl_idx: u16, instance: Option<NonZeroU8>) -> Self {
+    pub fn new(instance: Option<NonZeroU8>) -> Self {
         let instance = instance.map(NonZeroU8::get).unwrap_or_else(|| 0);
-        Self { ctrl_idx, instance }
+        Self { instance }
     }
 }
 
 impl ManagementCommand for RemoveAdvertisingCommand {
     type Result = u8;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::RemoveAdvertisingCommand(i, self)
+    }
 }
 
 impl CommandItem for RemoveAdvertisingCommand {
     const CODE: Code = Code(0x003f);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for RemoveAdvertisingCommand {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let instance = PacketData::unpack(buf)?;
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            instance,
-        })
+        Ok(Self { instance })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         self.instance.pack(buf)?;
         Ok(())
-    }
-}
-
-impl From<RemoveAdvertisingCommand> for MgmtCommand {
-    fn from(v: RemoveAdvertisingCommand) -> Self {
-        Self::RemoveAdvertisingCommand(v)
     }
 }
 
@@ -59,9 +49,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = RemoveAdvertisingCommand::new(Default::default(), None);
+        let e = RemoveAdvertisingCommand::new(None);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = RemoveAdvertisingCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

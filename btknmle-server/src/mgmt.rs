@@ -100,28 +100,24 @@ where
     IO: Sink<MgmtCommand, Error = Error> + Stream<Item = Result<MgmtEvent, Error>> + Unpin,
 {
     pub async fn powered(&mut self, powered: bool) -> Result<CurrentSettings, Error> {
-        self.invoke(cmd::SetPoweredCommand::new(self.index, powered))
-            .await
+        self.invoke(cmd::SetPoweredCommand::new(powered)).await
     }
 
     pub async fn low_energy(&mut self, low_energy: bool) -> Result<CurrentSettings, Error> {
-        self.invoke(cmd::SetLowEnergyCommand::new(self.index, low_energy))
-            .await
+        self.invoke(cmd::SetLowEnergyCommand::new(low_energy)).await
     }
 
     pub async fn br_edr(&mut self, br_edr: bool) -> Result<CurrentSettings, Error> {
-        self.invoke(cmd::SetBrEdrCommand::new(self.index, br_edr))
-            .await
+        self.invoke(cmd::SetBrEdrCommand::new(br_edr)).await
     }
 
     pub async fn connectable(&mut self, connectable: bool) -> Result<CurrentSettings, Error> {
-        self.invoke(cmd::SetConnectableCommand::new(self.index, connectable))
+        self.invoke(cmd::SetConnectableCommand::new(connectable))
             .await
     }
 
     pub async fn bondable(&mut self, bondable: bool) -> Result<CurrentSettings, Error> {
-        self.invoke(cmd::SetBondableCommand::new(self.index, bondable))
-            .await
+        self.invoke(cmd::SetBondableCommand::new(bondable)).await
     }
 
     pub async fn user_confirmation(
@@ -130,7 +126,6 @@ where
         address_type: AddressType,
     ) -> Result<(Address, AddressType), Error> {
         self.invoke(cmd::UserConfirmationReplyCommand::new(
-            self.index,
             address,
             address_type,
         ))
@@ -143,7 +138,6 @@ where
         address_type: AddressType,
     ) -> Result<(Address, AddressType), Error> {
         self.invoke(cmd::UserConfirmationNegativeReplyCommand::new(
-            self.index,
             address,
             address_type,
         ))
@@ -154,11 +148,8 @@ where
         &mut self,
         secure_connections: SecureConnections,
     ) -> Result<CurrentSettings, Error> {
-        self.invoke(cmd::SetSecureConnectionsCommand::new(
-            self.index,
-            secure_connections,
-        ))
-        .await
+        self.invoke(cmd::SetSecureConnectionsCommand::new(secure_connections))
+            .await
     }
 
     pub async fn privacy(
@@ -166,16 +157,12 @@ where
         privacy: bool,
         identity_resolving_key: [u8; 16],
     ) -> Result<CurrentSettings, Error> {
-        self.invoke(cmd::SetPrivacyCommand::new(
-            self.index,
-            privacy,
-            identity_resolving_key,
-        ))
-        .await
+        self.invoke(cmd::SetPrivacyCommand::new(privacy, identity_resolving_key))
+            .await
     }
 
     pub async fn io_capability(&mut self, io_capability: IoCapability) -> Result<(), Error> {
-        self.invoke(cmd::SetIoCapabilityCommand::new(self.index, io_capability))
+        self.invoke(cmd::SetIoCapabilityCommand::new(io_capability))
             .await
     }
 
@@ -183,7 +170,7 @@ where
         &mut self,
         advertising: Advertising,
     ) -> Result<CurrentSettings, Error> {
-        self.invoke(cmd::SetAdvertisingCommand::new(self.index, advertising))
+        self.invoke(cmd::SetAdvertisingCommand::new(advertising))
             .await
     }
 
@@ -191,24 +178,21 @@ where
         &mut self,
         discoverable: Discoverable,
     ) -> Result<CurrentSettings, Error> {
-        self.invoke(cmd::SetDiscoverableCommand::new(self.index, discoverable))
+        self.invoke(cmd::SetDiscoverableCommand::new(discoverable))
             .await
     }
 
     pub async fn load_ltks(&mut self, keys: Vec<LongTermKey>) -> Result<(), Error> {
-        self.invoke(cmd::LoadLongTermKeysCommand::new(self.index, keys))
-            .await
+        self.invoke(cmd::LoadLongTermKeysCommand::new(keys)).await
     }
 
     pub async fn load_irks(&mut self, keys: Vec<IdentityResolvingKey>) -> Result<(), Error> {
-        self.invoke(cmd::LoadIdentityResolvingKeysCommand::new(
-            self.index, keys,
-        ))
-        .await
+        self.invoke(cmd::LoadIdentityResolvingKeysCommand::new(keys))
+            .await
     }
 
     pub async fn appearance(&mut self, appearance: u16) -> Result<(), Error> {
-        self.invoke(cmd::SetAppearanceCommand::new(self.index, appearance))
+        self.invoke(cmd::SetAppearanceCommand::new(appearance))
             .await
     }
 
@@ -219,7 +203,7 @@ where
     ) -> Result<SetLocalNameCommandResult, Error> {
         let name = name.to_string();
         let short_name = short_name.to_string();
-        self.invoke(cmd::SetLocalNameCommand::new(self.index, name, short_name))
+        self.invoke(cmd::SetLocalNameCommand::new(name, short_name))
             .await
     }
 
@@ -233,13 +217,13 @@ where
         scan_rsp: &[u8],
     ) -> Result<u8, Error> {
         self.invoke(cmd::AddAdvertisingCommand::new(
-            self.index, instance, flags, duration, timeout, adv_data, scan_rsp,
+            instance, flags, duration, timeout, adv_data, scan_rsp,
         ))
         .await
     }
 
     pub async fn remove_advertising(&mut self, instance: Option<NonZeroU8>) -> Result<u8, Error> {
-        self.invoke(cmd::RemoveAdvertisingCommand::new(self.index, instance))
+        self.invoke(cmd::RemoveAdvertisingCommand::new(instance))
             .await
     }
 
@@ -249,10 +233,8 @@ where
         addr_type: AddressType,
         passkey: u32,
     ) -> Result<(Address, AddressType), Error> {
-        self.invoke(cmd::UserPasskeyReplyCommand::new(
-            self.index, addr, addr_type, passkey,
-        ))
-        .await
+        self.invoke(cmd::UserPasskeyReplyCommand::new(addr, addr_type, passkey))
+            .await
     }
 
     pub async fn add_device(
@@ -261,13 +243,8 @@ where
         address_type: AddressType,
         action: Action,
     ) -> Result<(Address, AddressType), Error> {
-        self.invoke(cmd::AddDeviceCommand::new(
-            self.index,
-            address,
-            address_type,
-            action,
-        ))
-        .await
+        self.invoke(cmd::AddDeviceCommand::new(address, address_type, action))
+            .await
     }
 
     pub async fn remove_device(
@@ -275,18 +252,14 @@ where
         address: Address,
         address_type: AddressType,
     ) -> Result<(Address, AddressType), Error> {
-        self.invoke(cmd::RemoveDeviceCommand::new(
-            self.index,
-            address,
-            address_type,
-        ))
-        .await
+        self.invoke(cmd::RemoveDeviceCommand::new(address, address_type))
+            .await
     }
 
     pub async fn read_controller_information(
         &mut self,
     ) -> Result<ReadControllerInformationResult, Error> {
-        self.invoke(cmd::ReadControllerInformationCommand::new(self.index))
+        self.invoke(cmd::ReadControllerInformationCommand::new())
             .await
     }
 
@@ -295,15 +268,15 @@ where
         O: PacketData,
         I: ManagementCommand<Result = O>,
     {
-        self.io.send(msg.into()).await?;
+        self.io.send(msg.into_mgmt(self.index.into())).await?;
 
         while let Some(evt) = self.io.next().await {
             let evt = evt?;
             match evt {
-                MgmtEvent::CommandCompleteEvent(evt) => {
+                MgmtEvent::CommandCompleteEvent(_, evt) => {
                     return Ok(I::unpack_result(&mut evt.parameters())?)
                 }
-                MgmtEvent::CommandStatusEvent(evt) => {
+                MgmtEvent::CommandStatusEvent(_, evt) => {
                     return Err(Error::CommandError(evt.status()))
                 }
                 evt => self.pending.push_back(evt),

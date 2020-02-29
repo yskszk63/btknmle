@@ -116,43 +116,33 @@ impl PacketData for ReadControllerInformationResult {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ReadControllerInformationCommand {
-    ctrl_idx: u16,
-}
+pub struct ReadControllerInformationCommand {}
 
 impl ReadControllerInformationCommand {
-    pub fn new(ctrl_idx: u16) -> Self {
-        Self { ctrl_idx }
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
 impl ManagementCommand for ReadControllerInformationCommand {
     type Result = ReadControllerInformationResult;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::ReadControllerInformationCommand(i, self)
+    }
 }
 
 impl CommandItem for ReadControllerInformationCommand {
     const CODE: Code = Code(0x0004);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for ReadControllerInformationCommand {
     fn unpack(_buf: &mut impl Buf) -> Result<Self, UnpackError> {
-        Ok(Self {
-            ctrl_idx: Default::default(),
-        })
+        Ok(Self {})
     }
 
     fn pack(&self, _buf: &mut impl BufMut) -> Result<(), PackError> {
         Ok(())
-    }
-}
-
-impl From<ReadControllerInformationCommand> for MgmtCommand {
-    fn from(v: ReadControllerInformationCommand) -> Self {
-        Self::ReadControllerInformationCommand(v)
     }
 }
 
@@ -163,9 +153,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = ReadControllerInformationCommand::new(Default::default());
+        let e = ReadControllerInformationCommand::new();
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = ReadControllerInformationCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 

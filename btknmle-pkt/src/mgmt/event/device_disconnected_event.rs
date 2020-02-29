@@ -6,29 +6,18 @@ use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DeviceDisconnectedEvent {
-    controller_index: ControlIndex,
     address: Address,
     address_type: AddressType,
     reason: u8,
 }
 
 impl DeviceDisconnectedEvent {
-    pub fn new(
-        controller_index: ControlIndex,
-        address: Address,
-        address_type: AddressType,
-        reason: u8,
-    ) -> Self {
+    pub fn new(address: Address, address_type: AddressType, reason: u8) -> Self {
         Self {
-            controller_index,
             address,
             address_type,
             reason,
         }
-    }
-
-    pub fn controller_index(&self) -> ControlIndex {
-        self.controller_index.clone()
     }
 
     pub fn address(&self) -> Address {
@@ -47,9 +36,8 @@ impl DeviceDisconnectedEvent {
 impl EventItem for DeviceDisconnectedEvent {
     const CODE: Code = Code(0x000C);
 
-    fn with_controller_index(mut self, idx: ControlIndex) -> Self {
-        self.controller_index = idx;
-        self
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::DeviceDisconnectedEvent(index, self)
     }
 }
 
@@ -59,7 +47,6 @@ impl PacketData for DeviceDisconnectedEvent {
         let address_type = PacketData::unpack(buf)?;
         let reason = PacketData::unpack(buf)?;
         Ok(Self {
-            controller_index: Default::default(),
             address,
             address_type,
             reason,
@@ -73,12 +60,6 @@ impl PacketData for DeviceDisconnectedEvent {
     }
 }
 
-impl From<DeviceDisconnectedEvent> for MgmtEvent {
-    fn from(v: DeviceDisconnectedEvent) -> Self {
-        Self::DeviceDisconnectedEvent(v)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,13 +68,13 @@ mod tests {
     fn test() {
         let mut b = vec![];
         let e = DeviceDisconnectedEvent::new(
-            Default::default(),
             "00:11:22:33:44:55".parse().unwrap(),
             AddressType::LeRandom,
             3,
         );
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = DeviceDisconnectedEvent::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

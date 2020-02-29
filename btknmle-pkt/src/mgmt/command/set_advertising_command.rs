@@ -51,48 +51,35 @@ impl From<Advertising> for u8 {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetAdvertisingCommand {
-    ctrl_idx: u16,
     advertising: Advertising,
 }
 
 impl SetAdvertisingCommand {
-    pub fn new(ctrl_idx: u16, advertising: Advertising) -> Self {
-        Self {
-            ctrl_idx,
-            advertising,
-        }
+    pub fn new(advertising: Advertising) -> Self {
+        Self { advertising }
     }
 }
 
 impl ManagementCommand for SetAdvertisingCommand {
     type Result = CurrentSettings;
+
+    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
+        MgmtCommand::SetAdvertisingCommand(i, self)
+    }
 }
 
 impl CommandItem for SetAdvertisingCommand {
     const CODE: Code = Code(0x0029);
-
-    fn controller_index(&self) -> ControlIndex {
-        self.ctrl_idx.into()
-    }
 }
 
 impl PacketData for SetAdvertisingCommand {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let advertising = PacketData::unpack(buf)?;
-        Ok(Self {
-            ctrl_idx: Default::default(),
-            advertising,
-        })
+        Ok(Self { advertising })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         self.advertising.pack(buf)
-    }
-}
-
-impl From<SetAdvertisingCommand> for MgmtCommand {
-    fn from(v: SetAdvertisingCommand) -> Self {
-        Self::SetAdvertisingCommand(v)
     }
 }
 
@@ -103,9 +90,10 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = SetAdvertisingCommand::new(Default::default(), Advertising::Connectable);
+        let e = SetAdvertisingCommand::new(Advertising::Connectable);
+        let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = SetAdvertisingCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

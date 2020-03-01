@@ -12,12 +12,12 @@ use tokio_util::codec::{Decoder, Encoder};
 
 use crate::pkt::mgmt::{
     command::{
-        self as cmd, Action, Advertising, Discoverable, IoCapability, ManagementCommand,
-        MgmtCommand, ReadControllerInformationResult, SecureConnections, SetLocalNameCommandResult,
+        self as cmd, Advertising, Discoverable, IoCapability, ManagementCommand, MgmtCommand,
+        ReadControllerInformationResult, SecureConnections, SetLocalNameCommandResult,
     },
     event::MgmtEvent,
-    Address, AddressType, AdvertisingFlags, CurrentSettings, IdentityResolvingKey, LongTermKey,
-    Status,
+    Action, Address, AddressType, AdvertisingFlags, CurrentSettings, IdentityResolvingKey,
+    LongTermKey, Status,
 };
 use crate::pkt::{PackError, PacketData, UnpackError};
 use crate::sock::{Framed, MgmtSocket};

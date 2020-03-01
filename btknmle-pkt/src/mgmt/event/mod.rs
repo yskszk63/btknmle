@@ -2,6 +2,7 @@ use bytes::buf::BufExt as _;
 use bytes::{Buf, BufMut, BytesMut};
 use std::fmt;
 
+use super::Action;
 use super::CurrentSettings;
 use super::IdentityResolvingKey;
 use super::Key;
@@ -14,9 +15,12 @@ use crate::{PackError, PacketData, UnpackError};
 pub use authentication_failed_event::*;
 pub use command_complete_event::*;
 pub use command_status_event::*;
+pub use connection_failed_event::*;
+pub use device_added_event::*;
 pub use device_connected_event::*;
 pub use device_disconnected_event::*;
 pub use device_found_event::*;
+pub use device_removed_event::*;
 pub use discovering_event::*;
 pub use extended_controller_information_changed_event::*;
 pub use new_identity_resolving_key_event::*;
@@ -30,9 +34,12 @@ pub use user_passkey_request_event::*;
 mod authentication_failed_event;
 mod command_complete_event;
 mod command_status_event;
+mod connection_failed_event;
+mod device_added_event;
 mod device_connected_event;
 mod device_disconnected_event;
 mod device_found_event;
+mod device_removed_event;
 mod discovering_event;
 mod extended_controller_information_changed_event;
 mod new_identity_resolving_key_event;
@@ -94,6 +101,9 @@ pub enum MgmtEvent {
     NewIdentityResolvingKeyEvent(ControlIndex, NewIdentityResolvingKeyEvent),
     NewSettingsEvent(ControlIndex, NewSettingsEvent),
     DiscoveringEvent(ControlIndex, DiscoveringEvent),
+    DeviceAddedEvent(ControlIndex, DeviceAddedEvent),
+    DeviceRemovedEvent(ControlIndex, DeviceRemovedEvent),
+    ConnectionFailedEvent(ControlIndex, ConnectionFailedEvent),
 }
 
 impl fmt::Debug for MgmtEvent {
@@ -114,6 +124,9 @@ impl fmt::Debug for MgmtEvent {
             MgmtEvent::NewIdentityResolvingKeyEvent(i, v) => (i, v).fmt(f),
             MgmtEvent::NewSettingsEvent(i, v) => (i, v).fmt(f),
             MgmtEvent::DiscoveringEvent(i, v) => (i, v).fmt(f),
+            MgmtEvent::DeviceAddedEvent(i, v) => (i, v).fmt(f),
+            MgmtEvent::DeviceRemovedEvent(i, v) => (i, v).fmt(f),
+            MgmtEvent::ConnectionFailedEvent(i, v) => (i, v).fmt(f),
         }
     }
 }
@@ -151,6 +164,9 @@ impl PacketData for MgmtEvent {
             }
             NewSettingsEvent::CODE => NewSettingsEvent::unpack_event(&mut buf, index),
             DiscoveringEvent::CODE => DiscoveringEvent::unpack_event(&mut buf, index),
+            DeviceAddedEvent::CODE => DeviceAddedEvent::unpack_event(&mut buf, index),
+            DeviceRemovedEvent::CODE => DeviceRemovedEvent::unpack_event(&mut buf, index),
+            ConnectionFailedEvent::CODE => ConnectionFailedEvent::unpack_event(&mut buf, index),
             x => Err(UnpackError::UnknownOpcode(x.into())),
         }
     }
@@ -172,6 +188,9 @@ impl PacketData for MgmtEvent {
             MgmtEvent::NewIdentityResolvingKeyEvent(i, v) => v.pack_mgmt(i, buf),
             MgmtEvent::NewSettingsEvent(i, v) => v.pack_mgmt(i, buf),
             MgmtEvent::DiscoveringEvent(i, v) => v.pack_mgmt(i, buf),
+            MgmtEvent::DeviceAddedEvent(i, v) => v.pack_mgmt(i, buf),
+            MgmtEvent::DeviceRemovedEvent(i, v) => v.pack_mgmt(i, buf),
+            MgmtEvent::ConnectionFailedEvent(i, v) => v.pack_mgmt(i, buf),
         }
     }
 }

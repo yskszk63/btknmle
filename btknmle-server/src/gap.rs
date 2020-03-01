@@ -186,6 +186,7 @@ where
     mgmt.secure_connections(SecureConnections::Enabled).await?;
     mgmt.io_capability(IoCapability::KeyboardOnly).await?;
     mgmt.privacy(true, local_irk).await?;
+    mgmt.appearance(0x03c0).await?; // HID Generic
     mgmt.local_name(local_name, short_local_name).await?;
     mgmt.bondable(true).await?;
     mgmt.connectable(false).await?;

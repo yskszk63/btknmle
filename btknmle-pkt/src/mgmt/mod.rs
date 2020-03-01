@@ -4,6 +4,7 @@ use bytes::{Buf, BufMut};
 
 use crate::{PackError, PacketData, UnpackError};
 
+pub use action::*;
 pub use address::*;
 pub use address_type::*;
 pub use advertising_flags::*;
@@ -12,6 +13,7 @@ pub use key::*;
 pub use name::*;
 pub use status::*;
 
+mod action;
 mod address;
 mod address_type;
 mod advertising_flags;

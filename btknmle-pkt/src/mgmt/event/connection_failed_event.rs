@@ -1,57 +1,62 @@
 use bytes::{Buf, BufMut};
 
-use super::Action;
-use super::ManagementCommand;
 use super::{Address, AddressType};
-use super::{Code, CommandItem, ControlIndex, MgmtCommand};
+use super::{Code, ControlIndex, EventItem, MgmtEvent};
 use crate::{PackError, PacketData, UnpackError};
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct AddDeviceCommand {
+pub struct ConnectionFailedEvent {
     address: Address,
     address_type: AddressType,
-    action: Action,
+    status: u8,
 }
 
-impl AddDeviceCommand {
-    pub fn new(address: Address, address_type: AddressType, action: Action) -> Self {
+impl ConnectionFailedEvent {
+    pub fn new(address: Address, address_type: AddressType, status: u8) -> Self {
         Self {
             address,
             address_type,
-            action,
+            status,
         }
     }
-}
 
-impl ManagementCommand for AddDeviceCommand {
-    type Result = (Address, AddressType);
+    pub fn address(&self) -> Address {
+        self.address.clone()
+    }
 
-    fn into_mgmt(self, i: ControlIndex) -> MgmtCommand {
-        MgmtCommand::AddDeviceCommand(i, self)
+    pub fn address_type(&self) -> AddressType {
+        self.address_type.clone()
+    }
+
+    pub fn status(&self) -> u8 {
+        self.status
     }
 }
 
-impl CommandItem for AddDeviceCommand {
-    const CODE: Code = Code(0x0033);
+impl EventItem for ConnectionFailedEvent {
+    const CODE: Code = Code(0x000D);
+
+    fn into_mgmt(self, index: ControlIndex) -> MgmtEvent {
+        MgmtEvent::ConnectionFailedEvent(index, self)
+    }
 }
 
-impl PacketData for AddDeviceCommand {
+impl PacketData for ConnectionFailedEvent {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let address = PacketData::unpack(buf)?;
         let address_type = PacketData::unpack(buf)?;
-        let action = PacketData::unpack(buf)?;
-
+        let status = PacketData::unpack(buf)?;
         Ok(Self {
             address,
             address_type,
-            action,
+            status,
         })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
         self.address.pack(buf)?;
         self.address_type.pack(buf)?;
-        self.action.pack(buf)
+        self.status.pack(buf)
     }
 }
 
@@ -62,14 +67,14 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e = AddDeviceCommand::new(
+        let e = ConnectionFailedEvent::new(
             "00:11:22:33:44:55".parse().unwrap(),
-            AddressType::LePublic,
-            Action::AutoConnectRemoteDevice,
+            AddressType::LeRandom,
+            3,
         );
         let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
-        let r = MgmtCommand::unpack(&mut b.as_ref()).unwrap();
+        let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();
         assert_eq!(e, r);
     }
 }

@@ -1,3 +1,4 @@
+use std::io;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -5,6 +6,7 @@ use futures::stream::StreamExt as _;
 use futures::{Sink, Stream};
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
+use tokio::fs;
 
 pub use btknmle_pkt::{Uuid, Uuid16};
 
@@ -17,6 +19,48 @@ use crate::mgmt::model::{
 use crate::mgmt::MgmtCodec;
 use crate::sock::{Framed, MgmtSocket};
 use crate::KeyStore;
+
+#[derive(Debug)]
+struct ChangeAdvInterval {
+    devid: u16,
+    adv_max_interval: Option<String>,
+    adv_min_interval: Option<String>,
+}
+
+impl ChangeAdvInterval {
+    async fn new(devid: u16) -> io::Result<Self> {
+        let prefix = "/sys/kernel/debug/bluetooth";
+
+        let adv_min_interval = fs::read_to_string(format!("{}/hci{}/adv_min_interval", prefix, devid)).await.ok();
+        if adv_min_interval.is_some() {
+            fs::write(format!("{}/hci{}/adv_min_interval", prefix, devid), "300").await?;
+        }
+
+        let adv_max_interval = fs::read_to_string(format!("{}/hci{}/adv_max_interval", prefix, devid)).await.ok();
+        if adv_max_interval.is_some() {
+            fs::write(format!("{}/hci{}/adv_max_interval", prefix, devid), "300").await?;
+        }
+
+        Ok(ChangeAdvInterval {
+            devid,
+            adv_max_interval,
+            adv_min_interval,
+        })
+    }
+}
+
+impl Drop for ChangeAdvInterval {
+    fn drop(&mut self) {
+        let prefix = "/sys/kernel/debug/bluetooth";
+        let devid = self.devid;
+        if let Some(val) = &self.adv_max_interval {
+            std::fs::write(format!("{}/hci{}/adv_max_interval", prefix, devid), val).ok();
+        }
+        if let Some(val) = &self.adv_min_interval {
+            std::fs::write(format!("{}/hci{}/adv_min_interval", prefix, devid), val).ok();
+        }
+    }
+}
 
 #[async_trait::async_trait]
 pub trait GapCallback: Send + Sync + 'static {
@@ -34,6 +78,7 @@ where
     keystore: K,
     callback: Arc<Mutex<C>>,
     scan_data: Vec<u8>,
+    change_adv_interval: ChangeAdvInterval,
 }
 
 impl<K, C> Gap<K, C>
@@ -51,6 +96,8 @@ where
     ) -> Result<Self, mgmt::Error> {
         let mut mgmt = mgmt::Mgmt::new(devid).await?;
         let callback = Arc::new(Mutex::new(callback));
+
+        let change_adv_interval = ChangeAdvInterval::new(devid).await?;
 
         let scan_data = match adv_uuid {
             Uuid::Uuid16(uuid) => {
@@ -78,6 +125,7 @@ where
             keystore,
             callback,
             scan_data,
+            change_adv_interval,
         })
     }
 
@@ -87,6 +135,7 @@ where
             mut keystore,
             callback,
             scan_data,
+            ..
         } = self;
 
         let (tx, mut rx) = mpsc::channel(1);

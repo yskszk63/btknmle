@@ -6,6 +6,7 @@ use anyhow::{Error, Result};
 use futures::stream::StreamExt as _;
 use futures::stream::TryStreamExt as _;
 use tokio::sync::Mutex;
+use tokio::signal::ctrl_c;
 
 use btknmle::hogp;
 use btknmle::input::{InputEvent, InputSource};
@@ -101,6 +102,9 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
     let (db, kbd, mouse) = hogp::new();
     let mut listener = gatt::GattListener::new(db, gatt::AttSecurityLevel::NeedsBoundMitm)?;
 
+    let ctrlc = ctrl_c();
+    tokio::pin!(ctrlc);
+
     loop {
         tokio::select! {
             Some(svc) = listener.next() => {
@@ -128,9 +132,11 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
             }
             gap_done = &mut gap_working => gap_done??,
             input_done = &mut input_loop => input_done??,
+            _ = &mut ctrlc => break,
             else => break
         }
     }
+    log::debug!("end");
     Ok(())
 }
 

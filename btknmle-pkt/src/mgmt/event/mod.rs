@@ -30,6 +30,8 @@ pub use new_signature_resolving_key_event::*;
 pub use passkey_notify_event::*;
 pub use user_confirmation_request_event::*;
 pub use user_passkey_request_event::*;
+pub use advertising_added_event::*;
+pub use advertising_removed_event::*;
 
 mod authentication_failed_event;
 mod command_complete_event;
@@ -49,6 +51,8 @@ mod new_signature_resolving_key_event;
 mod passkey_notify_event;
 mod user_confirmation_request_event;
 mod user_passkey_request_event;
+mod advertising_added_event;
+mod advertising_removed_event;
 
 trait EventItem: PacketData {
     const CODE: Code;
@@ -104,6 +108,8 @@ pub enum MgmtEvent {
     DeviceAddedEvent(ControlIndex, DeviceAddedEvent),
     DeviceRemovedEvent(ControlIndex, DeviceRemovedEvent),
     ConnectionFailedEvent(ControlIndex, ConnectionFailedEvent),
+    AdvertisingAddedEvent(ControlIndex, AdvertisingAddedEvent),
+    AdvertisingRemovedEvent(ControlIndex, AdvertisingRemovedEvent),
 }
 
 impl fmt::Debug for MgmtEvent {
@@ -127,6 +133,8 @@ impl fmt::Debug for MgmtEvent {
             MgmtEvent::DeviceAddedEvent(i, v) => (i, v).fmt(f),
             MgmtEvent::DeviceRemovedEvent(i, v) => (i, v).fmt(f),
             MgmtEvent::ConnectionFailedEvent(i, v) => (i, v).fmt(f),
+            MgmtEvent::AdvertisingAddedEvent(i, v) => (i, v).fmt(f),
+            MgmtEvent::AdvertisingRemovedEvent(i, v) => (i, v).fmt(f),
         }
     }
 }
@@ -167,6 +175,8 @@ impl PacketData for MgmtEvent {
             DeviceAddedEvent::CODE => DeviceAddedEvent::unpack_event(&mut buf, index),
             DeviceRemovedEvent::CODE => DeviceRemovedEvent::unpack_event(&mut buf, index),
             ConnectionFailedEvent::CODE => ConnectionFailedEvent::unpack_event(&mut buf, index),
+            AdvertisingAddedEvent::CODE => AdvertisingAddedEvent::unpack_event(&mut buf, index),
+            AdvertisingRemovedEvent::CODE => AdvertisingRemovedEvent::unpack_event(&mut buf, index),
             x => Err(UnpackError::UnknownOpcode(x.into())),
         }
     }
@@ -191,6 +201,8 @@ impl PacketData for MgmtEvent {
             MgmtEvent::DeviceAddedEvent(i, v) => v.pack_mgmt(i, buf),
             MgmtEvent::DeviceRemovedEvent(i, v) => v.pack_mgmt(i, buf),
             MgmtEvent::ConnectionFailedEvent(i, v) => v.pack_mgmt(i, buf),
+            MgmtEvent::AdvertisingAddedEvent(i, v) => v.pack_mgmt(i, buf),
+            MgmtEvent::AdvertisingRemovedEvent(i, v) => v.pack_mgmt(i, buf),
         }
     }
 }

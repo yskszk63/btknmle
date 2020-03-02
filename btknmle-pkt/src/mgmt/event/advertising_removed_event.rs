@@ -10,9 +10,7 @@ pub struct AdvertisingRemovedEvent {
 
 impl AdvertisingRemovedEvent {
     pub fn new(instance: u8) -> Self {
-        Self {
-            instance,
-        }
+        Self { instance }
     }
 
     pub fn instance(&self) -> u8 {
@@ -32,9 +30,7 @@ impl PacketData for AdvertisingRemovedEvent {
     fn unpack(buf: &mut impl Buf) -> Result<Self, UnpackError> {
         let instance = PacketData::unpack(buf)?;
 
-        Ok(Self {
-            instance
-        })
+        Ok(Self { instance })
     }
 
     fn pack(&self, buf: &mut impl BufMut) -> Result<(), PackError> {
@@ -49,8 +45,7 @@ mod tests {
     #[test]
     fn test() {
         let mut b = vec![];
-        let e =
-            AdvertisingRemovedEvent::new(1);
+        let e = AdvertisingRemovedEvent::new(1);
         let e = e.into_mgmt(Default::default());
         e.pack(&mut b).unwrap();
         let r = MgmtEvent::unpack(&mut b.as_ref()).unwrap();

@@ -12,6 +12,8 @@ use super::{Address, AddressType};
 use super::{Code, ControlIndex};
 use crate::{PackError, PacketData, UnpackError};
 
+pub use advertising_added_event::*;
+pub use advertising_removed_event::*;
 pub use authentication_failed_event::*;
 pub use command_complete_event::*;
 pub use command_status_event::*;
@@ -30,9 +32,9 @@ pub use new_signature_resolving_key_event::*;
 pub use passkey_notify_event::*;
 pub use user_confirmation_request_event::*;
 pub use user_passkey_request_event::*;
-pub use advertising_added_event::*;
-pub use advertising_removed_event::*;
 
+mod advertising_added_event;
+mod advertising_removed_event;
 mod authentication_failed_event;
 mod command_complete_event;
 mod command_status_event;
@@ -51,8 +53,6 @@ mod new_signature_resolving_key_event;
 mod passkey_notify_event;
 mod user_confirmation_request_event;
 mod user_passkey_request_event;
-mod advertising_added_event;
-mod advertising_removed_event;
 
 trait EventItem: PacketData {
     const CODE: Code;

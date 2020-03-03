@@ -5,8 +5,8 @@ use std::sync::Arc;
 use anyhow::{Error, Result};
 use futures::stream::StreamExt as _;
 use futures::stream::TryStreamExt as _;
-use tokio::sync::Mutex;
 use tokio::signal::ctrl_c;
+use tokio::sync::Mutex;
 
 use btknmle::hogp;
 use btknmle::input::{InputEvent, InputSource};
@@ -78,6 +78,14 @@ fn on_err(e: Error) {
 
 async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
     let mut input = InputSource::new();
+    let keydown = input.subscribe().filter_map(|evt| async {
+        match evt {
+            Ok(InputEvent::Keyboard(k)) if k.keys().len() == 1 => Some(()),
+            _ => None,
+        }
+    });
+    tokio::pin!(keydown);
+
     let mut input_loop = tokio::task::spawn_local(input.runner()?);
     let input = Arc::new(Mutex::new(input));
 
@@ -97,6 +105,7 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
         )
         .await?
     };
+    let mut advctrl = gap.adv_ctrl();
     let mut gap_working = tokio::task::spawn(gap.run());
 
     let (db, kbd, mouse) = hogp::new();
@@ -132,6 +141,7 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
             }
             gap_done = &mut gap_working => gap_done??,
             input_done = &mut input_loop => input_done??,
+            _ = &mut keydown.next() => advctrl.start_advertise().await?,
             _ = &mut ctrlc => break,
             else => break
         }

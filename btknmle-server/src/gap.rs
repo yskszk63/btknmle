@@ -32,28 +32,18 @@ impl ChangeAdvInterval {
     async fn new(devid: u16, min: usize, max: usize) -> io::Result<Self> {
         let prefix = "/sys/kernel/debug/bluetooth";
 
-        let adv_min_interval =
-            fs::read_to_string(format!("{}/hci{}/adv_min_interval", prefix, devid))
-                .await
-                .ok();
+        let path = format!("{}/hci{}/adv_min_interval", prefix, devid);
+        let adv_min_interval = fs::read_to_string(&path).await.ok();
         if adv_min_interval.is_some() {
-            fs::write(
-                format!("{}/hci{}/adv_min_interval", prefix, devid),
-                format!("{}", min),
-            )
-            .await?;
+            let min = format!("{}", min);
+            fs::write(&path, min).await?;
         }
 
-        let adv_max_interval =
-            fs::read_to_string(format!("{}/hci{}/adv_max_interval", prefix, devid))
-                .await
-                .ok();
+        let path = format!("{}/hci{}/adv_max_interval", prefix, devid);
+        let adv_max_interval = fs::read_to_string(&path).await.ok();
         if adv_max_interval.is_some() {
-            fs::write(
-                format!("{}/hci{}/adv_max_interval", prefix, devid),
-                format!("{}", max),
-            )
-            .await?;
+            let max = format!("{}", max);
+            fs::write(&path, max).await?;
         }
 
         Ok(ChangeAdvInterval {
@@ -67,14 +57,12 @@ impl ChangeAdvInterval {
         let prefix = "/sys/kernel/debug/bluetooth";
         let devid = self.devid;
         if let Some(val) = self.adv_max_interval.take() {
-            fs::write(format!("{}/hci{}/adv_max_interval", prefix, devid), val)
-                .await
-                .ok();
+            let path = format!("{}/hci{}/adv_max_interval", prefix, devid);
+            fs::write(path, val).await.ok();
         }
         if let Some(val) = self.adv_min_interval.take() {
-            fs::write(format!("{}/hci{}/adv_min_interval", prefix, devid), val)
-                .await
-                .ok();
+            let path = format!("{}/hci{}/adv_min_interval", prefix, devid);
+            fs::write(path, val).await.ok();
         }
     }
 }

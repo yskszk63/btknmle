@@ -5,7 +5,6 @@ use std::sync::Arc;
 use anyhow::{Error, Result};
 use futures::stream::StreamExt as _;
 use futures::stream::TryStreamExt as _;
-use tokio::signal::ctrl_c;
 use tokio::sync::Mutex;
 
 use btknmle::hogp;
@@ -76,6 +75,30 @@ fn on_err(e: Error) {
     log::error!("{}", e)
 }
 
+async fn term_signals() -> Result<(), Error> {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut alrm = signal(SignalKind::alarm())?;
+    let mut hup = signal(SignalKind::hangup())?;
+    let mut int = signal(SignalKind::interrupt())?;
+    let mut pipe = signal(SignalKind::pipe())?;
+    let mut quit = signal(SignalKind::quit())?;
+    let mut term = signal(SignalKind::terminate())?;
+    let mut usr1 = signal(SignalKind::user_defined1())?;
+    let mut usr2 = signal(SignalKind::user_defined2())?;
+
+    tokio::select! {
+        _ = alrm.recv() => {},
+        _ = hup.recv() => {},
+        _ = int.recv() => {},
+        _ = pipe.recv() => {},
+        _ = quit.recv() => {},
+        _ = term.recv() => {},
+        _ = usr1.recv() => {},
+        _ = usr2.recv() => {},
+    }
+    Ok(())
+}
+
 async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
     let mut input = InputSource::new();
     let keydown = input.subscribe().filter_map(|evt| async {
@@ -111,8 +134,8 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
     let (db, kbd, mouse) = hogp::new();
     let mut listener = gatt::GattListener::new(db, gatt::AttSecurityLevel::NeedsBoundMitm)?;
 
-    let ctrlc = ctrl_c();
-    tokio::pin!(ctrlc);
+    let signals = term_signals();
+    tokio::pin!(signals);
 
     loop {
         tokio::select! {
@@ -142,7 +165,7 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
             gap_done = &mut gap_working => gap_done??,
             input_done = &mut input_loop => input_done??,
             _ = &mut keydown.next() => advctrl.start_advertise().await?,
-            _ = &mut ctrlc => break,
+            _ = &mut signals => break,
             else => break
         }
     }

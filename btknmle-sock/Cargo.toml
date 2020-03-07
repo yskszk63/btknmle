@@ -14,3 +14,4 @@ libc = "0.2"
 
 [dev-dependencies]
 tokio = { version="0.2", features=["macros", "rt-core", "stream", "time"] }
+errno = "0.2"

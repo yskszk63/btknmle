@@ -5,6 +5,8 @@ on: push
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+    - RUST_TEST_THREADS: 1
     steps:
     - uses: actions/checkout@v1
     - run: rustup update

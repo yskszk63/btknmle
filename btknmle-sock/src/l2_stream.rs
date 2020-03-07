@@ -77,4 +77,25 @@ mod tests {
         assert_send::<L2Stream>();
         assert_sync::<L2Stream>();
     }
+
+    #[tokio::test]
+    async fn test_rxtx() {
+        use std::os::unix::net::UnixDatagram;
+        use std::os::unix::io::IntoRawFd;
+        use crate::raw::RawSocket;
+
+        let (socka, sockb) = UnixDatagram::pair().unwrap();
+        socka.set_nonblocking(true).unwrap();
+        sockb.set_nonblocking(true).unwrap();
+
+        let mut socka = L2Stream::new(RawSocket::from_raw_fd(socka.into_raw_fd())).unwrap();
+        let mut sockb = L2Stream::new(RawSocket::from_raw_fd(sockb.into_raw_fd())).unwrap();
+
+        tokio::spawn(async move {
+            sockb.send(&[1, 2, 3]).await.unwrap();
+        });
+
+        let mut buf = vec![];
+        socka.recv(&mut buf).await.unwrap();
+    }
 }

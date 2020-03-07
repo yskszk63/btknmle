@@ -14,12 +14,16 @@ pub struct MgmtSocket {
 }
 
 impl MgmtSocket {
+    pub(crate) fn new(io: RawSocket) -> io::Result<Self> {
+        Ok(Self {
+            io: PollEvented::new(io)?,
+        })
+    }
+
     pub fn bind() -> io::Result<Self> {
         let inner = RawSocket::new_mgmt()?;
         inner.bind_mgmt()?;
-        Ok(Self {
-            io: PollEvented::new(inner)?,
-        })
+        Self::new(inner)
     }
 
     pub async fn send(&mut self, buf: &[u8]) -> io::Result<usize> {
@@ -213,5 +217,26 @@ mod tests {
 
         let result = sock.next().await.unwrap();
         println!("{:?}", result);
+    }
+
+    #[tokio::test]
+    async fn test_rxtx() {
+        use std::os::unix::net::UnixDatagram;
+        use std::os::unix::io::IntoRawFd;
+        use crate::raw::RawSocket;
+
+        let (socka, sockb) = UnixDatagram::pair().unwrap();
+        socka.set_nonblocking(true).unwrap();
+        sockb.set_nonblocking(true).unwrap();
+
+        let mut socka = MgmtSocket::new(RawSocket::from_raw_fd(socka.into_raw_fd())).unwrap();
+        let mut sockb = MgmtSocket::new(RawSocket::from_raw_fd(sockb.into_raw_fd())).unwrap();
+
+        tokio::spawn(async move {
+            sockb.send(&[1, 2, 3]).await.unwrap();
+        });
+
+        let mut buf = vec![];
+        socka.recv(&mut buf).await.unwrap();
     }
 }

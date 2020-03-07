@@ -221,9 +221,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_rxtx() {
-        use std::os::unix::net::UnixDatagram;
-        use std::os::unix::io::IntoRawFd;
         use crate::raw::RawSocket;
+        use std::os::unix::io::IntoRawFd;
+        use std::os::unix::net::UnixDatagram;
 
         let (socka, sockb) = UnixDatagram::pair().unwrap();
         socka.set_nonblocking(true).unwrap();

@@ -223,20 +223,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_rxtx_l2() {
-        use std::os::unix::net::UnixDatagram;
-        use std::os::unix::io::IntoRawFd;
-        use futures::stream::StreamExt;
-        use futures::sink::SinkExt;
-        use tokio_util::codec::BytesCodec;
-        use bytes::Bytes;
         use crate::raw::RawSocket;
+        use bytes::Bytes;
+        use futures::sink::SinkExt;
+        use futures::stream::StreamExt;
+        use std::os::unix::io::IntoRawFd;
+        use std::os::unix::net::UnixDatagram;
+        use tokio_util::codec::BytesCodec;
 
         let (socka, sockb) = UnixDatagram::pair().unwrap();
         socka.set_nonblocking(true).unwrap();
         sockb.set_nonblocking(true).unwrap();
 
-        let mut socka = L2Stream::new(RawSocket::from_raw_fd(socka.into_raw_fd())).unwrap().framed(BytesCodec::new());
-        let mut sockb = L2Stream::new(RawSocket::from_raw_fd(sockb.into_raw_fd())).unwrap().framed(BytesCodec::new());
+        let mut socka = L2Stream::new(RawSocket::from_raw_fd(socka.into_raw_fd()))
+            .unwrap()
+            .framed(BytesCodec::new());
+        let mut sockb = L2Stream::new(RawSocket::from_raw_fd(sockb.into_raw_fd()))
+            .unwrap()
+            .framed(BytesCodec::new());
 
         let n = 1024;
         tokio::spawn(async move {
@@ -253,20 +257,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_rxtx_mgmt() {
-        use std::os::unix::net::UnixDatagram;
-        use std::os::unix::io::IntoRawFd;
-        use futures::stream::StreamExt;
-        use futures::sink::SinkExt;
-        use tokio_util::codec::BytesCodec;
-        use bytes::Bytes;
         use crate::raw::RawSocket;
+        use bytes::Bytes;
+        use futures::sink::SinkExt;
+        use futures::stream::StreamExt;
+        use std::os::unix::io::IntoRawFd;
+        use std::os::unix::net::UnixDatagram;
+        use tokio_util::codec::BytesCodec;
 
         let (socka, sockb) = UnixDatagram::pair().unwrap();
         socka.set_nonblocking(true).unwrap();
         sockb.set_nonblocking(true).unwrap();
 
-        let mut socka = MgmtSocket::new(RawSocket::from_raw_fd(socka.into_raw_fd())).unwrap().framed(BytesCodec::new());
-        let mut sockb = MgmtSocket::new(RawSocket::from_raw_fd(sockb.into_raw_fd())).unwrap().framed(BytesCodec::new());
+        let mut socka = MgmtSocket::new(RawSocket::from_raw_fd(socka.into_raw_fd()))
+            .unwrap()
+            .framed(BytesCodec::new());
+        let mut sockb = MgmtSocket::new(RawSocket::from_raw_fd(sockb.into_raw_fd()))
+            .unwrap()
+            .framed(BytesCodec::new());
 
         let n = 1024;
         tokio::spawn(async move {

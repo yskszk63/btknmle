@@ -529,9 +529,9 @@ mod tests {
 
     #[test]
     fn test_rxtx() {
-        use std::os::unix::net::UnixDatagram;
+        use mio::{Events, Poll, PollOpt, Ready, Token};
         use std::os::unix::io::IntoRawFd;
-        use mio::{Token, Poll, Events, Ready, PollOpt};
+        use std::os::unix::net::UnixDatagram;
 
         let poll = loop {
             match Poll::new() {
@@ -548,8 +548,9 @@ mod tests {
         let sockb = RawSocket(sockb.into_raw_fd());
 
         let mut events = Events::with_capacity(1024);
-        poll.register(&socka, Token(0), Ready::readable(), PollOpt::edge()).unwrap();
-        sockb.send(&[0,1,2]).unwrap();
+        poll.register(&socka, Token(0), Ready::readable(), PollOpt::edge())
+            .unwrap();
+        sockb.send(&[0, 1, 2]).unwrap();
         //poll.register(&sockb, tokenb, Ready::writable(), PollOpt::edge()).unwrap();
 
         poll.poll(&mut events, None).unwrap();
@@ -560,8 +561,8 @@ mod tests {
                     let mut buf = [0; 16];
                     let n = socka.recv(&mut buf).unwrap();
                     assert_eq!(&[0, 1, 2], &buf[..n]);
-                },
-                _ => unreachable!()
+                }
+                _ => unreachable!(),
             }
         }
     }

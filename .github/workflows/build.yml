@@ -41,7 +41,7 @@ jobs:
       run: "[ -f ~/.cargo/bin/cargo-kcov ] || cargo install cargo-kcov"
 
     - name: Install kcov
-      run: cargo kcov --print-install-kcov-sh | sh
+      run: "[ -f ~/.cargo/bin/kcov] || (cargo kcov --print-install-kcov-sh | sh)"
 
     - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
 

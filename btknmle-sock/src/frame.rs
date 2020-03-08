@@ -216,3 +216,76 @@ impl<S, C> Framed<S, C> {
         self.socket
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_rxtx_l2() {
+        use crate::raw::RawSocket;
+        use bytes::Bytes;
+        use futures::sink::SinkExt;
+        use futures::stream::StreamExt;
+        use std::os::unix::io::IntoRawFd;
+        use std::os::unix::net::UnixDatagram;
+        use tokio_util::codec::BytesCodec;
+
+        let (socka, sockb) = UnixDatagram::pair().unwrap();
+        socka.set_nonblocking(true).unwrap();
+        sockb.set_nonblocking(true).unwrap();
+
+        let mut socka = L2Stream::new(RawSocket::from_raw_fd(socka.into_raw_fd()))
+            .unwrap()
+            .framed(BytesCodec::new());
+        let mut sockb = L2Stream::new(RawSocket::from_raw_fd(sockb.into_raw_fd()))
+            .unwrap()
+            .framed(BytesCodec::new());
+
+        let n = 1024;
+        tokio::spawn(async move {
+            for _ in 0..n {
+                let buf = Bytes::from("OK");
+                sockb.send(buf).await.unwrap();
+            }
+        });
+
+        for _ in 0..n {
+            socka.next().await.unwrap().unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rxtx_mgmt() {
+        use crate::raw::RawSocket;
+        use bytes::Bytes;
+        use futures::sink::SinkExt;
+        use futures::stream::StreamExt;
+        use std::os::unix::io::IntoRawFd;
+        use std::os::unix::net::UnixDatagram;
+        use tokio_util::codec::BytesCodec;
+
+        let (socka, sockb) = UnixDatagram::pair().unwrap();
+        socka.set_nonblocking(true).unwrap();
+        sockb.set_nonblocking(true).unwrap();
+
+        let mut socka = MgmtSocket::new(RawSocket::from_raw_fd(socka.into_raw_fd()))
+            .unwrap()
+            .framed(BytesCodec::new());
+        let mut sockb = MgmtSocket::new(RawSocket::from_raw_fd(sockb.into_raw_fd()))
+            .unwrap()
+            .framed(BytesCodec::new());
+
+        let n = 1024;
+        tokio::spawn(async move {
+            for _ in 0..n {
+                let buf = Bytes::from("OK");
+                sockb.send(buf).await.unwrap();
+            }
+        });
+
+        for _ in 0..n {
+            socka.next().await.unwrap().unwrap();
+        }
+    }
+}

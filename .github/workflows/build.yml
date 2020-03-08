@@ -6,42 +6,55 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+
     - run: rustup update
+
     - name: Cache cargo registry
       uses: actions/cache@v1
       with:
         path: ~/.cargo/registry
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
     - name: Cache cargo index
       uses: actions/cache@v1
       with:
         path: ~/.cargo/git
         key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
     - name: Cache cargo bin
       uses: actions/cache@v1
       with:
         path: ~/.cargo/bin
         key: ${{ runner.os }}-cargo-bin-${{ hashFiles('**/Cargo.lock') }}
+
     - name: Cache cargo build
       uses: actions/cache@v1
       with:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    - run: sudo apt update && sudo apt install -y libssl-dev pkg-config cmake zlib1g-dev
-    - run: "[ -f ~/.cargo/bin/cargo-tarpaulin ] || cargo install cargo-tarpaulin"
+
+    - name: Install kcov dependencies
+      run: sudo apt install -y cmake curl g++ jq python binutils-dev libcurl4-openssl-dev zlib1g-dev libdw-dev libiberty-dev
+
+    - name: Install cargo-kcov
+      run: "[ -f ~/.cargo/bin/cargo-kcov ] || cargo install cargo-kcov"
+
+    - name: Install kcov
+      run: cargo kcov --print-install-kcov-sh | sh
+
     - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
+
     - name: Check format
       run: cargo fmt -- --check
+
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - run: cargo tarpaulin --out Xml
+
+    - name: Run kcov
+      run: cargo kcov -v --all -no-fail-fast
+
     - uses: codecov/codecov-action@v1
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        file: ./cobertura.xml
 
   deploy-image:
     runs-on: ubuntu-latest

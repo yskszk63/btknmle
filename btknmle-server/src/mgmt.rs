@@ -48,11 +48,10 @@ pub enum Error {
 #[derive(Debug)]
 pub struct MgmtCodec;
 
-impl Encoder for MgmtCodec {
-    type Item = MgmtCommand;
+impl Encoder<MgmtCommand> for MgmtCodec {
     type Error = Error;
 
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: MgmtCommand, dst: &mut BytesMut) -> Result<(), Self::Error> {
         debug!("> {:?}", item);
         item.pack(dst)?;
         Ok(())

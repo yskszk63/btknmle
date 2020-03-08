@@ -69,9 +69,9 @@ where
     }
 }
 
-impl<C> Sink<C::Item> for Framed<MgmtSocket, C>
+impl<I, C> Sink<I> for Framed<MgmtSocket, C>
 where
-    C: Encoder + Unpin,
+    C: Encoder<I> + Unpin,
 {
     type Error = C::Error;
 
@@ -86,7 +86,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn start_send(self: Pin<&mut Self>, item: C::Item) -> Result<(), Self::Error> {
+    fn start_send(self: Pin<&mut Self>, item: I) -> Result<(), Self::Error> {
         let pin = self.get_mut();
 
         pin.codec.encode(item, &mut pin.wr)?;
@@ -131,9 +131,9 @@ where
     }
 }
 
-impl<C> Sink<C::Item> for Framed<L2Stream, C>
+impl<I, C> Sink<I> for Framed<L2Stream, C>
 where
-    C: Encoder + Unpin,
+    C: Encoder<I> + Unpin,
 {
     type Error = C::Error;
 
@@ -148,7 +148,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn start_send(self: Pin<&mut Self>, item: C::Item) -> Result<(), Self::Error> {
+    fn start_send(self: Pin<&mut Self>, item: I) -> Result<(), Self::Error> {
         let pin = self.get_mut();
 
         pin.codec.encode(item, &mut pin.wr)?;

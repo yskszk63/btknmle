@@ -9,11 +9,10 @@ use crate::pkt::PacketData;
 
 pub struct AttCodec;
 
-impl Encoder for AttCodec {
-    type Item = Att;
+impl Encoder<Att> for AttCodec {
     type Error = std::io::Error;
 
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: Att, dst: &mut BytesMut) -> Result<(), Self::Error> {
         debug!("> {:?}", item);
         item.pack(dst)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;

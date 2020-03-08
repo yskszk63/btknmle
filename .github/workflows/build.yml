@@ -52,7 +52,7 @@ jobs:
       run: cargo build --verbose
 
     - name: Run kcov
-      run: cargo kcov -v --all -no-fail-fast
+      run: cargo kcov -v --all --no-fail-fast
 
     - uses: codecov/codecov-action@v1
 

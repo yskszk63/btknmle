@@ -15,3 +15,6 @@ async-trait = "0.1"
 btknmle-sock = { path="../btknmle-sock" }
 btknmle-pkt = { path="../btknmle-pkt" }
 log = "0.4"
+
+[dev-dependencies]
+tokio = { version="0.2", features=["uds", "time"] }

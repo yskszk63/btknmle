@@ -298,11 +298,19 @@ where
         }
 
         match response {
-            Some(_response) => {
+            Ok(_) => {
                 let b = att::WriteResponse::new();
                 self.send(b).await?
             }
-            None => {
+            Err(gatt::Error::AttError(e)) => {
+                let d = att::ErrorResponse::new(
+                    0x0A, //pkt::att::ReadRequest::OPCODE,
+                    item.attribute_handle(),
+                    e,
+                );
+                self.send(d).await?
+            }
+            _ => {
                 let d = att::ErrorResponse::new(
                     0x0A, //pkt::att::ReadRequest::OPCODE,
                     item.attribute_handle(),

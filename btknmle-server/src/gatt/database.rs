@@ -8,7 +8,7 @@ use thiserror::Error;
 use btknmle_pkt::att::{ErrorCode, Handle};
 use btknmle_pkt::{Uuid, Uuid16};
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum Error {
     #[error("att error {0:?}")]
     AttError(ErrorCode),
@@ -65,7 +65,7 @@ pub enum AttributeValue {
 }
 
 impl AttributeValue {
-    fn set(&mut self, mut val: Bytes) -> Option<()> {
+    fn set(&mut self, mut val: Bytes) -> Result<()> {
         match self {
             AttributeValue::Service(..) => unimplemented!(),
             AttributeValue::Characteristic { .. } => unimplemented!(),
@@ -77,11 +77,17 @@ impl AttributeValue {
                 *self = AttributeValue::UTF8(v.to_string());
             }
             AttributeValue::CCCD(..) => {
-                let v = CCCD::from_bits(val.get_u16_le()).unwrap(); // FIXME
+                if val.len() != 2 {
+                    return Err(Error::AttError(ErrorCode::InvalidPDU));
+                }
+                let v = match CCCD::from_bits(val.get_u16_le()) {
+                    Some(v) => v,
+                    None => return Err(Error::AttError(ErrorCode::InvalidPDU)),
+                };
                 *self = AttributeValue::CCCD(v);
             }
-        }
-        Some(())
+        };
+        Ok(())
     }
 }
 
@@ -209,13 +215,12 @@ impl Database {
         })
     }
 
-    pub fn write(&mut self, handle: Handle, val: impl Into<Bytes>) -> Option<()> {
+    pub fn write(&mut self, handle: Handle, val: impl Into<Bytes>) -> Result<()> {
         let attr = self.attrs.get_mut(&handle);
         match attr {
-            Some(attr) => attr.att_value.set(val.into()),
-            None => return None,
-        };
-        Some(())
+            Some(attr) => Ok(attr.att_value.set(val.into())?),
+            None => Err(Error::AttError(ErrorCode::AttributeNotFound)),
+        }
     }
 
     pub fn find_information(&self, begin: Handle, end: Handle) -> Result<Vec<(Handle, Uuid)>> {
@@ -595,5 +600,185 @@ mod tests {
 
         let result = gatt.read_raw(Handle::from(0x03)).unwrap();
         assert_eq!(result, AttributeValue::Value(Bytes::from("MYDEVICENAME")));
+    }
+
+    #[test]
+    fn test_attr_val() {
+        let mut attr = AttributeValue::Value(Bytes::new());
+        attr.set(Bytes::from("OK")).unwrap();
+        assert_eq!(AttributeValue::Value(Bytes::from("OK")), attr);
+        assert_eq!(2, attr.size());
+        assert_eq!(Bytes::from("OK"), Bytes::from(attr));
+    }
+
+    #[test]
+    fn test_attr_utf8() {
+        let mut attr = AttributeValue::UTF8("".into());
+        attr.set(Bytes::from("OK")).unwrap();
+        assert_eq!(AttributeValue::UTF8("OK".into()), attr);
+        assert_eq!(2, attr.size());
+        assert_eq!(Bytes::from("OK"), Bytes::from(attr));
+    }
+
+    #[test]
+    fn test_attr_cccd() {
+        let mut attr = AttributeValue::CCCD(CCCD::NOTIFICATION);
+        attr.set(Bytes::from(&[0x01, 0x00][..])).unwrap();
+        assert_eq!(AttributeValue::CCCD(CCCD::NOTIFICATION), attr);
+        assert_eq!(2, attr.size());
+        assert_eq!(Bytes::from(&[0x01, 0x00][..]), Bytes::from(attr));
+
+        let mut attr = AttributeValue::CCCD(CCCD::NOTIFICATION);
+        let r = attr.set(Bytes::from(&[0x01][..]));
+        assert_eq!(Err(Error::AttError(ErrorCode::InvalidPDU)), r);
+
+        let mut attr = AttributeValue::CCCD(CCCD::NOTIFICATION);
+        let r = attr.set(Bytes::from(&[0x04, 0x00][..]));
+        assert_eq!(Err(Error::AttError(ErrorCode::InvalidPDU)), r);
+    }
+
+    #[test]
+    fn test_attr_char() {
+        let attr = AttributeValue::Characteristic {
+            properties: CharacteristicProperties::READ | CharacteristicProperties::WRITE,
+            value_handle: Handle::from(0x1234),
+            chr_type: Uuid::Uuid16(0x5678),
+        };
+        assert_eq!(5, attr.size());
+        assert_eq!(
+            Bytes::from(&[0x0A, 0x34, 0x12, 0x78, 0x56][..]),
+            Bytes::from(attr)
+        );
+
+        let attr = AttributeValue::Characteristic {
+            properties: CharacteristicProperties::READ | CharacteristicProperties::WRITE,
+            value_handle: Handle::from(0x1234),
+            chr_type: Uuid::Uuid128(0x1234567890),
+        };
+        assert_eq!(19, attr.size());
+    }
+
+    #[test]
+    fn test_exchange_mtu() {
+        let mut db = Database::builder().build();
+        let r = db.exchange_mtu(32).unwrap();
+        assert_eq!(32, r);
+    }
+
+    #[test]
+    fn test_read_raw() {
+        let mut builder = Database::builder();
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #1
+        builder.with_characteristic(CharacteristicProperties::empty(), Uuid::Uuid16(0x2A00), ""); // #2,3
+        let db = builder.build();
+
+        assert_eq!(
+            Err(Error::AttError(ErrorCode::AttributeNotFound)),
+            db.read_raw(Handle::from(4))
+        );
+        assert_eq!(
+            Err(Error::AttError(ErrorCode::ReadNotPermitted)),
+            db.read_raw(Handle::from(3))
+        );
+    }
+
+    #[test]
+    fn test_read() {
+        let mut builder = Database::builder();
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #1
+        builder.with_characteristic(
+            CharacteristicProperties::READ,
+            Uuid::Uuid16(0x2A00),
+            (0..64).collect::<Bytes>(),
+        ); // #2,3
+        builder.with_characteristic(
+            CharacteristicProperties::READ,
+            Uuid::Uuid16(0x2A00),
+            (0..1).collect::<Bytes>(),
+        ); // #4,5
+        let mut db = builder.build();
+
+        db.exchange_mtu(3).unwrap();
+        assert_eq!(
+            Bytes::from(&[0x00, 0x01][..]),
+            db.read(Handle::from(3)).unwrap()
+        );
+        assert_eq!(Bytes::from(&[0x00][..]), db.read(Handle::from(5)).unwrap());
+
+        assert_eq!(
+            Bytes::from(&[0x01, 0x02][..]),
+            db.read_blob(Handle::from(3), 1).unwrap()
+        );
+        assert_eq!(
+            Bytes::from(&[0x00][..]),
+            db.read_blob(Handle::from(5), 0).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_rw() {
+        let mut builder = Database::builder();
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #1
+        builder.with_characteristic(
+            CharacteristicProperties::READ | CharacteristicProperties::WRITE,
+            Uuid::Uuid16(0x2A00),
+            "",
+        ); // #2,3
+        let mut db = builder.build();
+
+        db.write(Handle::from(3), "OK").unwrap();
+        assert_eq!(Bytes::from("OK"), db.read(Handle::from(3)).unwrap());
+        assert_eq!(
+            Err(Error::AttError(ErrorCode::AttributeNotFound)),
+            db.write(Handle::from(4), "OK")
+        );
+    }
+
+    #[test]
+    fn test_find_information() {
+        let mut builder = Database::builder();
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #1
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #2,3
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #4,5
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid128(0x2A00), ""); // #6,7
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #8,9
+        let db = builder.build();
+
+        assert_eq!(
+            Err(Error::AttError(ErrorCode::AttributeNotFound)),
+            db.find_information(Handle::from(0xff), Handle::from(0xffff))
+        );
+
+        // over mtu
+        assert_eq!(
+            vec![
+                (Handle::from(0x01), Uuid::Uuid16(0x2800)),
+                (Handle::from(0x02), Uuid::Uuid16(0x2803)),
+                (Handle::from(0x03), Uuid::Uuid16(0x2A00)),
+                (Handle::from(0x04), Uuid::Uuid16(0x2803)),
+                (Handle::from(0x05), Uuid::Uuid16(0x2A00)),
+            ],
+            db.find_information(Handle::from(0x01), Handle::from(0x07))
+                .unwrap()
+        );
+
+        // different size
+        assert_eq!(
+            vec![
+                (Handle::from(0x03), Uuid::Uuid16(0x2A00)),
+                (Handle::from(0x04), Uuid::Uuid16(0x2803)),
+                (Handle::from(0x05), Uuid::Uuid16(0x2A00)),
+                (Handle::from(0x06), Uuid::Uuid16(0x2803)),
+            ],
+            db.find_information(Handle::from(0x03), Handle::from(0x07))
+                .unwrap()
+        );
+
+        // 128bit
+        assert_eq!(
+            vec![(Handle::from(0x07), Uuid::Uuid128(0x2A00)),],
+            db.find_information(Handle::from(0x07), Handle::from(0xFFFF))
+                .unwrap()
+        );
     }
 }

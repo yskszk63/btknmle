@@ -259,7 +259,6 @@ impl Database {
         att_type: Uuid16,
         att_val: Bytes,
     ) -> Result<Vec<(Handle, Handle)>> {
-        // TODO test
         let mut iter = self.attrs.range(begin..).map(|(_, v)| v).skip_while(|v| {
             v.att_type != att_type.clone().into() || Bytes::from(v.att_value.clone()) != att_val
         });
@@ -779,6 +778,146 @@ mod tests {
             vec![(Handle::from(0x07), Uuid::Uuid128(0x2A00)),],
             db.find_information(Handle::from(0x07), Handle::from(0xFFFF))
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_find_by_type_value() {
+        let mut builder = Database::builder();
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #1
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #2,3
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #4,5
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid128(0x2A00), ""); // #6,7
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #8,9
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #a
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #b,c
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #d
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #e,f
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #10
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #11,12
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #13
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #14,15
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #16
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #17,18
+        let db = builder.build();
+
+        // [gatt] discoverty primary service
+        assert_eq!(
+            vec![
+                (Handle::from(0x01), Handle::from(0x09)),
+                (Handle::from(0x0A), Handle::from(0x0C)),
+                (Handle::from(0x0D), Handle::from(0x0F)),
+                (Handle::from(0x10), Handle::from(0x12)),
+                (Handle::from(0x13), Handle::from(0x15)),
+                //(Handle::from(0x16), Handle::from(0x18)),
+            ],
+            db.find_by_type_value(
+                Handle::from(0x01),
+                Handle::from(0xFFFF),
+                Uuid16::from(0x2800),
+                Uuid::Uuid16(0x1800).into()
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            vec![(Handle::from(0x16), Handle::from(0x18)),],
+            db.find_by_type_value(
+                Handle::from(0x16),
+                Handle::from(0xFFFF),
+                Uuid16::from(0x2800),
+                Uuid::Uuid16(0x1800).into()
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Err(Error::AttError(ErrorCode::AttributeNotFound)),
+            db.find_by_type_value(
+                Handle::from(0x19),
+                Handle::from(0xFFFF),
+                Uuid16::from(0x2800),
+                Uuid::Uuid16(0x1800).into()
+            )
+        );
+
+        // group end after end handle
+        // FIXME define type is group or else
+        // type is group -> handle != group end
+        // type is not group -> handle = handle
+        /*
+        assert_eq!(
+            vec![
+                (Handle::from(0x01), Handle::from(0x09)),
+            ],
+            db.find_by_type_value(
+                Handle::from(0x01),
+                Handle::from(0x02),
+                Uuid16::from(0x2800),
+                Uuid::Uuid16(0x1800).into()
+            )
+            .unwrap()
+        );
+        */
+    }
+
+    #[test]
+    fn test_read_by_type() {
+        let mut builder = Database::builder();
+        builder.begin_service(Uuid::Uuid16(0x1800)); // #1
+        builder.with_characteristic(
+            CharacteristicProperties::READ,
+            Uuid::Uuid16(0x2A00),
+            "012345678901234567890123456789",
+        ); // #2,3
+        builder.with_characteristic(
+            CharacteristicProperties::READ,
+            Uuid::Uuid16(0x2A00),
+            "012345678901234567890123456789",
+        ); // #4,5
+        builder.with_characteristic(
+            CharacteristicProperties::READ,
+            Uuid::Uuid16(0x2A00),
+            "012345678901234567890123456789",
+        ); // #6,7
+        builder.with_characteristic(CharacteristicProperties::READ, Uuid::Uuid16(0x2A00), ""); // #8,9
+        let db = builder.build();
+
+        assert_eq!(
+            Err(Error::AttError(ErrorCode::AttributeNotFound)),
+            db.read_by_type(
+                Handle::from(0x01),
+                Handle::from(0xFFFF),
+                Uuid::Uuid16(0x0000),
+            )
+        );
+        assert_eq!(
+            vec![
+                (
+                    Handle::from(0x03),
+                    AttributeValue::Value(Bytes::from("012345678901234567890123456789"))
+                ),
+                (
+                    Handle::from(0x05),
+                    AttributeValue::Value(Bytes::from("012345678901234567890123456789"))
+                ),
+            ],
+            db.read_by_type(
+                Handle::from(0x01),
+                Handle::from(0xFFFF),
+                Uuid::Uuid16(0x2A00),
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            vec![(
+                Handle::from(0x07),
+                AttributeValue::Value(Bytes::from("012345678901234567890123456789"))
+            ),],
+            db.read_by_type(
+                Handle::from(0x06),
+                Handle::from(0xFFFF),
+                Uuid::Uuid16(0x2A00),
+            )
+            .unwrap()
         );
     }
 }

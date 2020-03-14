@@ -63,6 +63,10 @@ impl Decoder for MgmtCodec {
     type Error = Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        if buf.is_empty() {
+            return Ok(None);
+        }
+
         let result = Self::Item::unpack(buf)?;
         debug!("< {:?}", result);
         Ok(Some(result))
@@ -297,5 +301,766 @@ where
         } else {
             Pin::new(&mut self.io).poll_next(cx)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_tx() {
+        use crate::pkt::mgmt::command::ReadControllerInformationCommand;
+        use crate::pkt::mgmt::ControlIndex;
+        use futures::sink::SinkExt;
+        use futures::stream::StreamExt;
+        use tokio::net::UnixStream;
+        use tokio_util::codec::{BytesCodec, FramedRead, FramedWrite};
+
+        let (socka, sockb) = UnixStream::pair().unwrap();
+
+        let mut socka = FramedRead::new(socka, BytesCodec::new());
+        let mut sockb = FramedWrite::new(sockb, MgmtCodec);
+
+        tokio::spawn(async move {
+            sockb
+                .send(ReadControllerInformationCommand::new().into_mgmt(ControlIndex::from(0)))
+                .await
+                .unwrap();
+        });
+
+        let result = socka.next().await.unwrap().unwrap();
+        let mut buf = BytesMut::new();
+        ReadControllerInformationCommand::new()
+            .into_mgmt(ControlIndex::from(0))
+            .pack(&mut buf)
+            .unwrap();
+        assert_eq!(buf.freeze(), result.freeze());
+    }
+
+    #[tokio::test]
+    async fn test_rx() {
+        use crate::pkt::mgmt::event::{ConnectionFailedEvent, MgmtEvent};
+        use crate::pkt::mgmt::{AddressType, ControlIndex};
+        use futures::sink::SinkExt;
+        use futures::stream::StreamExt;
+        use tokio::net::UnixStream;
+        use tokio_util::codec::{BytesCodec, FramedRead, FramedWrite};
+
+        let (socka, sockb) = UnixStream::pair().unwrap();
+
+        let mut socka = FramedRead::new(socka, MgmtCodec);
+        let mut sockb = FramedWrite::new(sockb, BytesCodec::new());
+
+        tokio::spawn(async move {
+            let mut buf = BytesMut::new();
+            let event = ConnectionFailedEvent::new(
+                "00:11:22:33:44:55".parse().unwrap(),
+                AddressType::LePublic,
+                1,
+            );
+            let event = MgmtEvent::ConnectionFailedEvent(ControlIndex::from(0), event);
+            event.pack(&mut buf).unwrap();
+            sockb.send(buf.freeze()).await.unwrap();
+        });
+
+        let result = socka.next().await.unwrap().unwrap();
+        let event = ConnectionFailedEvent::new(
+            "00:11:22:33:44:55".parse().unwrap(),
+            AddressType::LePublic,
+            1,
+        );
+        let event = MgmtEvent::ConnectionFailedEvent(ControlIndex::from(0), event);
+        assert_eq!(event, result);
+    }
+
+    #[tokio::test]
+    async fn test_mgmt_invoke() {
+        use crate::pkt::mgmt::command::{
+            Advertising, Discoverable, IoCapability, SecureConnections,
+        };
+        use crate::pkt::mgmt::command::{
+            ReadControllerInformationResult, SetLocalNameCommandResult,
+        };
+        use crate::pkt::mgmt::event::{CommandCompleteEvent, MgmtEvent};
+        use crate::pkt::mgmt::{
+            Action, Address, AddressType, AdvertisingFlags, Code, ControlIndex, CurrentSettings,
+            Status,
+        };
+        use futures::sink::SinkExt;
+        use futures::stream::StreamExt;
+        use std::str::FromStr;
+        use tokio::net::UnixStream;
+        use tokio::time::{timeout, Duration};
+        use tokio_util::codec::{BytesCodec, Framed};
+
+        let (socka, sockb) = UnixStream::pair().unwrap();
+
+        let idx = ControlIndex::from(0);
+        let mgmt = Framed::new(socka, MgmtCodec);
+        let mut mgmt = Mgmt::new_internal(0, mgmt);
+        let mut peer = Framed::new(sockb, BytesCodec::new());
+
+        tokio::spawn(async move {
+            // powered
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // low_energy
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // br_edr
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // connectable
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // bondable
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // secure_connections
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // privacy
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // advertising
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // discoverable
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // user_confirmation
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+            )
+                .pack(&mut buf)
+                .unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // user_confirmation_negative
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+            )
+                .pack(&mut buf)
+                .unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // io_capability
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            ().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // load_ltks
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            ().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // load_irks
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            ().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // appearance
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            ().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // local_name
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            SetLocalNameCommandResult::new("abc", "def")
+                .pack(&mut buf)
+                .unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // add_advertising
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            8u8.pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // remove_advertising
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            8u8.pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // user_passkey_reply
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+            )
+                .pack(&mut buf)
+                .unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // add_device
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+            )
+                .pack(&mut buf)
+                .unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // remove_device
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+            )
+                .pack(&mut buf)
+                .unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // read_controller_information
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            ReadControllerInformationResult::new(
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                8,
+                12,
+                CurrentSettings::empty(),
+                CurrentSettings::empty(),
+                [1; 3],
+                "abc".into(),
+                "def".into(),
+            )
+            .pack(&mut buf)
+            .unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+        });
+
+        // powered
+        let r = timeout(Duration::from_secs(1u64), mgmt.powered(true))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // low_energy
+        let r = timeout(Duration::from_secs(1u64), mgmt.low_energy(true))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // br_edr
+        let r = timeout(Duration::from_secs(1u64), mgmt.br_edr(true))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // connectable
+        let r = timeout(Duration::from_secs(1u64), mgmt.connectable(true))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // bondable
+        let r = timeout(Duration::from_secs(1u64), mgmt.bondable(true))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // secure_connections
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.secure_connections(SecureConnections::Only),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // privacy
+        let r = timeout(Duration::from_secs(1u64), mgmt.privacy(true, [0; 16]))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // advertising
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.advertising(Advertising::Enabled),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // discoverable
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.discoverable(Discoverable::General),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // user_confirmation
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.user_confirmation(
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom
+            ),
+            r
+        );
+
+        // user_confirmation_negative
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.user_confirmation_negative(
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom
+            ),
+            r
+        );
+
+        // io_capability
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.io_capability(IoCapability::DisplayOnly),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!((), r);
+
+        // load_ltks
+        let r = timeout(Duration::from_secs(1u64), mgmt.load_ltks(vec![]))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!((), r);
+
+        // load_irks
+        let r = timeout(Duration::from_secs(1u64), mgmt.load_irks(vec![]))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!((), r);
+
+        // appearance
+        let r = timeout(Duration::from_secs(1u64), mgmt.appearance(123))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!((), r);
+
+        // local_name
+        let r = timeout(Duration::from_secs(1u64), mgmt.local_name("abc", "def"))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(SetLocalNameCommandResult::new("abc", "def"), r);
+
+        // add_advertising
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.add_advertising(1, AdvertisingFlags::empty(), 1, 2, &[], &[]),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(8, r);
+
+        // remove_advertising
+        let r = timeout(Duration::from_secs(1u64), mgmt.remove_advertising(None))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(8, r);
+
+        // user_passkey_reply
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.user_passkey_reply(
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+                12345,
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom
+            ),
+            r
+        );
+
+        // add_device
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.add_device(
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+                Action::BackgroundScanForDevice,
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom
+            ),
+            r
+        );
+
+        // remove_device
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.remove_device(
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            (
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom
+            ),
+            r
+        );
+
+        // read_controller_information
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.read_controller_information(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            ReadControllerInformationResult::new(
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                8,
+                12,
+                CurrentSettings::empty(),
+                CurrentSettings::empty(),
+                [1; 3],
+                "abc".into(),
+                "def".into()
+            ),
+            r
+        );
+    }
+
+    #[tokio::test]
+    async fn test_mgmt_error() {
+        use crate::pkt::mgmt::event::{CommandStatusEvent, MgmtEvent};
+        use crate::pkt::mgmt::{Code, ControlIndex, Status};
+        use futures::sink::SinkExt;
+        use futures::stream::StreamExt;
+        use tokio::net::UnixStream;
+        use tokio::time::{timeout, Duration};
+        use tokio_util::codec::{BytesCodec, Framed};
+
+        let (socka, sockb) = UnixStream::pair().unwrap();
+
+        let idx = ControlIndex::from(0);
+        let mgmt = Framed::new(socka, MgmtCodec);
+        let mut mgmt = Mgmt::new_internal(0, mgmt);
+        let mut peer = Framed::new(sockb, BytesCodec::new());
+
+        tokio::spawn(async move {
+            // powered
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandStatusEvent::new(code, Status::InvalidParameters);
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandStatusEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+        });
+
+        // read_controller_information
+        let r = timeout(
+            Duration::from_secs(1u64),
+            mgmt.read_controller_information(),
+        )
+        .await
+        .unwrap();
+        match r {
+            Err(Error::CommandError(Status::InvalidParameters)) => {}
+            _ => panic!(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_mgmt_pending() {
+        use crate::pkt::mgmt::event::ConnectionFailedEvent;
+        use crate::pkt::mgmt::event::{CommandCompleteEvent, MgmtEvent};
+        use crate::pkt::mgmt::{Address, AddressType, Code, ControlIndex, Status};
+        use futures::sink::SinkExt;
+        use futures::stream::StreamExt;
+        use std::str::FromStr;
+        use tokio::net::UnixStream;
+        use tokio::time::{timeout, Duration};
+        use tokio_util::codec::{BytesCodec, Framed};
+
+        let (socka, sockb) = UnixStream::pair().unwrap();
+
+        let idx = ControlIndex::from(0);
+        let mgmt = Framed::new(socka, MgmtCodec);
+        let mut mgmt = Mgmt::new_internal(0, mgmt);
+        let mut peer = Framed::new(sockb, BytesCodec::new());
+
+        tokio::spawn(async move {
+            // connection failed event
+            let mut buf = BytesMut::new();
+            let event = ConnectionFailedEvent::new(
+                Address::from_str("00:11:22:33:44:55").unwrap(),
+                AddressType::LeRandom,
+                1,
+            );
+            MgmtEvent::ConnectionFailedEvent(idx.clone(), event)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+
+            // powered
+            let mut buf = peer.next().await.unwrap().unwrap();
+            let code = Code::unpack(&mut buf).unwrap();
+            let mut buf = BytesMut::new();
+            CurrentSettings::empty().pack(&mut buf).unwrap();
+            let reply = CommandCompleteEvent::new(code, Status::Success, buf.freeze());
+            let mut buf = BytesMut::new();
+            MgmtEvent::CommandCompleteEvent(idx.clone(), reply)
+                .pack(&mut buf)
+                .unwrap();
+            peer.send(buf.freeze()).await.unwrap();
+        });
+
+        // read_controller_information
+        let r = timeout(Duration::from_secs(1u64), mgmt.powered(true))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(CurrentSettings::empty(), r);
+
+        // pending event
+        let r = timeout(Duration::from_secs(1u64), mgmt.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        let idx = ControlIndex::from(0);
+        let event = ConnectionFailedEvent::new(
+            Address::from_str("00:11:22:33:44:55").unwrap(),
+            AddressType::LeRandom,
+            1,
+        );
+        let event = MgmtEvent::ConnectionFailedEvent(idx.clone(), event);
+        assert_eq!(event, r);
     }
 }

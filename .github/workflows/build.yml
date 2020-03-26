@@ -94,7 +94,8 @@ jobs:
     - name: Login Doker
       run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
       env:
-        TOKEN: ${{ secrets.DOCKER_TOKEN }}
+        DOCKER_USERNAME: yskszk63
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
 
     - name: Build and push
       run: |

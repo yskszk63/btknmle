@@ -6,7 +6,7 @@ RUN apt update \
     && mkdir /build
 WORKDIR /build
 COPY . .
-RUN cargo install --path .
+RUN cd btknmle && cargo install --path .
 
 FROM --platform=$TARGETPLATFORM debian:buster-slim
 RUN apt update \

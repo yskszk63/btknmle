@@ -3,6 +3,8 @@ RUN apt update \
     && apt install -y --no-install-recommends \
        libinput-dev \
        libudev-dev \
+       llvm \
+       clang \
     && mkdir /build
 WORKDIR /build
 COPY . .

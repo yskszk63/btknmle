@@ -98,9 +98,20 @@ jobs:
 
     - name: Build and push
       run: |
+        case "${{ matrix.arch }}" in
+          "amd64")
+            TARGETPLATFORM=linux/amd64
+            ;;
+          "arm32v7")
+            TARGETPLATFORM=linux/arm/v7
+            ;;
+          "arm32v5")
+            TARGETPLATFORM=linux/arm/v5
+            ;;
+        esac
         docker build \
           -t $DOCKER_REPO:$TARGETARCH \
-          --build-arg TARGETARCH=${TARGETARCH} \
+          --build-arg TARGETPLATFORM=${TARGETPLATFORM} \
           .
         docker push $DOCKER_REPO:$TARGETARCH
       env:

@@ -65,7 +65,7 @@ jobs:
           --build-arg RUSTUP_VERSION=${RUSTUP_VERSION} \
           .
       env:
-        RUST_VERSION: "1.42"
+        RUST_VERSION: "1.42.0"
         RUSTUP_VERSION: "1.21.1"
 
 # vim: set sw=2 ts=2 sts=2:

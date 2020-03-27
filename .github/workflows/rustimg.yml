@@ -50,7 +50,7 @@ jobs:
           -t $DOCKER_REPO:latest \
           --build-arg RUST_VERSION=${RUST_VERSION} \
           --build-arg RUSTUP_VERSION=${RUSTUP_VERSION} \
-          --buil .
+          .
       env:
         RUST_VERSION: "1.42"
         RUSTUP_VERSION: "1.21.1"

@@ -8,3 +8,6 @@ members = [
     "btknmle-hid",
     "btknmle-keydb",
 ]
+
+[profile.release]
+codegen-units=1

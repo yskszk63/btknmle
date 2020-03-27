@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     #if: github.ref == 'refs/heads/master'
     env:
-      PLATFORM: linux/amd64,linux/arm/v7,linux/arm/v5
+      PLATFORM: "linux/amd64,linux/arm/v7,linux/arm/v5"
       DOCKER_REPO: yskszk63/btknmle-rust
 
     steps:
@@ -43,6 +43,16 @@ jobs:
 
     - name: Build and push
       run: |
-        docker buildx build --platform "$PLATFORM" -f support/Dockerfile-rust --push -t $DOCKER_REPO:latest .
+        docker buildx build \
+          --platform "$PLATFORM" \
+          -f support/Dockerfile-rust \
+          --push \
+          -t $DOCKER_REPO:latest \
+          --build-arg RUST_VERSION=${RUST_VERSION} \
+          --build-arg RUSTUP_VERSION=${RUSTUP_VERSION} \
+          --buil .
+      env:
+        RUST_VERSION: "1.42"
+        RUSTUP_VERSION: "1.21.1"
 
 # vim: set sw=2 ts=2 sts=2:

@@ -75,6 +75,7 @@ jobs:
     #if: github.ref == 'refs/heads/master'
     env:
       DOCKER_REPO: yskszk63/btknmle-rust
+      DOCKER_CLI_EXPERIMENTAL: enabled
 
     steps:
     - name: Login Doker

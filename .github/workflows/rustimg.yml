@@ -76,6 +76,7 @@ jobs:
     env:
       DOCKER_REPO: yskszk63/btknmle-rust
 
+    steps:
     - name: Login Doker
       run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
       env:

@@ -53,7 +53,7 @@ jobs:
             ;;
           "arm32v5")
             DEB_ARCH=arm32v5
-            RUST_ARCH=arm-unknown-linux-gnueabihf
+            RUST_ARCH=arm-unknown-linux-gnueabi
             ;;
         esac
         docker build \

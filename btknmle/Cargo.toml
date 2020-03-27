@@ -20,3 +20,6 @@ log = "0.4"
 env_logger = "0.7"
 dotenv = "0.14"
 anyhow = "1.0"
+
+[profile.release]
+codegen-units=1

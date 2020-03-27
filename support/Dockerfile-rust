@@ -1,4 +1,4 @@
-FROM --platform=$TARGETPLATFORM debian:buster-slim as builder
+FROM debian:buster-slim as builder
 
 ARG RUST_VERSION
 ARG RUSTUP_VERSION

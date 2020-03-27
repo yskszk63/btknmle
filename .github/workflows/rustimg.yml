@@ -43,15 +43,15 @@ jobs:
     - name: Build and push
       run: |
         case "${{ matrix.arch }}"
-          "amd64" )
+          "amd64")
             DEB_ARCH=amd64
             RUST_ARCH=x86_64-unknown-linux-gnu
             ;;
-          "arm32v7" )
+          "arm32v7")
             DEB_ARCH=arm32v7
             RUST_ARCH=armv7-unknown-linux-gnueabihf
             ;;
-          "arm32v5" )
+          "arm32v5")
             DEB_ARCH=arm32v5
             RUST_ARCH=arm-unknown-linux-gnueabihf
             ;;

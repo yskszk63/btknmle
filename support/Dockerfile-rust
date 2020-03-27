@@ -1,6 +1,8 @@
-FROM debian:buster-slim as builder
+ARG DEB_ARCH
+FROM $DEB_ARCH/debian:buster-slim
 
 ARG RUST_VERSION
+ARG RUST_ARCH
 ARG RUSTUP_VERSION
 
 ENV RUSTUP_HOME=/usr/local/rustup \
@@ -15,11 +17,6 @@ RUN set -eux; \
         libc6-dev \
         wget \
         ; \
-    case $TARGETPLATFORM in \
-        linux/amd64 ) RUST_ARCH=x86_64-unknown-linux-gnu ;; \
-        linux/arm/v7 ) RUST_ARCH=armv7-unknown-linux-gnueabihf ;; \
-        linux/arm/v5 ) RUST_ARCH=arm-unknown-linux-gnueabihf ;; \
-    esac ;\
     url="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUST_ARCH}/rustup-init"; \
     wget "$url"; \
     chmod +x rustup-init; \

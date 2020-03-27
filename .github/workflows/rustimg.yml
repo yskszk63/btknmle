@@ -42,7 +42,7 @@ jobs:
 
     - name: Build and push
       run: |
-        case "${{ matrix.arch }}"
+        case "${{ matrix.arch }}" in
           "amd64")
             DEB_ARCH=amd64
             RUST_ARCH=x86_64-unknown-linux-gnu

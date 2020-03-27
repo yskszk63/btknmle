@@ -1,0 +1,49 @@
+name: Build rust image
+
+on: push
+
+jobs:
+  deploy-image:
+    runs-on: ubuntu-latest
+    needs: check
+    #if: github.ref == 'refs/heads/master'
+    env:
+      PLATFORM: linux/amd64,linux/arm/v7,linux/arm/v5
+      DOCKER_REPO: yskszk63/btknmle-rust
+
+    steps:
+    - uses: actions/checkout@v2
+
+    # work around for `Value too large for defined data type;`
+    - name: Setup btrfs volume driver
+      run: |
+        sudo systemctl stop docker.service
+        sudo fallocate -l10GB /mnt/docker.img
+        sudo mkfs.btrfs /mnt/docker.img
+        sudo mount -t btrfs /mnt/docker.img /var/lib/docker
+        echo '{"storage-driver":"btrfs"}' | sudo tee /etc/docker/daemon.json > /dev/null
+        sudo systemctl start docker.service
+
+    - name: Setup buildx
+      run: |
+        docker run --rm --privileged "$BINFMT_IMAGE"
+        curl -L "$BUILDX_URL" -o ~/.docker/cli-plugins/docker-buildx --create-dirs -sS
+        chmod a+x ~/.docker/cli-plugins/docker-buildx
+        docker buildx create --use --platform "$PLATFORM"
+        docker buildx inspect --bootstrap
+        docker info
+      env:
+        BINFMT_IMAGE: 'docker/binfmt:a7996909642ee92942dcd6cff44b9b95f08dad64'
+        BUILDX_URL: 'https://github.com/docker/buildx/releases/download/v0.3.1/buildx-v0.3.1.linux-amd64'
+
+    - name: Login Doker
+      run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      env:
+        DOCKER_USERNAME: yskszk63
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
+
+    - name: Build and push
+      run: |
+        docker buildx build --platform "$PLATFORM" -f support/Dockerfile-rust --push -t $DOCKER_REPO:latest .
+
+# vim: set sw=2 ts=2 sts=2:

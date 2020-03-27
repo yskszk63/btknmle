@@ -90,5 +90,7 @@ jobs:
           $DOCKER_REPO:amd64 \
           $DOCKER_REPO:arm32v7 \
           $DOCKER_REPO:arm32v5
+        docker manifest annotate --variant v7 $DOCKER_REPO:latest $DOCKER_REPO:arm32v7
+        docker manifest annotate --variant v5 $DOCKER_REPO:latest $DOCKER_REPO:arm32v5
         docker manifest push $DOCKER_REPO:latest
 # vim: set sw=2 ts=2 sts=2:

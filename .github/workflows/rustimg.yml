@@ -64,7 +64,7 @@ jobs:
           --build-arg RUST_ARCH=${RUST_ARCH} \
           --build-arg RUSTUP_VERSION=${RUSTUP_VERSION} \
           .
-        docker push -t $DOCKER_REPO:$DEB_ARCH
+        docker push $DOCKER_REPO:$DEB_ARCH
       env:
         RUST_VERSION: "1.42.0"
         RUSTUP_VERSION: "1.21.1"
@@ -90,5 +90,5 @@ jobs:
           $DOCKER_REPO:amd64 \
           $DOCKER_REPO:arm32v7 \
           $DOCKER_REPO:arm32v5
-        docker manifest push -t $DOCKER_REPO:latest
+        docker manifest push $DOCKER_REPO:latest
 # vim: set sw=2 ts=2 sts=2:

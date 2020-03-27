@@ -9,8 +9,8 @@ jobs:
       matrix:
         arch:
         - amd64
-        - arv32v5
-        - arv32v7
+        - arm32v5
+        - arm32v7
     #if: github.ref == 'refs/heads/master'
     env:
       DOCKER_REPO: yskszk63/btknmle-rust

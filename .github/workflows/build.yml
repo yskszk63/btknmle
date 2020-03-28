@@ -64,8 +64,8 @@ jobs:
 
   build-image:
     runs-on: ubuntu-latest
-    #needs: check
-    #if: github.ref == 'refs/heads/master'
+    needs: check
+    if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
         arch:
@@ -130,7 +130,7 @@ jobs:
   push-manifest:
     runs-on: ubuntu-latest
     needs: build-image
-    #if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     env:
       DOCKER_REPO: yskszk63/btknmle
       DOCKER_CLI_EXPERIMENTAL: enabled

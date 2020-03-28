@@ -1,4 +1,6 @@
-FROM --platform=$TARGETPLATFORM rust as builder
+ARG TARGETPLATFORM
+
+FROM --platform=$TARGETPLATFORM yskszk63/btknmle-rust as builder
 RUN apt update \
     && apt install -y --no-install-recommends \
        libinput-dev \

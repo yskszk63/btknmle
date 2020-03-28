@@ -14,7 +14,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - run: rustup update
+    - name: Install rust nightly
+      run: rustup install nightly
 
     - name: Cache cargo registry
       uses: actions/cache@v1
@@ -22,45 +23,49 @@ jobs:
         path: ~/.cargo/registry
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
+    - name: Cache cargo build
+      uses: actions/cache@v1
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-build-target-
+
     - name: Cache cargo index
       uses: actions/cache@v1
       with:
         path: ~/.cargo/git
         key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Cache cargo bin
-      uses: actions/cache@v1
-      with:
-        path: ~/.cargo/bin
-        key: ${{ runner.os }}-cargo-bin-${{ hashFiles('**/Cargo.lock') }}
-
-    #- name: Cache cargo build
-    #  uses: actions/cache@v1
-    #  with:
-    #    path: target
-    #    key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Install kcov dependencies
-      run: sudo apt install -y cmake curl g++ jq python binutils-dev libcurl4-openssl-dev zlib1g-dev libdw-dev libiberty-dev
-
-    - name: Install cargo-kcov
-      run: "[ -f ~/.cargo/bin/cargo-kcov ] || cargo install cargo-kcov"
-
-    - name: Install kcov
-      run: "[ -f ~/.cargo/bin/kcov] || (cargo kcov --print-install-kcov-sh | sh)"
+    - name: Install grcov
+      run: |
+        mkdir $HOME/grcov
+        curl -SsL "$GRCOV_URL" | tar -jxf - -c $HOME/grcov
+        chmod +x $HOME/grcov/grcov
+        echo "::add-path::$HOME/grcov"
+      env:
+        GRCOV_URL: 'https://github.com/mozilla/grcov/releases/download/v0.5.12/grcov-linux-x86_64.tar.bz2'
 
     - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
 
     - name: Check format
-      run: cargo fmt -- --check
+      run: cargo fmt --release -- --check
 
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --release
 
-    - name: Run kcov
-      run: cargo kcov -v --all --no-fail-fast
+    - name: Run grcov
+      run: |
+        cargo +nightly build
+        cargo +nightly test
+        grcov ./target/debug -s . -t lcov --llvm --branch --ignore-not-existing -o lcov.info
+      env:
+        CARGO_INCREMENTAL: "0"
+        RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads"
 
     - uses: codecov/codecov-action@v1
+      with:
+        file: ./lcov.info
 
   build-image:
     runs-on: ubuntu-latest

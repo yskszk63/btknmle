@@ -1,6 +1,10 @@
 name: build
 
-on: push
+on:
+  push:
+    paths-ignore:
+    - 'support/*'
+    - '.github/workflows/rustimg.yml'
 
 jobs:
   check:

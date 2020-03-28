@@ -46,7 +46,8 @@ jobs:
       env:
         GRCOV_URL: 'https://github.com/mozilla/grcov/releases/download/v0.5.12/grcov-linux-x86_64.tar.bz2'
 
-    - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
+    - name: Install dependencies
+      run: sudo apt update && sudo apt install -y --no-install-recommends libudev-dev libinput-dev llvm
 
     - name: Check format
       run: cargo fmt -- --check

@@ -40,7 +40,7 @@ jobs:
     - name: Install grcov
       run: |
         mkdir $HOME/grcov
-        curl -SsL "$GRCOV_URL" | tar -jxf -C $HOME/grcov -
+        curl -SsL "$GRCOV_URL" | tar -jxf - -C $HOME/grcov
         chmod +x $HOME/grcov/grcov
         echo "::add-path::$HOME/grcov"
       env:

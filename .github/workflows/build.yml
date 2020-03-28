@@ -49,7 +49,7 @@ jobs:
     - run: sudo apt update && sudo apt install -y libudev-dev libinput-dev
 
     - name: Check format
-      run: cargo fmt --release -- --check
+      run: cargo fmt -- --check
 
     - name: Build
       run: cargo build --verbose --release

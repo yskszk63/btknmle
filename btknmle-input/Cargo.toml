@@ -19,4 +19,4 @@ tokio = { version="0.2", features=["macros", "rt-core", "stream", "time"] }
 anyhow = "1.0"
 
 [build-dependencies]
-bindgen = "0.52"
+bindgen = { version="0.53", optional=true }

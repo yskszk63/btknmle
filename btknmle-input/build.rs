@@ -1,6 +1,12 @@
+#[cfg(bindgen)]
 use std::env;
+#[cfg(bindgen)]
 use std::path::PathBuf;
 
+#[cfg(not(bindgen))]
+fn main() {}
+
+#[cfg(bindgen)]
 fn main() {
     println!("cargo:rerun-if-changed=src/linux_input.h");
     println!("cargo:rerun-if-changed=src/linux_input_event_codes.h");

@@ -49,7 +49,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y --no-install-recommends libudev-dev libinput-dev llvm libtcmalloc-minimal4
+        sudo apt install -y --no-install-recommends libudev-dev libinput-dev llvm libgoogle-perftools-dev
 
     - name: Check format
       run: cargo fmt -- --check

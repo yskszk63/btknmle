@@ -6,5 +6,5 @@ edition = "2018"
 
 [dependencies]
 bytes = "0.5"
-bitflags = "1.1"
+bitflags = "1.2"
 thiserror = "1.0"

@@ -18,5 +18,5 @@ btknmle-keydb = { path="../btknmle-keydb" }
 clap = "2.33"
 log = "0.4"
 env_logger = "0.7"
-dotenv = "0.14"
 anyhow = "1.0"
+dotenv = "0.15"

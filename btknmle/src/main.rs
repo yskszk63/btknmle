@@ -21,6 +21,7 @@ struct Callback {
 #[async_trait::async_trait]
 impl gap::GapCallback for Callback {
     async fn passkey_request(&mut self) -> String {
+        println!("Waiting passkey input.");
         let mut buf = String::new();
         let mut rx = self.input.lock().await.subscribe();
         while let Some(key) = rx.next().await {
@@ -45,6 +46,7 @@ impl gap::GapCallback for Callback {
                 _ => {}
             }
         }
+        println!("Send passkey to host.");
         buf
     }
 
@@ -68,6 +70,14 @@ impl gap::GapCallback for Callback {
                 .await
                 .unwrap_or_else(|e| on_err(e.into()))
         }
+    }
+
+    async fn start_advertise(&mut self) {
+        println!("Start advertise.");
+    }
+
+    async fn end_advertise(&mut self) {
+        println!("End advertise.");
     }
 }
 
@@ -137,6 +147,7 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
     let signals = term_signals();
     tokio::pin!(signals);
 
+    println!("Listening...");
     loop {
         tokio::select! {
             Some(svc) = listener.next() => {
@@ -154,9 +165,9 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
                         });
 
                         tokio::task::spawn(async move {
-                            log::debug!("begin");
+                            println!("Start sending inputs..");
                             svc.run(notify).await.map_err(Into::into).unwrap_or_else(on_err);
-                            log::debug!("done");
+                            println!("Terminate sending inputs..");
                         });
                     }
                     Err(e) => on_err(e.into()),
@@ -169,7 +180,10 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
             else => break
         }
     }
-    log::debug!("end");
+    println!("Terminating..");
+
+    advctrl.cancel_advertise().await.ok();
+
     Ok(())
 }
 

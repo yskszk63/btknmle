@@ -85,6 +85,8 @@ pub trait GapCallback: Send + Sync + 'static {
     async fn passkey_request(&mut self) -> String;
     async fn device_connected(&mut self);
     async fn device_disconnected(&mut self);
+    async fn start_advertise(&mut self);
+    async fn end_advertise(&mut self);
 }
 
 #[derive(Debug)]
@@ -194,6 +196,10 @@ where
         if self.connected || self.advertising {
             return Ok(());
         }
+
+        let mut callback = self.callback.lock().await;
+        callback.start_advertise().await;
+
         self.advertising = true;
 
         let chinterval = ChangeAdvInterval::new(self.devid, 244, 338).await?; // 152.5ms 211.25ms
@@ -219,7 +225,6 @@ where
 
     async fn cancel_advertise(&mut self) -> Result<(), mgmt::Error> {
         self.mgmt.remove_advertising(None).await?;
-        self.advertising = false;
         Ok(())
     }
 
@@ -275,6 +280,9 @@ where
                 callback.device_disconnected().await;
             }
             MgmtEvent::AdvertisingRemovedEvent(..) => {
+                let mut callback = self.callback.lock().await;
+                callback.end_advertise().await;
+
                 self.advertising = false;
             }
             evt => log::debug!("UNHANDLED {:?}", evt),

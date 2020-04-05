@@ -190,7 +190,6 @@ async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
 fn main() -> Result<()> {
     use clap::*;
 
-    dotenv::dotenv().ok();
     env_logger::init();
 
     let m = clap::app_from_crate!()

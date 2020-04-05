@@ -3,3 +3,5 @@
 **/*.rs.bk
 .env
 tarpaulin-report.html
+.cargo
+*/.cargo

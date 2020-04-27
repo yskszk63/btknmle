@@ -124,7 +124,6 @@ dependencies = [
  "log",
  "mio",
  "tokio",
- "udev",
 ]
 
 [[package]]
@@ -430,9 +429,9 @@ dependencies = [
 
 [[package]]
 name = "input"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dba62a57095876d2a1a6ad5d02cbde54ec2815b7219b9ca49d1ab0c0a9de4468"
+checksum = "7b570ce0cf0115301f698e7cafa8256e00a73a648410ed92d22f2fa8bd39fe6c"
 dependencies = [
  "bitflags",
  "input-sys",
@@ -869,9 +868,9 @@ dependencies = [
 
 [[package]]
 name = "udev"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47504d1a49b2ea1b133e7ddd1d9f0a83cf03feb9b440c2c470d06db4589cf301"
+checksum = "24953d50a3bce0f5f5a9a2766567072dc9af8096f8c40ea81815da651066bc9f"
 dependencies = [
  "libc",
  "libudev-sys",

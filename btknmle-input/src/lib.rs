@@ -156,8 +156,7 @@ pub struct LibinputStream {
 impl LibinputStream {
     pub fn new_from_udev(udev_seat: &str) -> io::Result<LibinputStream> {
         let grabs = Arc::new(Mutex::new(Default::default()));
-        let udevcx = udev::Context::new()?;
-        let mut libinput = Libinput::new_from_udev(Env(grabs.clone()), &udevcx);
+        let mut libinput = Libinput::new_with_udev(Env(grabs.clone()));
         libinput.udev_assign_seat(udev_seat).unwrap();
         libinput.dispatch()?;
         Ok(LibinputStream {

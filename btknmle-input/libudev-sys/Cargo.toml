@@ -1,0 +1,12 @@
+[package]
+name = "libudev-sys"
+version = "0.1.4"
+authors = ["yskszk63 <yskszk63@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+lazylink = "0.1"
+libc = "0.2"
+
+[build-dependencies]
+bindgen = "0.55"

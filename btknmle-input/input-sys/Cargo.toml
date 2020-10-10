@@ -1,0 +1,18 @@
+[package]
+name = "input-sys"
+version = "1.15.0"
+authors = ["yskszk63 <yskszk63@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+lazylink = "0.1"
+libc = "0.2"
+
+[build-dependencies]
+bindgen = "0.55"
+
+[features]
+default = ["libinput_1_15"]
+libinput_1_11 = []
+libinput_1_14 = []
+libinput_1_15 = []

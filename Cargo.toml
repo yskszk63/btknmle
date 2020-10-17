@@ -11,6 +11,12 @@ members = [
     "btknmle-input/libudev-sys",
 ]
 
+exclude = [
+    "btknmle-input/input-sys/input.rs",
+    "btknmle-input/input-sys/input.rs/input-sys",
+    "btknmle-input/libudev-sys/libudev-sys",
+]
+
 [profile.release]
 codegen-units=1
 

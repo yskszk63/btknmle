@@ -1,4 +1,4 @@
-#[lazylink::lazylink("udev", include="src/libudev-sys.rs")]
+#[lazylink::lazylink("udev", include="libudev-sys/src/lib.rs")]
 mod sys {
 }
 

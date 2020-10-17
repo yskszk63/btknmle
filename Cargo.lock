@@ -447,7 +447,6 @@ dependencies = [
 name = "input-sys"
 version = "1.15.0"
 dependencies = [
- "bindgen",
  "lazylink",
  "libc",
 ]

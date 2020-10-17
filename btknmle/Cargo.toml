@@ -17,6 +17,5 @@ btknmle-hid = { path="../btknmle-hid" }
 btknmle-keydb = { path="../btknmle-keydb" }
 clap = "2.33"
 log = "0.4"
-env_logger = "0.7"
+env_logger = "0.8"
 anyhow = "1.0"
-dotenv = "0.15"

@@ -11,6 +11,16 @@ members = [
     "btknmle-input/libudev-sys",
 ]
 
+default-members = [
+    "btknmle",
+    "btknmle-sock",
+    "btknmle-pkt",
+    "btknmle-server",
+    "btknmle-input",
+    "btknmle-hid",
+    "btknmle-keydb",
+]
+
 exclude = [
     "btknmle-input/input-sys/input.rs",
     "btknmle-input/input-sys/input.rs/input-sys",

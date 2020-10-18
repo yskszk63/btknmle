@@ -175,7 +175,7 @@ jobs:
         Description: Expose local keyboard and mouse as Bluetooth HID device.
         EOF
 
-        fakeroot dpkg-deb --build $base ${binname}_${ver}_$arch.deb
+        fakeroot dpkg-deb --build $base ${binname}_$arch.deb
       env:
         target: ${{ matrix.target }}
         arch: ${{ matrix.arch }}
@@ -233,4 +233,43 @@ jobs:
           $DOCKER_REPO:arm32v7
         docker manifest annotate --variant v7 $DOCKER_REPO:latest $DOCKER_REPO:arm32v7
         docker manifest push $DOCKER_REPO:latest
+
+    - uses: actions/download-artifact@v2
+    - run: find . -type f
+
+    - id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v0.1.0-alpha
+        release_name: Release ${{ github.ref }}
+        draft: true
+
+    - uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./btknmle_amd64.deb
+        asset_name: btknmle_0.1.0_amd64.deb
+        asset_content_type: application/octet-stream
+
+    - uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./btknmle_arm32v7.deb
+        asset_name: btknmle_0.1.0_arm32v7.deb
+        asset_content_type: application/octet-stream
+
+    - uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./btknmle_arm32v6.deb
+        asset_name: btknmle_0.1.0_arm32v6.deb
+        asset_content_type: application/octet-stream
 # vim: set sw=2 ts=2 sts=2:

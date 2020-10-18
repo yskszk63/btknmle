@@ -182,7 +182,7 @@ jobs:
             TARGETPLATFORM=linux/arm/v7
             ;;
         esac
-        cd target/${{ steps.toolchain.outputs.target }}/release
+        cp target/${{ steps.toolchain.outputs.target }}/release/btknmle target/
         docker build \
           -t $DOCKER_REPO:$TARGETARCH \
           --build-arg TARGETPLATFORM=${TARGETPLATFORM} \

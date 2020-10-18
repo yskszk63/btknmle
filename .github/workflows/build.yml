@@ -251,7 +251,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./btknmle_amd64.deb
+        asset_path: ./x86_64-unknown-linux-gnu/btknmle_amd64.deb
         asset_name: btknmle_0.1.0_amd64.deb
         asset_content_type: application/octet-stream
 
@@ -260,7 +260,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./btknmle_arm32v7.deb
+        asset_path: ./armv7-unknown-linux-gnueabihf/btknmle_arm32v7.deb
         asset_name: btknmle_0.1.0_arm32v7.deb
         asset_content_type: application/octet-stream
 
@@ -269,7 +269,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./btknmle_arm32v6.deb
+        asset_path: ./arm-unknown-linux-gnueabihf/btknmle_arm32v6.deb
         asset_name: btknmle_0.1.0_arm32v6.deb
         asset_content_type: application/octet-stream
 # vim: set sw=2 ts=2 sts=2:

@@ -9,7 +9,7 @@ tokio = { version="0.2", features=["blocking"] }
 futures = "0.3"
 bytes = "0.5"
 thiserror = "1.0"
-rusqlite = { version="0.21", features=["bundled"] }
+rusqlite = { version="0.23", features=["bundled"] }
 async-trait = "0.1"
 btknmle-pkt = { path="../btknmle-pkt" }
 btknmle-server = { path="../btknmle-server" }

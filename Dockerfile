@@ -1,3 +1,4 @@
+ARG TARGETPLATFORM
 FROM --platform=$TARGETPLATFORM debian:buster-slim
 RUN apt update \
   && apt install -y --no-install-recommends libinput10 \

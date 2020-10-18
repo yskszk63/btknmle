@@ -12,6 +12,11 @@ jobs:
     env:
       RUST_TEST_THREADS: 1
     steps:
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y --no-install-recommends libudev-dev libinput-dev llvm libgoogle-perftools-dev
+
     - uses: actions/checkout@v2
 
     - name: Checkout submodules
@@ -19,42 +24,78 @@ jobs:
         git submodule sync --recursive
         git submodule update --init --recursive --depth 1
 
-    - name: Install rust nightly
-      run: rustup install nightly
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        profile: minimal
+        components: rustfmt, clippy
 
-    - name: Install grcov
-      run: |
-        mkdir $HOME/grcov
-        curl -SsL "$GRCOV_URL" | tar -jxf - -C $HOME/grcov
-        chmod +x $HOME/grcov/grcov
-        echo "::add-path::$HOME/grcov"
-      env:
-        GRCOV_URL: 'https://github.com/mozilla/grcov/releases/download/v0.5.12/grcov-linux-x86_64.tar.bz2'
+    - name: Check format
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: -- --check
 
+    - name: Annotate commit with clippy warnings
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all-features
+
+    - name: Security audit
+      uses: actions-rs/audit-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --no-fail-fast
+
+  cov:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      RUST_TEST_THREADS: 1
+    steps:
     - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install -y --no-install-recommends libudev-dev libinput-dev llvm libgoogle-perftools-dev
 
-    - name: Check format
-      run: cargo fmt -- --check
+    - uses: actions/checkout@v2
 
-    - name: Build
-      run: cargo build --verbose --release
-
-    - name: Run grcov
+    - name: Checkout submodules
       run: |
-        cargo +nightly build
-        cargo +nightly test
-        grcov ./target/debug -s . -t lcov --llvm --branch --ignore-not-existing -o lcov.info
+        git submodule sync --recursive
+        git submodule update --init --recursive --depth 1
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+        profile: minimal
+
+    - name: Tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --no-fail-fast
       env:
-        CARGO_INCREMENTAL: "0"
+        CARGO_INCREMENTAL: '0'
         RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
         RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
 
-    - uses: codecov/codecov-action@v1
+    - id: coverage
+      name: Coverage
+      uses: actions-rs/grcov@v0.1
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v1
       with:
-        file: ./lcov.info
+        file: ${{ steps.coverage.outputs.report }}
 
   build-image:
     runs-on: ubuntu-latest

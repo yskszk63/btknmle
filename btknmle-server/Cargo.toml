@@ -5,8 +5,8 @@ authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-tokio = { version="0.2", features=["macros", "sync", "rt-core", "stream", "fs"] }
-tokio-util = { version="0.3", features=["codec"] }
+tokio = { version="0.3", features=["macros", "sync", "rt", "stream", "fs"] }
+tokio-util = { version="0.4", features=["codec"] }
 futures = "0.3"
 bytes = "0.5"
 bitflags = "1.2"
@@ -17,4 +17,4 @@ btknmle-pkt = { path="../btknmle-pkt" }
 log = "0.4"
 
 [dev-dependencies]
-tokio = { version="0.2", features=["uds", "time"] }
+tokio = { version="0.3", features=["net", "time"] }

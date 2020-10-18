@@ -5,7 +5,7 @@ authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-tokio = { version="0.2", features=["sync", "rt-core", "rt-util", "stream", "macros", "signal"] }
+tokio = { version="0.3", features=["sync", "rt", "stream", "macros", "signal"] }
 futures = "0.3"
 bytes = "0.5"
 bitflags = "1.2"

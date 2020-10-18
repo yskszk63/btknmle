@@ -5,7 +5,7 @@ authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-tokio = { version="0.2", features=["blocking"] }
+tokio = { version="0.3", features=[] }
 futures = "0.3"
 bytes = "0.5"
 thiserror = "1.0"
@@ -15,5 +15,5 @@ btknmle-pkt = { path="../btknmle-pkt" }
 btknmle-server = { path="../btknmle-server" }
 
 [dev-dependencies]
-tokio = { version="0.2", features=["macros"] }
+tokio = { version="0.3", features=["macros"] }
 mktemp-rs = "0.2"

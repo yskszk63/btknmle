@@ -182,10 +182,10 @@ jobs:
             TARGETPLATFORM=linux/arm/v7
             ;;
         esac
+        cd ${{ steps.toolchain.outputs.target }}
         docker build \
           -t $DOCKER_REPO:$TARGETARCH \
           --build-arg TARGETPLATFORM=${TARGETPLATFORM} \
-          --build-arg RUSTTARGET=${{ steps.toolchain.outputs.target }} \
           .
         docker push $DOCKER_REPO:$TARGETARCH
       env:

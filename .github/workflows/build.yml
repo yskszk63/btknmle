@@ -105,10 +105,10 @@ jobs:
           target: x86_64-unknown-linux-gnu
           docker: linux/amd64
         - arch: arm32v6
-          target: armv7-unknown-linux-gnueabihf
+          target: arm-unknown-linux-gnueabihf
           docker: '-'
         - arch: arm32v7
-          target: arm-unknown-linux-gnueabihf
+          target: armv7-unknown-linux-gnueabihf
           docker: linux/arm/v7
     env:
       DOCKER_REPO: yskszk63/btknmle

@@ -39,7 +39,7 @@ docker run \
 - yskszk63/btknmle:latest
 - yskszk63/btknmle:amd64
 - yskszk63/btknmle:arm32v7
-- yskszk63/btknmle:arm32v5
+- ~~yskszk63/btknmle:arm32v5~~
 
 Using
 -----

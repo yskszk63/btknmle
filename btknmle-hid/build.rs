@@ -16,7 +16,7 @@ fn parse_line(line: String) -> Entry {
     let (name, value, alias) = match (cols.next(), cols.next(), cols.next()) {
         (Some(name), Some(value), Some("-")) => (name, value, None),
         (Some(name), Some(value), Some(alias)) => (name, value, Some(alias)),
-        (Some(name), Some(value), None) => (name.clone(), value, Some(name)),
+        (Some(name), Some(value), None) => (name, value, Some(name)),
         _ => panic!("parse error"),
     };
     let name = format!("KEY_{}", name);

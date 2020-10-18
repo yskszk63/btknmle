@@ -188,7 +188,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: ${{ matrix.target }}
-        path: *.deb
+        path: '*.deb'
 
     - name: Setup binfmt
       run: |

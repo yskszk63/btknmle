@@ -172,7 +172,7 @@ jobs:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
 
     - name: Build and push
-      if: matrix.arch != arm32v6
+      if: matrix.arch != 'arm32v6'
       run: |
         case "${{ matrix.arch }}" in
           "amd64")

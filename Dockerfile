@@ -6,5 +6,5 @@ RUN apt update \
   && apt clean \
   && rm -rf /var/lib/apt/lists/*
 VOLUME ["/var/lib/btknmle"]
-COPY target/RUSTTARGET/release/btknmle /btknmle
+COPY target/$RUSTTARGET/release/btknmle /btknmle
 CMD ["/btknmle"]

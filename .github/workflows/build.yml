@@ -100,10 +100,6 @@ jobs:
     #if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
-        arch:
-        - amd64
-        - arm32v6
-        - arm32v7
         include:
         - arch: amd64
           target: x86_64-unknown-linux-gnu

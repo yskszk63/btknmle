@@ -2,9 +2,6 @@ name: build
 
 on:
   push:
-    paths-ignore:
-    - 'support/*'
-    - '.github/workflows/rustimg.yml'
 
 jobs:
   check:
@@ -194,7 +191,7 @@ jobs:
   push-manifest:
     runs-on: ubuntu-latest
     needs: build-image
-    #if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     env:
       DOCKER_REPO: yskszk63/btknmle
       DOCKER_CLI_EXPERIMENTAL: enabled

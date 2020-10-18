@@ -107,9 +107,9 @@ jobs:
         - arch: arm32v6
           target: armv7-unknown-linux-gnueabihf
           docker: '-'
-        - arch: amd32v7
+        - arch: arm32v7
           target: arm-unknown-linux-gnueabihf
-          docker: linux/amd64
+          docker: linux/arm/v7
     env:
       DOCKER_REPO: yskszk63/btknmle
       ver: 0.1.0

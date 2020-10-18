@@ -110,7 +110,7 @@ jobs:
           docker: linux/amd64
         - arch: arm32v6
           target: armv7-unknown-linux-gnueabihf
-          docker: -
+          docker: '-'
         - arch: amd32v7
           target: arm-unknown-linux-gnueabihf
           docker: linux/amd64

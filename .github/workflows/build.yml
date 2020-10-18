@@ -97,15 +97,26 @@ jobs:
   build-image:
     runs-on: ubuntu-latest
     needs: check
-    if: github.ref == 'refs/heads/master'
+    #if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
         arch:
         - amd64
         - arm32v6
         - arm32v7
+        include:
+        - arch: amd64
+          target: x86_64-unknown-linux-gnu
+          docker: linux/amd64
+        - arch: arm32v6
+          target: armv7-unknown-linux-gnueabihf
+          docker: -
+        - arch: amd32v7
+          target: arm-unknown-linux-gnueabihf
+          docker: linux/amd64
     env:
       DOCKER_REPO: yskszk63/btknmle
+      ver: 0.1.0
 
     steps:
     - uses: actions/checkout@v2
@@ -116,13 +127,8 @@ jobs:
         git submodule update --init --recursive --depth 1
 
     - name: Install toolchain
-      id: toolchain
       run: |
         case "${{ matrix.arch }}" in
-          amd64 )
-            echo '::set-output name=target::x86_64-unknown-linux-gnu'
-            ;;
-
           arm32v6 )
             git clone --depth 1 'https://github.com/raspberrypi/tools.git' ~/tools
             cat << EOF > ~/.cargo/config
@@ -130,7 +136,6 @@ jobs:
         linker = "arm-linux-gnueabihf-gcc"
         EOF
             echo "$HOME/tools/arm-bcm2708/arm-linux-gnueabihf/bin" >> $GITHUB_PATH
-            echo '::set-output name=target::arm-unknown-linux-gnueabihf'
             ;;
 
           arm32v7 )
@@ -139,14 +144,13 @@ jobs:
         [target.armv7-unknown-linux-gnueabihf]
         linker = "arm-linux-gnueabihf-gcc"
         EOF
-            echo '::set-output name=target::armv7-unknown-linux-gnueabihf'
             ;;
         esac
 
     - uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
-          target: ${{ steps.toolchain.outputs.target }}
+          target: ${{ matrix.target }}
           override: true
           profile: minimal
 
@@ -154,7 +158,37 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --release --target ${{ steps.toolchain.outputs.target }}
+        args: --release --target ${{ matrix.target }}
+
+    - name: Make deb pakcage
+      run: |
+        base=$(mktemp -d)
+        trap "rm -vrf $base" EXIT
+
+        install -Dm755 target/$target/release/$binname $base/usr/bin/$binname
+        mkdir $base/DEBIAN
+        cat > $base/DEBIAN/control << EOF
+        Package: $binname
+        Version: $ver
+        Section: utils
+        Priority: optional
+        Maintainer: yskszk63 <yskszk63@gmail.com>
+        Architecture: $arch
+        Provides: $binname
+        Depends: libinput10
+        Description: Expose local keyboard and mouse as Bluetooth HID device.
+        EOF
+
+        fakeroot dpkg-deb --build $base ${binname}_${ver}_$arch.deb
+      env:
+        target: ${{ matrix.target }}
+        arch: ${{ matrix.arch }}
+        binname: btknmle
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ${{ matrix.target }}
+        path: *.deb
 
     - name: Setup binfmt
       run: |
@@ -169,17 +203,9 @@ jobs:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
 
     - name: Build and push
-      if: matrix.arch != 'arm32v6'
+      if: matrix.docker != '-'
       run: |
-        case "${{ matrix.arch }}" in
-          "amd64")
-            TARGETPLATFORM=linux/amd64
-            ;;
-          "arm32v7")
-            TARGETPLATFORM=linux/arm/v7
-            ;;
-        esac
-        cp target/${{ steps.toolchain.outputs.target }}/release/btknmle target/
+        cp target/${{ matrix.target }}/release/btknmle target/
         docker build \
           -t $DOCKER_REPO:$TARGETARCH \
           --build-arg TARGETPLATFORM=${TARGETPLATFORM} \
@@ -187,11 +213,12 @@ jobs:
         docker push $DOCKER_REPO:$TARGETARCH
       env:
         TARGETARCH: ${{ matrix.arch }}
+        TARGETPLATFORM: ${{ matrix.docker }}
 
   push-manifest:
     runs-on: ubuntu-latest
     needs: build-image
-    if: github.ref == 'refs/heads/master'
+    #if: github.ref == 'refs/heads/master'
     env:
       DOCKER_REPO: yskszk63/btknmle
       DOCKER_CLI_EXPERIMENTAL: enabled

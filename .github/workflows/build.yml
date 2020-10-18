@@ -174,8 +174,6 @@ jobs:
     - name: Build and push
       if: matrix.arch != 'arm32v6'
       run: |
-        echo debug target files
-        find target -name 'btknmle'
         case "${{ matrix.arch }}" in
           "amd64")
             TARGETPLATFORM=linux/amd64
@@ -187,6 +185,7 @@ jobs:
         docker build \
           -t $DOCKER_REPO:$TARGETARCH \
           --build-arg TARGETPLATFORM=${TARGETPLATFORM} \
+          --build-arg RUSTTARGET=${{ steps.toolchain.outputs.target }} \
           .
         docker push $DOCKER_REPO:$TARGETARCH
       env:

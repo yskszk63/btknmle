@@ -1,17 +1,16 @@
-use super::DatabaseBuilder;
-use crate::gatt::model::{Handle, Uuid};
-use crate::gatt::{CharacteristicProperties, CCCD};
+use gatt::characteristics as ch;
+use gatt::services as srv;
+use gatt::{CharacteristicProperties, Registration, Uuid};
 
-pub(crate) fn add(builder: &mut DatabaseBuilder) -> (Handle, Handle) {
-    builder.begin_service(Uuid::Uuid16(0x1812));
-    builder.with_characteristic(
-        CharacteristicProperties::READ,
-        Uuid::Uuid16(0x2A4A), // HID Information
+pub(crate) fn add(registration: &mut Registration<super::Token>) {
+    registration.add_primary_service(srv::HUMAN_INTERFACE_DEVIC);
+    registration.add_characteristic(
+        ch::HID_INFORMATION,
         vec![0x10, 0x01, 0x00, 0x02],
-    );
-    builder.with_characteristic(
         CharacteristicProperties::READ,
-        Uuid::Uuid16(0x2A4B), // Reportmap
+    );
+    registration.add_characteristic(
+        ch::REPORT_MAP,
         vec![
             0x05, 0x01, // Usage Page (Generic Desktop)
             0x09, 0x06, // Usage (Keyboard)
@@ -76,35 +75,34 @@ pub(crate) fn add(builder: &mut DatabaseBuilder) -> (Handle, Handle) {
             0xc0, // End Collection
             0xc0, // End Collection
         ],
+        CharacteristicProperties::READ,
     );
 
-    let kbd = builder.with_characteristic(
-        CharacteristicProperties::READ | CharacteristicProperties::NOTIFY,
-        Uuid::Uuid16(0x2A4D), // Report
+    registration.add_characteristic_with_token(
+        super::Token::Keyboard,
+        ch::REPORT,
         vec![0x10, 0x01, 0x00, 0x00, 0x02],
-    );
-    builder.with_descriptor(Uuid::Uuid16(0x2908), vec![0x01, 0x01]);
-    builder.with_cccd(CCCD::empty());
-
-    let mouse = builder.with_characteristic(
         CharacteristicProperties::READ | CharacteristicProperties::NOTIFY,
-        Uuid::Uuid16(0x2A4D), // Report
-        vec![0x10, 0x01, 0x00, 0x00, 0x02],
     );
-    builder.with_descriptor(Uuid::Uuid16(0x2908), vec![0x02, 0x01]);
-    builder.with_cccd(CCCD::empty());
+    registration.add_descriptor(Uuid::new_uuid16(0x2908), vec![0x01, 0x01], false);
 
-    builder.with_characteristic(
-        CharacteristicProperties::READ | CharacteristicProperties::WRITE_WITHOUT_RESPONSE,
-        Uuid::Uuid16(0x2A4E), // Protocol Mode
+    registration.add_characteristic_with_token(
+        super::Token::Mouse,
+        ch::REPORT,
+        vec![0x10, 0x01, 0x00, 0x00, 0x02],
+        CharacteristicProperties::READ | CharacteristicProperties::NOTIFY,
+    );
+    registration.add_descriptor(Uuid::new_uuid16(0x2908), vec![0x02, 0x01], false);
+
+    registration.add_characteristic(
+        ch::PROTOCOL_MODE,
         vec![0x01],
+        CharacteristicProperties::READ | CharacteristicProperties::WRITE_WITHOUT_RESPONSE,
     );
 
-    builder.with_characteristic(
-        CharacteristicProperties::WRITE_WITHOUT_RESPONSE,
-        Uuid::Uuid16(0x2A4C), // Control Point
+    registration.add_characteristic(
+        ch::HID_CONTROL_POINT,
         vec![],
-    );
-
-    (kbd, mouse)
+        CharacteristicProperties::READ | CharacteristicProperties::WRITE_WITHOUT_RESPONSE,
+    )
 }

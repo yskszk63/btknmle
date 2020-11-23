@@ -6,12 +6,9 @@ edition = "2018"
 
 [dependencies]
 tokio = { version="0.3", features=["sync", "rt", "stream", "macros", "signal"] }
-futures = "0.3"
-bytes = "0.5"
+bytes = "0.6"
 bitflags = "1.2"
 thiserror = "1.0"
-async-trait = "0.1"
-btknmle-server = { path="../btknmle-server" }
 btknmle-input = { path="../btknmle-input" }
 btknmle-hid = { path="../btknmle-hid" }
 btknmle-keydb = { path="../btknmle-keydb" }
@@ -19,3 +16,5 @@ clap = "2.33"
 log = "0.4"
 env_logger = "0.8"
 anyhow = "1.0"
+gatt = { git = "https://github.com/yskszk63/gatt", branch = "main" }
+btmgmt = { git = "https://github.com/yskszk63/btmgmt", branch = "main" }

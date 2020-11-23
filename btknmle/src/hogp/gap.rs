@@ -1,20 +1,16 @@
-use super::DatabaseBuilder;
-use crate::gatt::model::Uuid;
-use crate::gatt::CharacteristicProperties;
+use gatt::characteristics as ch;
+use gatt::services as srv;
+use gatt::{CharacteristicProperties, Registration};
 
-pub(crate) fn add(builder: &mut DatabaseBuilder) {
-    builder.begin_service(Uuid::Uuid16(0x1800));
+pub(crate) fn add(registration: &mut Registration<super::Token>) {
+    registration.add_primary_service(srv::GENERIC_ACCESS);
 
     // Device Name
-    builder.with_characteristic(
-        CharacteristicProperties::READ,
-        Uuid::Uuid16(0x2A00),
-        "btknmle",
-    );
-    // Appearance
-    builder.with_characteristic(
-        CharacteristicProperties::READ,
-        Uuid::Uuid16(0x2A01),
+    registration.add_characteristic(ch::DEVICE_NAME, "btknmle", CharacteristicProperties::READ);
+    // Appearance [HID generic]
+    registration.add_characteristic(
+        ch::APPEARANCE,
         vec![0xC0, 0x03],
-    ); // HID generic
+        CharacteristicProperties::READ,
+    );
 }

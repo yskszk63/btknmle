@@ -1,9 +1,6 @@
 [workspace]
 members = [
     "btknmle",
-    "btknmle-sock",
-    "btknmle-pkt",
-    "btknmle-server",
     "btknmle-input",
     "btknmle-hid",
     "btknmle-keydb",
@@ -13,9 +10,6 @@ members = [
 
 default-members = [
     "btknmle",
-    "btknmle-sock",
-    "btknmle-pkt",
-    "btknmle-server",
     "btknmle-input",
     "btknmle-hid",
     "btknmle-keydb",

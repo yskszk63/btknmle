@@ -1,5 +1,4 @@
-use btknmle_server::gatt::model::Handle;
-use btknmle_server::gatt::{Database, DatabaseBuilder};
+use ::gatt::Registration;
 
 mod bas;
 mod dis;
@@ -7,14 +6,20 @@ mod gap;
 mod gatt;
 mod hids;
 
-pub fn new() -> (Database, Handle, Handle) {
-    let mut builder = Database::builder();
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum Token {
+    Keyboard,
+    Mouse,
+}
 
-    gap::add(&mut builder);
-    gatt::add(&mut builder);
-    dis::add(&mut builder);
-    bas::add(&mut builder);
-    let (kbd, mouse) = hids::add(&mut builder);
+pub(crate) fn new() -> Registration<Token> {
+    let mut registration = Registration::new();
 
-    (builder.build(), kbd, mouse)
+    gap::add(&mut registration);
+    gatt::add(&mut registration);
+    dis::add(&mut registration);
+    bas::add(&mut registration);
+    hids::add(&mut registration);
+
+    registration
 }

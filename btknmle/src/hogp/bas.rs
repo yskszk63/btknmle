@@ -1,13 +1,13 @@
-use super::DatabaseBuilder;
-use crate::gatt::model::Uuid;
-use crate::gatt::{CharacteristicProperties, CCCD};
+use gatt::characteristics as ch;
+use gatt::services as srv;
+use gatt::{CharacteristicProperties, Registration};
 
-pub(crate) fn add(builder: &mut DatabaseBuilder) {
-    builder.begin_service(Uuid::Uuid16(0x180F));
-    builder.with_characteristic(
-        CharacteristicProperties::INDICATE,
-        Uuid::Uuid16(0x2A19),
+pub(crate) fn add(registration: &mut Registration<super::Token>) {
+    registration.add_primary_service(srv::BATTERY);
+
+    registration.add_characteristic(
+        ch::BATTERY_LEVEL,
         vec![100],
+        CharacteristicProperties::INDICATE,
     );
-    builder.with_cccd(CCCD::empty());
 }

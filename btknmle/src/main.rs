@@ -1,230 +1,215 @@
 #![warn(clippy::all)]
 
-use std::sync::Arc;
+use btknmle_keydb::Store;
+use gatt::Server;
+use input::{InputEvent, InputSource};
+use tokio::select;
+use tokio::stream::StreamExt;
 
-use anyhow::{Error, Result};
-use futures::stream::StreamExt as _;
-use futures::stream::TryStreamExt as _;
-use tokio::sync::Mutex;
+mod gap;
+mod hogp;
+mod input;
+mod sig;
 
-use btknmle::hogp;
-use btknmle::input::{InputEvent, InputSource};
-use btknmle_keydb::KeyDb;
-use btknmle_server::{gap, gatt};
+fn authenticated(ltk: &btmgmt::LongTermKey, addr: &btmgmt::Address) -> bool {
+    match ltk.key_type() {
+        btmgmt::LongTermKeyType::AuthenticatedKey
+        | btmgmt::LongTermKeyType::AuthenticatedP256Key => {}
+        _ => return false,
+    }
+
+    ltk.address() == addr
+}
+
+fn bonded(store: &Store, addr: &btmgmt::Address) -> bool {
+    store
+        .iter_ltks()
+        .any(|ltk| authenticated(ltk, addr))
+}
 
 #[derive(Debug)]
-struct Callback {
-    input: Arc<Mutex<InputSource>>,
-    grab: bool,
+enum InputSink<'a, 'b> {
+    NotifyHost(&'b gatt::server::Control<hogp::Token>),
+    StartAdvertising(&'a btmgmt::Client, u16),
+    PasskeyInput(
+        &'a btmgmt::Client,
+        u16,
+        btmgmt::event::UserPasskeyRequest,
+        u32,
+    ),
+    Nop,
 }
 
-#[async_trait::async_trait]
-impl gap::GapCallback for Callback {
-    async fn passkey_request(&mut self) -> String {
-        println!("Waiting passkey input.");
-        let mut buf = String::new();
-        let mut rx = self.input.lock().await.subscribe();
-        while let Some(key) = rx.next().await {
-            match key.unwrap() {
-                InputEvent::Keyboard(k) if k.keys().len() == 1 => {
-                    use btknmle_hid::KeyboardUsageId::*;
-                    match k.keys().iter().next().unwrap() {
-                        KEY_0 => buf.push('0'),
-                        KEY_1 => buf.push('1'),
-                        KEY_2 => buf.push('2'),
-                        KEY_3 => buf.push('3'),
-                        KEY_4 => buf.push('4'),
-                        KEY_5 => buf.push('5'),
-                        KEY_6 => buf.push('6'),
-                        KEY_7 => buf.push('7'),
-                        KEY_8 => buf.push('8'),
-                        KEY_9 => buf.push('9'),
-                        KEY_ENTER => break,
-                        b => log::debug!("ignore {:?}", b),
-                    }
+impl<'a, 'b> InputSink<'a, 'b> {
+    async fn handle_event(&mut self, evt: &InputEvent) -> anyhow::Result<()> {
+        match self {
+            Self::NotifyHost(ctrl) => match evt {
+                InputEvent::Keyboard(evt) => {
+                    ctrl.notify(&hogp::Token::Keyboard, evt.to_bytes())?;
                 }
-                _ => {}
+                InputEvent::Mouse(evt) => {
+                    ctrl.notify(&hogp::Token::Mouse, evt.to_bytes())?;
+                }
+            },
+
+            Self::StartAdvertising(client, devid) => {
+                if matches!(evt, InputEvent::Keyboard(..)) {
+                    gap::start_advertising(client, *devid).await?;
+                    *self = Self::Nop;
+                }
             }
+
+            Self::PasskeyInput(client, devid, req, buf, ..) => {
+                use btknmle_hid::KeyboardUsageId::*;
+                let keys = if let InputEvent::Keyboard(evt) = evt {
+                    evt.keys()
+                } else {
+                    return Ok(());
+                };
+
+                if keys.len() != 1 {
+                    return Ok(());
+                }
+
+                let k = keys.iter().next().unwrap();
+                let k = match k {
+                    KEY_0 => 0,
+                    KEY_1 => 1,
+                    KEY_2 => 2,
+                    KEY_3 => 3,
+                    KEY_4 => 4,
+                    KEY_5 => 5,
+                    KEY_6 => 6,
+                    KEY_7 => 7,
+                    KEY_8 => 8,
+                    KEY_9 => 9,
+                    KEY_ENTER => {
+                        client
+                            .call(
+                                *devid,
+                                btmgmt::command::UserPasskeyReply::new(
+                                    req.address().clone(),
+                                    req.address_type().clone(),
+                                    *buf,
+                                ),
+                            )
+                            .await?;
+                        *self = Self::Nop;
+                        return Ok(());
+                    }
+                    _ => return Ok(()),
+                };
+                *buf = buf.wrapping_mul(10) + k;
+                println!("* {}", buf);
+            }
+
+            Self::Nop => {}
         }
-        println!("Send passkey to host.");
-        buf
-    }
-
-    async fn device_connected(&mut self) {
-        if self.grab {
-            self.input
-                .lock()
-                .await
-                .grab()
-                .await
-                .unwrap_or_else(|e| on_err(e.into()))
-        }
-    }
-
-    async fn device_disconnected(&mut self) {
-        if self.grab {
-            self.input
-                .lock()
-                .await
-                .ungrab()
-                .await
-                .unwrap_or_else(|e| on_err(e.into()))
-        }
-    }
-
-    async fn start_advertise(&mut self) {
-        println!("Start advertise.");
-    }
-
-    async fn end_advertise(&mut self) {
-        println!("End advertise.");
+        Ok(())
     }
 }
 
-fn on_err(e: Error) {
-    log::error!("{}", e)
-}
+async fn run() -> anyhow::Result<()> {
+    let devid = 0;
+    let io_capability = btmgmt::IoCapability::KeyboardOnly;
+    let grab = true;
 
-async fn term_signals() -> Result<(), Error> {
-    use tokio::signal::unix::{signal, SignalKind};
-    let mut alrm = signal(SignalKind::alarm())?;
-    let mut hup = signal(SignalKind::hangup())?;
-    let mut int = signal(SignalKind::interrupt())?;
-    let mut pipe = signal(SignalKind::pipe())?;
-    let mut quit = signal(SignalKind::quit())?;
-    let mut term = signal(SignalKind::terminate())?;
-    let mut usr1 = signal(SignalKind::user_defined1())?;
-    let mut usr2 = signal(SignalKind::user_defined2())?;
+    let mut store = Store::open("/tmp/c3fb8582-fed7-4fe4-a5fb-4caf9dc3cb11").await?;
+    let (mut gap_loop, gap_client) = gap::setup(devid, &store, io_capability).await?;
+    let mut gap_events = gap_client.events().await;
+    let mut input = InputSource::new()?;
+    let mut sig = sig::Sig::new()?;
 
-    tokio::select! {
-        _ = alrm.recv() => {},
-        _ = hup.recv() => {},
-        _ = int.recv() => {},
-        _ = pipe.recv() => {},
-        _ = quit.recv() => {},
-        _ = term.recv() => {},
-        _ = usr1.recv() => {},
-        _ = usr2.recv() => {},
-    }
-    Ok(())
-}
-
-async fn run(devid: u16, varfile: String, grab: bool) -> Result<()> {
-    let mut input = InputSource::new();
-    let keydown = input.subscribe().filter_map(|evt| async {
-        match evt {
-            Ok(InputEvent::Keyboard(k)) if k.keys().len() == 1 => Some(()),
-            _ => None,
-        }
-    });
-    tokio::pin!(keydown);
-
-    let mut input_loop = tokio::task::spawn_local(input.runner()?);
-    let input = Arc::new(Mutex::new(input));
-
-    let gap = {
-        let adv_uuid = gap::Uuid16::from(0x1812).into();
-        let callback = Callback {
-            input: input.clone(),
-            grab,
-        };
-        gap::Gap::setup(
-            devid,
-            adv_uuid,
-            "btknmle",
-            "btknmle",
-            KeyDb::new(varfile).await?,
-            callback,
-        )
-        .await?
-    };
-    let mut advctrl = gap.adv_ctrl();
-    let mut gap_working = tokio::task::spawn(gap.run());
-
-    let (db, kbd, mouse) = hogp::new();
-    let mut listener = gatt::GattListener::new(db, gatt::AttSecurityLevel::NeedsBoundMitm)?;
-
-    let signals = term_signals();
-    tokio::pin!(signals);
-
-    println!("Listening...");
+    let server = Server::bind()?;
+    server.needs_bond_mitm()?;
     loop {
-        tokio::select! {
-            Some(svc) = listener.next() => {
-                log::debug!("connected");
-                match svc {
-                    Ok(svc) => {
-                        let kbd = kbd.clone();
-                        let mouse = mouse.clone();
-                        let notify = input.lock().await.subscribe();
-                        let notify = notify.map_ok(move |evt| {
-                            match evt {
-                                InputEvent::Keyboard(k) => (kbd.clone(), k.to_bytes()),
-                                InputEvent::Mouse(m) => (mouse.clone(), m.to_bytes()),
-                            }
-                        });
+        let mut sink = InputSink::Nop;
 
-                        tokio::task::spawn(async move {
-                            println!("Start sending inputs..");
-                            svc.run(notify).await.map_err(Into::into).unwrap_or_else(on_err);
-                            println!("Terminate sending inputs..");
-                        });
-                    }
-                    Err(e) => on_err(e.into()),
+        gap::start_advertising(&gap_client, devid).await?;
+        let (address, gatt_loop, gatt_ctrl, mut events) = loop {
+            select! {
+                connection = server.accept() => {
+                    let connection = connection?;
+                    let authenticated = bonded(&store, connection.address());
+                    break connection.run(authenticated, hogp::new());
                 }
+
+                r = &mut gap_loop => r??,
+
+                gap_evt = gap_events.next() => {
+                    if let Some((d, evt)) = gap_evt {
+                        if devid == d.into() {
+                            gap::handle_event(devid, &gap_client, &evt, &mut store, &mut sink).await;
+                        }
+                    }
+                }
+
+                input_evt = input.next() => {
+                    sink.handle_event(&input_evt.unwrap()?).await?;
+                }
+
+                s = sig.recv() => s?,
             }
-            gap_done = &mut gap_working => gap_done??,
-            input_done = &mut input_loop => input_done??,
-            _ = &mut keydown.next() => advctrl.start_advertise().await?,
-            _ = &mut signals => break,
-            else => break
+        };
+
+        gap::stop_advertising(&gap_client, devid).await?;
+        let mut gatt_loop = tokio::spawn(gatt_loop);
+        if bonded(&store, &address) {
+            sink = InputSink::NotifyHost(&gatt_ctrl);
+            if grab {
+                input.grab()?;
+            }
+        } else {
+            sink = InputSink::Nop;
         }
+
+        loop {
+            select! {
+                r = &mut gatt_loop => {
+                    if let Err(err) = r? {
+                        log::warn!("{}", err);
+                    }
+                    break;
+                }
+
+                gatt_evt = events.next() => {
+                    println!("{:?}", gatt_evt)
+                }
+
+                r = &mut gap_loop => r??,
+
+                gap_evt = gap_events.next() => {
+                    if let Some((d, evt)) = gap_evt {
+                        if devid == d.into() {
+                            gap::handle_event(devid, &gap_client, &evt, &mut store, &mut sink).await;
+                            if let btmgmt::event::Event::NewLongTermKey(evt) = evt {
+                                if authenticated(evt.key(), &address) {
+                                    gatt_ctrl.mark_authenticated();
+                                    sink = InputSink::NotifyHost(&gatt_ctrl);
+                                    if grab {
+                                        input.grab()?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                input_evt = input.next() => {
+                    sink.handle_event(&input_evt.unwrap()?).await?;
+                }
+
+                s = sig.recv() => s?,
+            }
+        }
+        input.ungrab()?;
+        gatt_loop.abort();
     }
-    println!("Terminating..");
-
-    advctrl.cancel_advertise().await.ok();
-
-    Ok(())
 }
 
-fn main() -> Result<()> {
-    use clap::*;
-
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let m = clap::app_from_crate!()
-        .arg(
-            Arg::with_name("var-file")
-                .short("f")
-                .long("var-file")
-                .value_name("FILE")
-                .env("BTKNMLE_VAR_FILE")
-                .default_value("/var/lib/btknmle/db")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("device-id")
-                .short("d")
-                .long("device-id")
-                .value_name("DEVID")
-                .env("BTKNMLE_DEVID")
-                .default_value("0")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("grab")
-                .long("grab")
-                .value_name("GRAB")
-                .env("BTKNMLE_GRAB")
-                .default_value("0")
-                .takes_value(true),
-        )
-        .get_matches();
-
-    let varfile = m.value_of("var-file").unwrap();
-    let devid = m.value_of("device-id").unwrap().parse()?;
-    let grab = m.value_of("grab").unwrap() != "0";
-
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
-    tokio::task::LocalSet::new().block_on(&mut rt, run(devid, varfile.into(), grab))
+    run().await
 }

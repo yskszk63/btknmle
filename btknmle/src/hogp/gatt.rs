@@ -1,7 +1,14 @@
-use super::DatabaseBuilder;
-use crate::gatt::model::Uuid;
+use gatt::characteristics as ch;
+use gatt::services as srv;
+use gatt::{CharacteristicProperties, Registration};
 
-pub(crate) fn add(builder: &mut DatabaseBuilder) {
+pub(crate) fn add(registration: &mut Registration<super::Token>) {
     // Generic Attirbute
-    builder.begin_service(Uuid::Uuid16(0x1801));
+    registration.add_primary_service(srv::GENERIC_ATTRIBUTE);
+    // ServiceChanged
+    registration.add_characteristic(
+        ch::SERVICE_CHANGED,
+        vec![0x00],
+        CharacteristicProperties::INDICATE,
+    );
 }

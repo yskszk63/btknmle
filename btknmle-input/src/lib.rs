@@ -3,19 +3,17 @@
 use std::collections::HashSet;
 use std::io;
 use std::os::unix::ffi::OsStrExt as _;
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::RawFd;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
-use futures::{ready, Stream};
 pub use input::event;
 use input::{Event, Libinput, LibinputInterface};
 use log::{debug, warn};
-use mio::unix::EventedFd;
-use mio::{Evented, Poll as MioPoll, PollOpt, Ready, Token};
-use tokio::io::PollEvented;
+use tokio::io::unix::AsyncFd;
+use tokio::stream::Stream;
 
 pub use codes::{ButtonCodes, KeyCodes};
 
@@ -24,6 +22,15 @@ pub mod model {
 }
 mod codes;
 mod sys;
+
+macro_rules! ready {
+    ($e:expr) => {
+        match $e {
+            Poll::Pending => return Poll::Pending,
+            Poll::Ready(e) => e,
+        }
+    };
+}
 
 fn grab(fd: RawFd, grab: bool) -> io::Result<()> {
     let v = if grab { 1 } else { 0 };
@@ -80,6 +87,12 @@ impl GrabCollection {
     }
 }
 
+impl Drop for GrabCollection {
+    fn drop(&mut self) {
+        self.ungrab().ok();
+    }
+}
+
 struct Env(Arc<Mutex<GrabCollection>>);
 
 impl LibinputInterface for Env {
@@ -121,36 +134,10 @@ impl LibinputInterface for Env {
 }
 
 #[derive(Debug)]
-struct EventedLibinput(Libinput);
-
-impl Evented for EventedLibinput {
-    fn register(
-        &self,
-        poll: &MioPoll,
-        token: Token,
-        interest: Ready,
-        opts: PollOpt,
-    ) -> io::Result<()> {
-        EventedFd(&self.0.as_raw_fd()).register(poll, token, interest, opts)
-    }
-    fn reregister(
-        &self,
-        poll: &MioPoll,
-        token: Token,
-        interest: Ready,
-        opts: PollOpt,
-    ) -> io::Result<()> {
-        EventedFd(&self.0.as_raw_fd()).reregister(poll, token, interest, opts)
-    }
-    fn deregister(&self, poll: &MioPoll) -> io::Result<()> {
-        EventedFd(&self.0.as_raw_fd()).deregister(poll)
-    }
-}
-
-#[derive(Debug)]
 pub struct LibinputStream {
     grabs: Arc<Mutex<GrabCollection>>,
-    io: PollEvented<EventedLibinput>,
+    libinput: Libinput,
+    io: AsyncFd<Libinput>,
 }
 
 impl LibinputStream {
@@ -161,7 +148,8 @@ impl LibinputStream {
         libinput.dispatch()?;
         Ok(LibinputStream {
             grabs,
-            io: PollEvented::new(EventedLibinput(libinput))?,
+            libinput: libinput.clone(),
+            io: AsyncFd::new(libinput)?,
         })
     }
 
@@ -183,25 +171,24 @@ impl LibinputStream {
 impl Stream for LibinputStream {
     type Item = Result<Event, io::Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match (self.io).get_mut().0.next() {
-            Some(evt) => Poll::Ready(Some(Ok(evt))),
-            None => {
-                ready!(self.io.poll_read_ready(cx, Ready::readable()))?;
-                match (self.io).get_mut().0.dispatch() {
-                    Ok(..) => match (self.io).get_mut().0.next() {
-                        Some(evt) => Poll::Ready(Some(Ok(evt))),
-                        None => {
-                            self.io.clear_read_ready(cx, Ready::readable())?;
-                            Poll::Pending
-                        }
-                    },
-                    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                        self.io.clear_read_ready(cx, Ready::readable())?;
-                        Poll::Pending
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let Self { io, libinput, .. } = self.get_mut();
+        loop {
+            if let Some(event) = libinput.next() {
+                return Poll::Ready(Some(Ok(event)));
+            }
+
+            let mut guard = ready!(io.poll_read_ready(cx))?;
+            match libinput.dispatch() {
+                Ok(..) => {
+                    if let Some(event) = libinput.next() {
+                        return Poll::Ready(Some(Ok(event)));
                     }
-                    Err(x) => Poll::Ready(Some(Err(x))),
+                    guard.clear_ready();
+                    return Poll::Pending;
                 }
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => guard.clear_ready(),
+                Err(e) => return Poll::Ready(Some(Err(e))),
             }
         }
     }

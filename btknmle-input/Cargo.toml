@@ -6,10 +6,7 @@ edition = "2018"
 
 [dependencies]
 input = { version="0.5", default-features = false, features=["udev"] }
-tokio = { version="0.3", features=[] }
-futures = "0.3"
-bytes = "0.5"
-mio = "0.6"
+tokio = { version="0.3", features=["net", "stream"] }
 libc = "0.2"
 log = "0.4"
 

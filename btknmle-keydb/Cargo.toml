@@ -5,15 +5,13 @@ authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-tokio = { version="0.3", features=[] }
-futures = "0.3"
-bytes = "0.5"
+tokio = { version = "0.3", features = ["fs", "io-util"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.5"
+rand = "0.7"
 thiserror = "1.0"
-rusqlite = { version="0.23", features=["bundled"] }
-async-trait = "0.1"
-btknmle-pkt = { path="../btknmle-pkt" }
-btknmle-server = { path="../btknmle-server" }
+btmgmt = { git = "https://github.com/yskszk63/btmgmt", branch = "main" }
 
 [dev-dependencies]
-tokio = { version="0.3", features=["macros"] }
+tokio = { version = "0.3", features = ["macros"] }
 mktemp-rs = "0.2"

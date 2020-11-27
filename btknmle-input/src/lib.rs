@@ -55,33 +55,35 @@ struct GrabCollection {
 
 impl GrabCollection {
     fn add(&mut self, fd: RawFd) -> io::Result<()> {
-        self.fds.insert(fd);
-        if self.grabbed {
+        if self.fds.insert(fd) && self.grabbed {
             grab(fd, true)?;
         }
         Ok(())
     }
 
     fn remove(&mut self, fd: RawFd) -> io::Result<()> {
-        self.fds.remove(&fd);
-        if self.grabbed {
+        if self.fds.remove(&fd)&& self.grabbed {
             grab(fd, false)?;
         }
         Ok(())
     }
 
     fn grab(&mut self) -> io::Result<()> {
-        self.grabbed = true;
-        for fd in &self.fds {
-            grab(*fd, true)?;
+        if !self.grabbed {
+            self.grabbed = true;
+            for fd in &self.fds {
+                grab(*fd, true)?;
+            }
         }
         Ok(())
     }
 
     fn ungrab(&mut self) -> io::Result<()> {
-        self.grabbed = false;
-        for fd in &self.fds {
-            grab(*fd, false)?;
+        if self.grabbed {
+            self.grabbed = false;
+            for fd in &self.fds {
+                grab(*fd, false)?;
+            }
         }
         Ok(())
     }

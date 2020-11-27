@@ -1,10 +1,13 @@
 #![warn(clippy::all)]
 
+use std::path::PathBuf;
+
 use btknmle_keydb::Store;
 use gatt::Server;
 use input::{InputEvent, InputSource};
 use tokio::select;
 use tokio::stream::StreamExt;
+use clap::Clap;
 
 mod gap;
 mod hogp;
@@ -107,13 +110,16 @@ impl<'a, 'b> InputSink<'a, 'b> {
     }
 }
 
-async fn run() -> anyhow::Result<()> {
-    let devid = 0;
+async fn run(opts: Opts) -> anyhow::Result<()> {
+    let Opts {
+        device_id,
+        grab,
+        var_file,
+    } = opts;
     let io_capability = btmgmt::IoCapability::KeyboardOnly;
-    let grab = true;
 
-    let mut store = Store::open("/tmp/c3fb8582-fed7-4fe4-a5fb-4caf9dc3cb11").await?;
-    let (mut gap_loop, gap_client) = gap::setup(devid, &store, io_capability).await?;
+    let mut store = Store::open(var_file).await?;
+    let (mut gap_loop, gap_client) = gap::setup(device_id, &store, io_capability).await?;
     let mut gap_events = gap_client.events().await;
     let mut input = InputSource::new()?;
     let mut sig = sig::Sig::new()?;
@@ -123,7 +129,7 @@ async fn run() -> anyhow::Result<()> {
     loop {
         let mut sink = InputSink::Nop;
 
-        gap::start_advertising(&gap_client, devid).await?;
+        gap::start_advertising(&gap_client, device_id).await?;
         let (address, gatt_loop, gatt_ctrl, mut events) = loop {
             select! {
                 connection = server.accept() => {
@@ -136,8 +142,8 @@ async fn run() -> anyhow::Result<()> {
 
                 gap_evt = gap_events.next() => {
                     if let Some((d, evt)) = gap_evt {
-                        if devid == d.into() {
-                            gap::handle_event(devid, &gap_client, &evt, &mut store, &mut sink).await;
+                        if device_id == d.into() {
+                            gap::handle_event(device_id, &gap_client, &evt, &mut store, &mut sink).await;
                         }
                     }
                 }
@@ -150,7 +156,7 @@ async fn run() -> anyhow::Result<()> {
             }
         };
 
-        gap::stop_advertising(&gap_client, devid).await?;
+        gap::stop_advertising(&gap_client, device_id).await?;
         let mut gatt_loop = tokio::spawn(gatt_loop);
         if bonded(&store, &address) {
             sink = InputSink::NotifyHost(&gatt_ctrl);
@@ -178,8 +184,8 @@ async fn run() -> anyhow::Result<()> {
 
                 gap_evt = gap_events.next() => {
                     if let Some((d, evt)) = gap_evt {
-                        if devid == d.into() {
-                            gap::handle_event(devid, &gap_client, &evt, &mut store, &mut sink).await;
+                        if device_id == d.into() {
+                            gap::handle_event(device_id, &gap_client, &evt, &mut store, &mut sink).await;
                             if let btmgmt::event::Event::NewLongTermKey(evt) = evt {
                                 if authenticated(evt.key(), &address) {
                                     gatt_ctrl.mark_authenticated();
@@ -205,9 +211,22 @@ async fn run() -> anyhow::Result<()> {
     }
 }
 
+#[derive(Debug, Clap)]
+struct Opts {
+    #[clap(short = 'f', long, env = "BTKNMLE_VAR_FILE", default_value = "/var/lib/btknmle/db.toml")]
+    var_file: PathBuf,
+
+    #[clap(short = 'd', long, env = "BTKNMLE_DEVID", default_value = "0")]
+    device_id: u16,
+
+    #[clap(long, env = "BTKNMLE_GRAB")]
+    grab: bool,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    run().await
+    let opts = Opts::parse();
+    run(opts).await
 }

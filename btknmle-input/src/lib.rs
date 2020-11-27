@@ -62,7 +62,7 @@ impl GrabCollection {
     }
 
     fn remove(&mut self, fd: RawFd) -> io::Result<()> {
-        if self.fds.remove(&fd)&& self.grabbed {
+        if self.fds.remove(&fd) && self.grabbed {
             grab(fd, false)?;
         }
         Ok(())

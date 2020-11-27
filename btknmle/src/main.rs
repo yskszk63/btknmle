@@ -3,11 +3,11 @@
 use std::path::PathBuf;
 
 use btknmle_keydb::Store;
+use clap::Clap;
 use gatt::Server;
 use input::{InputEvent, InputSource};
 use tokio::select;
 use tokio::stream::StreamExt;
-use clap::Clap;
 
 mod gap;
 mod hogp;
@@ -213,7 +213,12 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
 
 #[derive(Debug, Clap)]
 struct Opts {
-    #[clap(short = 'f', long, env = "BTKNMLE_VAR_FILE", default_value = "/var/lib/btknmle/db.toml")]
+    #[clap(
+        short = 'f',
+        long,
+        env = "BTKNMLE_VAR_FILE",
+        default_value = "/var/lib/btknmle/db.toml"
+    )]
     var_file: PathBuf,
 
     #[clap(short = 'd', long, env = "BTKNMLE_DEVID", default_value = "0")]

@@ -58,6 +58,7 @@ checksum = "bf8dcb5b4bbaa28653b647d8c77bd4ed40183b48882e130c1f1ffb73de069fd7"
 [[package]]
 name = "att"
 version = "0.1.0"
+source = "git+https://github.com/yskszk63/gatt?branch=main#1a1e035303bc45bc5ef7988a826e0589806fee84"
 dependencies = [
  "bdaddr",
  "bytes",
@@ -91,6 +92,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "bdaddr"
 version = "0.1.0"
+source = "git+https://github.com/yskszk63/bdaddr?branch=main#8c196582241ca12ca1fc82349d28ff5208664263"
 dependencies = [
  "aes",
  "generic-array",
@@ -182,6 +184,7 @@ dependencies = [
 [[package]]
 name = "btmgmt"
 version = "0.1.0"
+source = "git+https://github.com/yskszk63/btmgmt?branch=main#2ba690d10d22527d837f7d110901c3f85a666fe5"
 dependencies = [
  "bdaddr",
  "bitflags",
@@ -371,6 +374,7 @@ checksum = "847ce131b72ffb13b6109a221da9ad97a64cbe48feb1028356b836b47b8f1748"
 [[package]]
 name = "gatt"
 version = "0.1.0"
+source = "git+https://github.com/yskszk63/gatt?branch=main#1a1e035303bc45bc5ef7988a826e0589806fee84"
 dependencies = [
  "att",
  "bitflags",

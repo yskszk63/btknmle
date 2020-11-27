@@ -52,10 +52,7 @@ pub(crate) async fn setup(
     client
         .call(
             devid,
-            cmd::SetPrivacy::new(
-                Privacy::Enable,
-                *store.key_for_resolvable_private_address(),
-            ),
+            cmd::SetPrivacy::new(Privacy::Enable, *store.key_for_resolvable_private_address()),
         )
         .await?;
 

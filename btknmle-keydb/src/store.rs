@@ -3,9 +3,9 @@ use std::mem;
 use std::path::Path;
 
 use btmgmt::{IdentityResolvingKey, LongTermKey};
+use tokio::fs::os::unix::OpenOptionsExt;
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{self, AsyncSeekExt, AsyncWriteExt, BufStream, SeekFrom};
-use tokio::fs::os::unix::OpenOptionsExt;
 
 use crate::serde::Wrapper;
 

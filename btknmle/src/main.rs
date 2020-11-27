@@ -22,9 +22,7 @@ fn authenticated(ltk: &btmgmt::LongTermKey, addr: &btmgmt::Address) -> bool {
 }
 
 fn bonded(store: &Store, addr: &btmgmt::Address) -> bool {
-    store
-        .iter_ltks()
-        .any(|ltk| authenticated(ltk, addr))
+    store.iter_ltks().any(|ltk| authenticated(ltk, addr))
 }
 
 #[derive(Debug)]

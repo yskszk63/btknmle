@@ -8,6 +8,16 @@ Expose local keyboard and mouse as Bluetooth HID device.
 
 WIP
 
+Runtime Requirements
+--------------------
+
+Linux 5.8+
+
+Build Requirements
+------------------
+
+Rust 1.48+
+
 Prerequisite
 ------------
 

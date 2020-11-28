@@ -10,7 +10,6 @@ bytes = "0.6"
 bitflags = "1.2"
 thiserror = "1.0"
 btknmle-input = { path="../btknmle-input" }
-btknmle-hid = { path="../btknmle-hid" }
 btknmle-keydb = { path="../btknmle-keydb" }
 clap = "3.0.0-beta.2"
 log = "0.4"

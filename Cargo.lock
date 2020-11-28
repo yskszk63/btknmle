@@ -131,11 +131,10 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "btknmle"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bitflags",
- "btknmle-hid",
  "btknmle-input",
  "btknmle-keydb",
  "btmgmt",
@@ -149,16 +148,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "btknmle-hid"
-version = "0.1.0"
-dependencies = [
- "btknmle-input",
- "thiserror",
-]
-
-[[package]]
 name = "btknmle-input"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -170,7 +161,7 @@ dependencies = [
 
 [[package]]
 name = "btknmle-keydb"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "btmgmt",
  "mktemp-rs",

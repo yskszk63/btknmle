@@ -10,6 +10,7 @@ use tokio::select;
 use tokio::stream::StreamExt;
 
 mod gap;
+mod hid;
 mod hogp;
 mod input;
 mod sig;
@@ -61,7 +62,7 @@ impl<'a, 'b> InputSink<'a, 'b> {
             }
 
             Self::PasskeyInput(client, devid, req, buf, ..) => {
-                use btknmle_hid::KeyboardUsageId::*;
+                use hid::KeyboardUsageId::*;
                 let keys = if let InputEvent::Keyboard(evt) = evt {
                     evt.keys()
                 } else {

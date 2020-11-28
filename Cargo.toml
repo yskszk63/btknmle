@@ -2,7 +2,6 @@
 members = [
     "btknmle",
     "btknmle-input",
-    "btknmle-hid",
     "btknmle-keydb",
     "btknmle-input/input-sys",
     "btknmle-input/libudev-sys",
@@ -11,7 +10,6 @@ members = [
 default-members = [
     "btknmle",
     "btknmle-input",
-    "btknmle-hid",
     "btknmle-keydb",
 ]
 

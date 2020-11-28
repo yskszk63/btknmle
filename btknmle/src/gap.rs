@@ -182,6 +182,6 @@ pub(crate) async fn handle_event<'a>(
             *sink = super::InputSink::PasskeyInput(client, devid, evt.clone(), 0);
         }
 
-        x => println!("{:?}", x),
+        x => log::debug!("unhandled event {:?}", x),
     }
 }

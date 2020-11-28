@@ -102,7 +102,7 @@ impl<'a, 'b> InputSink<'a, 'b> {
                     _ => return Ok(()),
                 };
                 *buf = buf.wrapping_mul(10) + k;
-                println!("* {}", buf);
+                log::debug!("* {}", buf);
             }
 
             Self::Nop => {}
@@ -178,7 +178,7 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
                 }
 
                 gatt_evt = events.next() => {
-                    println!("{:?}", gatt_evt)
+                    log::debug!("{:?}", gatt_evt)
                 }
 
                 r = &mut gap_loop => r??,

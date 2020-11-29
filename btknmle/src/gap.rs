@@ -13,6 +13,7 @@ pub(crate) async fn setup(
     io_capability: IoCapability,
 ) -> anyhow::Result<(JoinHandle<Result<(), TaskError>>, Client)> {
     let (client, handle) = Client::open()?;
+    let handle = tokio::spawn(handle);
 
     let info = client
         .call(devid, cmd::ReadControllerInformation::new())

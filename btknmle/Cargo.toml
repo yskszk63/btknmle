@@ -13,7 +13,7 @@ btknmle-input = { path="../btknmle-input" }
 btknmle-keydb = { path="../btknmle-keydb" }
 clap = "3.0.0-beta.2"
 log = "0.4"
-env_logger = "0.8"
+stderrlog = "0.5"
 anyhow = "1.0"
 gatt = "0.1"
 btmgmt = "0.1"

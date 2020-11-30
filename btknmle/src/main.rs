@@ -116,6 +116,7 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
         device_id,
         grab,
         var_file,
+        ..
     } = opts;
     let io_capability = btmgmt::IoCapability::KeyboardOnly;
 
@@ -227,12 +228,14 @@ struct Opts {
 
     #[clap(long, env = "BTKNMLE_GRAB")]
     grab: bool,
+
+    #[clap(short = 'v', long, parse(from_occurrences))]
+    verbosity: usize,
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
-
     let opts = Opts::parse();
+    stderrlog::new().verbosity(opts.verbosity).init().ok();
     run(opts).await
 }

@@ -138,7 +138,6 @@ impl LibinputInterface for Env {
 #[derive(Debug)]
 pub struct LibinputStream {
     grabs: Arc<Mutex<GrabCollection>>,
-    libinput: Libinput,
     io: AsyncFd<Libinput>,
 }
 
@@ -150,7 +149,6 @@ impl LibinputStream {
         libinput.dispatch()?;
         Ok(LibinputStream {
             grabs,
-            libinput: libinput.clone(),
             io: AsyncFd::new(libinput)?,
         })
     }
@@ -174,23 +172,23 @@ impl Stream for LibinputStream {
     type Item = Result<Event, io::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let Self { io, libinput, .. } = self.get_mut();
+        let Self { io, .. } = self.get_mut();
         loop {
-            if let Some(event) = libinput.next() {
+            if let Some(event) = io.get_mut().next() {
                 return Poll::Ready(Some(Ok(event)));
             }
 
-            let mut guard = ready!(io.poll_read_ready(cx))?;
-            match libinput.dispatch() {
-                Ok(..) => {
-                    if let Some(event) = libinput.next() {
+            let mut guard = ready!(io.poll_read_ready_mut(cx))?;
+            let result = guard.try_io(|fd| fd.get_mut().dispatch());
+            match result {
+                Ok(Ok(())) => {
+                    if let Some(event) = guard.get_inner_mut().next() {
                         return Poll::Ready(Some(Ok(event)));
                     }
                     guard.clear_ready();
-                    return Poll::Pending;
                 }
-                Err(e) if e.kind() == io::ErrorKind::WouldBlock => guard.clear_ready(),
-                Err(e) => return Poll::Ready(Some(Err(e))),
+                Ok(Err(err)) => return Poll::Ready(Some(Err(err))),
+                Err(..) => guard.clear_ready(),
             }
         }
     }

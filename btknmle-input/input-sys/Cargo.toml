@@ -1,6 +1,6 @@
 [package]
 name = "input-sys"
-version = "1.15.0"
+version = "1.15.1"
 authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 

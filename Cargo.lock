@@ -182,9 +182,9 @@ dependencies = [
 
 [[package]]
 name = "btmgmt"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fafc65dfad937c84de9f1c43fa029e9c65766f09d759212230a406e29c6df0b"
+checksum = "18cd2f86a13d9ff3b8dfb639503757142bb650e04f0176640f82d3e6e93b1840"
 dependencies = [
  "btmgmt-packet",
  "bytes",
@@ -198,9 +198,9 @@ dependencies = [
 
 [[package]]
 name = "btmgmt-packet"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82fc9659417589c4ef972de31bd1ac38af4d5ad554645d43dc1a02918b1816a6"
+checksum = "fb5d5e01343d5f2c2bdeec783bb33197c3591a8da3c7c69bf8bcd0499c811a3b"
 dependencies = [
  "bdaddr",
  "bitflags",
@@ -214,9 +214,9 @@ dependencies = [
 
 [[package]]
 name = "btmgmt-packet-helper"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5363e3be142a7e98eb16f4007b698aedb67a5ee43c0abcc7a744d63b23e795be"
+checksum = "694eb8945269bedf4d0e0c117aa699116ee2f23e515543bb6305c4545b61a6bc"
 dependencies = [
  "btmgmt-packet-macros",
  "thiserror",
@@ -224,9 +224,9 @@ dependencies = [
 
 [[package]]
 name = "btmgmt-packet-macros"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76c7b78ec35611466989d5974ef228e91102eda06eafe3ce81d7b050c863a825"
+checksum = "a5df0b9c82f39949b8376a7b02d86b7a71ac02f9f04b4e84e09e41bf188053e3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -654,25 +654,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b570ce0cf0115301f698e7cafa8256e00a73a648410ed92d22f2fa8bd39fe6c"
 dependencies = [
  "bitflags",
- "input-sys 1.15.1",
+ "input-sys",
  "libc",
  "udev",
 ]
 
 [[package]]
 name = "input-sys"
-version = "1.15.0"
+version = "1.15.1"
 dependencies = [
  "lazylink",
- "libc",
-]
-
-[[package]]
-name = "input-sys"
-version = "1.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bb1c469633b54ba5998d2092bd5dbf7347253d0d74617816a10f820f4152a84"
-dependencies = [
  "libc",
 ]
 

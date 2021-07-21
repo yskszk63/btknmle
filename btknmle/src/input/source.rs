@@ -1,6 +1,6 @@
 use std::io;
 
-use tokio::stream::StreamExt as _;
+use tokio_stream::StreamExt as _;
 
 use btknmle_input::event::DeviceEvent;
 use btknmle_input::event::Event as LibinputEvent;

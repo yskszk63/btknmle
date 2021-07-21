@@ -2,8 +2,7 @@ use std::collections::VecDeque;
 use std::mem;
 use std::path::Path;
 
-use btmgmt::{IdentityResolvingKey, LongTermKey};
-use tokio::fs::os::unix::OpenOptionsExt;
+use btmgmt::packet::{IdentityResolvingKey, LongTermKey};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{self, AsyncSeekExt, AsyncWriteExt, BufStream, SeekFrom};
 
@@ -95,7 +94,7 @@ impl Store {
             .data
             .irks
             .drain(..)
-            .filter(|k| k.as_ref().address() != record.address())
+            .filter(|k| k.as_ref().address().as_ref() != record.address().as_ref())
             .collect::<VecDeque<_>>();
         new.push_front(record.into());
         mem::swap(&mut self.data.irks, &mut new);
@@ -108,7 +107,7 @@ impl Store {
             .data
             .ltks
             .drain(..)
-            .filter(|k| k.as_ref().address() != record.address())
+            .filter(|k| k.as_ref().address().as_ref() != record.address().as_ref())
             .collect::<VecDeque<_>>();
         new.push_front(record.into());
         mem::swap(&mut self.data.ltks, &mut new);
@@ -128,7 +127,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use btmgmt::{AddressType, IdentityResolvingKey, LongTermKeyBuilder, LongTermKeyType};
+    use btmgmt::packet::{AddressType, IdentityResolvingKey, LongTermKeyBuilder, LongTermKeyType};
 
     #[tokio::test]
     async fn test() {
@@ -160,8 +159,7 @@ mod tests {
         store
             .add_ltk(
                 LongTermKeyBuilder::default()
-                    .try_address("00:11:22:33:44:55")
-                    .unwrap()
+                    .address("00:11:22:33:44:55".parse().unwrap())
                     .address_type(AddressType::LeRandom)
                     .key_type(LongTermKeyType::AuthenticatedKey)
                     .master(true)

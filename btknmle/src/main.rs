@@ -7,7 +7,7 @@ use clap::Clap;
 use gatt::Server;
 use input::{InputEvent, InputSource};
 use tokio::select;
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
 mod gap;
 mod hid;
@@ -15,21 +15,20 @@ mod hogp;
 mod input;
 mod sig;
 
-fn authenticated(ltk: &btmgmt::LongTermKey, addr: &btmgmt::Address) -> bool {
+fn authenticated(ltk: &btmgmt::packet::LongTermKey, addr: &btmgmt::packet::Address) -> bool {
     match ltk.key_type() {
-        btmgmt::LongTermKeyType::AuthenticatedKey
-        | btmgmt::LongTermKeyType::AuthenticatedP256Key => {}
+        btmgmt::packet::LongTermKeyType::AuthenticatedKey
+        | btmgmt::packet::LongTermKeyType::AuthenticatedP256Key => {}
         _ => return false,
     }
 
-    ltk.address() == addr
+    ltk.address().as_ref() == addr.as_ref()
 }
 
-fn bonded(store: &Store, addr: &btmgmt::Address) -> bool {
+fn bonded(store: &Store, addr: &btmgmt::packet::Address) -> bool {
     store.iter_ltks().any(|ltk| authenticated(ltk, addr))
 }
 
-#[derive(Debug)]
 enum InputSink<'a, 'b> {
     NotifyHost(&'b gatt::server::Control<hogp::Token>),
     StartAdvertising(&'a btmgmt::Client, u16),
@@ -118,10 +117,10 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
         var_file,
         ..
     } = opts;
-    let io_capability = btmgmt::IoCapability::KeyboardOnly;
+    let io_capability = btmgmt::packet::IoCapability::KeyboardOnly;
 
     let mut store = Store::open(var_file).await?;
-    let (mut gap_loop, gap_client) = gap::setup(device_id, &store, io_capability).await?;
+    let gap_client = gap::setup(device_id, &store, io_capability).await?;
     let mut gap_events = gap_client.events().await;
     let mut input = InputSource::new()?;
     let mut sig = sig::Sig::new()?;
@@ -136,11 +135,9 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
             select! {
                 connection = server.accept() => {
                     let connection = connection?;
-                    let authenticated = bonded(&store, connection.address());
+                    let authenticated = bonded(&store, &connection.address().clone().into());
                     break connection.run(authenticated, hogp::new());
                 }
-
-                r = &mut gap_loop => r??,
 
                 gap_evt = gap_events.next() => {
                     if let Some((d, evt)) = gap_evt {
@@ -160,7 +157,7 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
 
         gap::stop_advertising(&gap_client, device_id).await?;
         let mut gatt_loop = tokio::spawn(gatt_loop);
-        if bonded(&store, &address) {
+        if bonded(&store, &address.clone().into()) {
             sink = InputSink::NotifyHost(&gatt_ctrl);
             if grab {
                 input.grab()?;
@@ -182,14 +179,12 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
                     log::debug!("{:?}", gatt_evt)
                 }
 
-                r = &mut gap_loop => r??,
-
                 gap_evt = gap_events.next() => {
                     if let Some((d, evt)) = gap_evt {
                         if device_id == d.into() {
                             gap::handle_event(device_id, &gap_client, &evt, &mut store, &mut sink).await;
                             if let btmgmt::event::Event::NewLongTermKey(evt) = evt {
-                                if authenticated(evt.key(), &address) {
+                                if authenticated(evt.key(), &address.clone().into()) {
                                     gatt_ctrl.mark_authenticated();
                                     sink = InputSink::NotifyHost(&gatt_ctrl);
                                     if grab {

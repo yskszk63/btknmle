@@ -13,7 +13,7 @@ pub use input::event;
 use input::{Event, Libinput, LibinputInterface};
 use log::{debug, warn};
 use tokio::io::unix::AsyncFd;
-use tokio::stream::Stream;
+use tokio_stream::Stream;
 
 pub use codes::{ButtonCodes, KeyCodes};
 
@@ -202,8 +202,8 @@ mod tests {
 
     #[test]
     fn test() {
-        fn assert_send<T: Send>() {};
-        fn assert_sync<T: Sync>() {};
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
 
         assert_send::<Env>();
         assert_sync::<Env>();
@@ -235,10 +235,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_libinput() {
-        use tokio::stream::StreamExt;
+        use tokio_stream::StreamExt;
         let stream = LibinputStream::new_from_udev("default").unwrap();
-        let mut stream = stream
-            .timeout(tokio::time::Duration::from_millis(100))
+        let mut stream = Box::pin(stream.timeout(tokio::time::Duration::from_millis(100)))
             .take_while(Result::is_ok);
         while let Some(..) = stream.next().await {}
     }

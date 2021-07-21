@@ -2,7 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::marker::PhantomData;
 
-use btmgmt::{
+use btmgmt::packet::{
     Address, AddressType, IdentityResolvingKey, LongTermKey, LongTermKeyBuilder, LongTermKeyType,
 };
 use serde::de::{Deserialize, Deserializer, Error as _, MapAccess, Unexpected, Visitor};

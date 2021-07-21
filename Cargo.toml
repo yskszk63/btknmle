@@ -3,25 +3,7 @@ members = [
     "btknmle",
     "btknmle-input",
     "btknmle-keydb",
-    "btknmle-input/input-sys",
-    "btknmle-input/libudev-sys",
-]
-
-default-members = [
-    "btknmle",
-    "btknmle-input",
-    "btknmle-keydb",
-]
-
-exclude = [
-    "btknmle-input/input-sys/input.rs",
-    "btknmle-input/input-sys/input.rs/input-sys",
-    "btknmle-input/libudev-sys/libudev-sys",
 ]
 
 [profile.release]
 codegen-units=1
-
-[patch.crates-io]
-input-sys = { path="btknmle-input/input-sys/" }
-libudev-sys = { path="btknmle-input/libudev-sys/" }

@@ -1,6 +1,0 @@
-[submodule "btknmle-input/input-sys/input.rs"]
-	path = btknmle-input/input-sys/input.rs
-	url = https://github.com/Smithay/input.rs
-[submodule "btknmle-input/libudev-sys/libudev-sys"]
-	path = btknmle-input/libudev-sys/libudev-sys
-	url = https://github.com/dcuddeback/libudev-sys

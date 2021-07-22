@@ -412,7 +412,7 @@ jobs:
       env:
         arch: ${{ matrix.arch }}
         binname: btknmle
-        ver: 0.1.0-${{ env.GITHUB_SHA }}
+        ver: 0.1.0-${{ github.sha }}
 
     - uses: actions/upload-artifact@v2
       with:

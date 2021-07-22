@@ -347,68 +347,6 @@ jobs:
         TARGETPLATFORM: ${{ matrix.docker }}
 
 ### -----
-#  build-image:
-#    runs-on: ubuntu-latest
-#    needs: check
-#    if: contains(github.ref, 'tags/v')
-#    strategy:
-#      matrix:
-#        include:
-#        - arch: amd64
-#          target: x86_64-unknown-linux-gnu
-#          docker: linux/amd64
-#        - arch: arm32v6
-#          target: arm-unknown-linux-gnueabihf
-#          docker: '-'
-#        - arch: arm32v7
-#          target: armv7-unknown-linux-gnueabihf
-#          docker: linux/arm/v7
-#    env:
-#      DOCKER_REPO: yskszk63/btknmle
-#      ver: 0.1.0
-#
-#    steps:
-#    - uses: actions/checkout@v2
-#
-#    - name: Checkout submodules
-#      run: |
-#        git submodule sync --recursive
-#        git submodule update --init --recursive --depth 1
-#
-#    - name: Install toolchain
-#      run: |
-#        case "${{ matrix.arch }}" in
-#          arm32v6 )
-#            git clone --depth 1 'https://github.com/raspberrypi/tools.git' ~/tools
-#            cat << EOF > ~/.cargo/config
-#        [target.arm-unknown-linux-gnueabihf]
-#        linker = "arm-linux-gnueabihf-gcc"
-#        EOF
-#            echo "$HOME/tools/arm-bcm2708/arm-linux-gnueabihf/bin" >> $GITHUB_PATH
-#            ;;
-#
-#          arm32v7 )
-#            sudo apt install gcc-arm-linux-gnueabihf
-#            cat << EOF > ~/.cargo/config
-#        [target.armv7-unknown-linux-gnueabihf]
-#        linker = "arm-linux-gnueabihf-gcc"
-#        EOF
-#            ;;
-#        esac
-#
-#    - uses: actions-rs/toolchain@v1
-#      with:
-#          toolchain: stable
-#          target: ${{ matrix.target }}
-#          override: true
-#          profile: minimal
-#
-#    - name: Build
-#      uses: actions-rs/cargo@v1
-#      with:
-#        command: build
-#        args: --release --target ${{ matrix.target }}
-#
 #    - name: Make deb pakcage
 #      run: |
 #        base=$(mktemp -d)
@@ -439,46 +377,6 @@ jobs:
 #        name: ${{ matrix.target }}
 #        path: '*.deb'
 #
-#    - name: Setup binfmt
-#      run: |
-#        docker run --rm --privileged "$BINFMT_IMAGE"
-#      env:
-#        BINFMT_IMAGE: 'docker/binfmt:a7996909642ee92942dcd6cff44b9b95f08dad64'
-#
-#    - name: Login Doker
-#      run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-#      env:
-#        DOCKER_USERNAME: yskszk63
-#        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
-#
-#    - name: Build and push
-#      if: matrix.docker != '-'
-#      run: |
-#        cp target/${{ matrix.target }}/release/btknmle target/
-#        docker build \
-#          -t $DOCKER_REPO:$TARGETARCH \
-#          --build-arg TARGETPLATFORM=${TARGETPLATFORM} \
-#          .
-#        docker push $DOCKER_REPO:$TARGETARCH
-#      env:
-#        TARGETARCH: ${{ matrix.arch }}
-#        TARGETPLATFORM: ${{ matrix.docker }}
-#
-#  push-manifest:
-#    runs-on: ubuntu-latest
-#    needs: build-image
-#    if: contains(github.ref, 'tags/v')
-#    env:
-#      DOCKER_REPO: yskszk63/btknmle
-#      DOCKER_CLI_EXPERIMENTAL: enabled
-#
-#    steps:
-#    - name: Login Doker
-#      run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-#      env:
-#        DOCKER_USERNAME: yskszk63
-#        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
-#
 #    - name: Create manifest
 #      run: |
 #        docker manifest create $DOCKER_REPO:latest \
@@ -486,9 +384,6 @@ jobs:
 #          $DOCKER_REPO:arm32v7
 #        docker manifest annotate --variant v7 $DOCKER_REPO:latest $DOCKER_REPO:arm32v7
 #        docker manifest push $DOCKER_REPO:latest
-#
-#    - uses: actions/download-artifact@v2
-#    - run: find . -type f
 #
 #    - id: create_release
 #      uses: actions/create-release@v1

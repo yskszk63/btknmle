@@ -5,8 +5,7 @@ on:
     branches:
     - master
   pull_request:
-    branches:
-      - main
+
 jobs:
   fmt:
     runs-on: ubuntu-latest

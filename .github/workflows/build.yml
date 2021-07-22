@@ -220,6 +220,7 @@ jobs:
         sudo apt-get install -qqy libinput-dev
     - name: Setup cross linux toolchain
       if: ${{ contains(matrix.target, '-linux-') && !startsWith(matrix.target, 'x86_64-') }}
+      shell: sh -xe {0}
       run: |
         case "${{ matrix.target }}" in
           i686-*) SYSTEM_ARCH=i386 ;;
@@ -229,10 +230,10 @@ jobs:
         GCC_TARGET=$(printf "${{ matrix.target }}" | sed 's/-unknown-/-/' | sed 's/arm[^-]*/arm/g')
         ENV_TARGET=$(printf "${{ matrix.target }}" | tr '-' '_')
         ENV_TARGET_UC=$(printf "${ENV_TARGET}" | tr '[[:lower:]]' '[[:upper:]]')
-        sudo rm -f /etc/apt/sources.list.d/*.list
+        rm -f /etc/apt/sources.list.d/*.list
         case "${{ matrix.target }}" in
           arm* | aarch64*)
-        sudo tee /etc/apt/sources.list << EOF
+        tee /etc/apt/sources.list << EOF
         deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal main universe
         deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal-updates main universe
         deb [arch=i386,amd64] http://security.ubuntu.com/ubuntu/ focal-security main universe
@@ -242,11 +243,11 @@ jobs:
         EOF
             ;;
         esac
-        sudo dpkg --add-architecture ${SYSTEM_ARCH}
+        dpkg --add-architecture ${SYSTEM_ARCH}
         dpkg --print-foreign-architectures
-        sudo apt-get update -qqy
-        sudo apt-get dist-upgrade -qqy --fix-broken
-        sudo apt-get install -qqy --fix-broken -o Debug::pkgProblemResolver=yes libinput-dev:${SYSTEM_ARCH} gcc-${GCC_TARGET} pkg-config-${GCC_TARGET}
+        apt-get update -qqy
+        apt-get dist-upgrade -qqy --fix-broken
+        apt-get install -qqy --fix-broken -o Debug::pkgProblemResolver=yes libinput-dev:${SYSTEM_ARCH} gcc-${GCC_TARGET} pkg-config-${GCC_TARGET}
         echo "CARGO_TARGET_${ENV_TARGET_UC}_LINKER=${GCC_TARGET}-gcc" >> $GITHUB_ENV
         echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
         echo "PKG_CONFIG_${ENV_TARGET}=${GCC_TARGET}-pkg-config" >> $GITHUB_ENV

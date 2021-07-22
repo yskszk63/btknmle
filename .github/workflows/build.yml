@@ -200,17 +200,9 @@ jobs:
       matrix:
         include:
         - target: x86_64-unknown-linux-gnu
-          docker: linux/amd64
-          arch: amd64
         - target: arm-unknown-linux-gnueabihf
-          docker: '-'
-          arch: arm32v6
         - target: armv7-unknown-linux-gnueabihf
-          docker: linux/arm/v7
-          arch: arm32v7
         - target: aarch64-unknown-linux-gnu
-          docker: linux/arm64/v8
-          arch: arm64
         #- i686-unknown-linux-gnu
     runs-on: ubuntu-latest
     container: ubuntu:focal
@@ -297,6 +289,33 @@ jobs:
         name: btknmle-${{ matrix.target }}
         path: |
           target/*/release/btknmle
+
+
+  docker:
+    needs:
+    - builds
+    strategy:
+      matrix:
+        include:
+        - target: x86_64-unknown-linux-gnu
+          docker: linux/amd64
+          arch: amd64
+        - target: arm-unknown-linux-gnueabihf
+          docker: '-'
+          arch: arm32v6
+        - target: armv7-unknown-linux-gnueabihf
+          docker: linux/arm/v7
+          arch: arm32v7
+        - target: aarch64-unknown-linux-gnu
+          docker: linux/arm64/v8
+          arch: arm64
+        #- i686-unknown-linux-gnu
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: btknmle-${{ matrix.target }}
+    - run: cp */release/btknmle .
     - name: Setup binfmt
       run: |
         docker run --rm --privileged "$BINFMT_IMAGE"

@@ -210,7 +210,7 @@ jobs:
     - run: |
         TZ=Etc/UTC
         sudo ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime
-        sudo echo ${TZ} > /etc/timezone
+        echo ${TZ} | sudo tee /etc/timezone
         sudo apt-get update -qqy
         sudo apt-get install -qqy sudo curl gcc pkg-config libclang-dev dpkg-dev
     - name: Setup linux toolchain

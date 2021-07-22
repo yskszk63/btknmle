@@ -311,6 +311,8 @@ jobs:
           arch: arm64
         #- i686-unknown-linux-gnu
     runs-on: ubuntu-latest
+    env:
+      DOCKER_REPO: yskszk63/btknmle
     steps:
     - uses: actions/download-artifact@v2
       with:

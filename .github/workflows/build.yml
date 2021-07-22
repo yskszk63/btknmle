@@ -193,6 +193,99 @@ jobs:
         files: lcov.info
         fail_ci_if_error: true
 
+
+# It was helpful: https://github.com/Smithay/input.rs/blob/master/.github/workflows/ci.yml
+  builds:
+    strategy:
+      matrix:
+        target:
+        - x86_64-unknown-linux-gnu
+        - arm-unknown-linux-gnueabihf
+        - armv7-unknown-linux-gnueabihf
+        - aarch64-unknown-linux-gnu
+        #- i686-unknown-linux-gnu
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: |
+        TZ=Etc/UTC
+        ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime
+        echo ${TZ} > /etc/timezone
+        apt-get update -qqy
+        apt-get install -qqy sudo curl gcc pkg-config libclang-dev dpkg-dev
+    - name: Setup linux toolchain
+      if: ${{ contains(matrix.target, '-linux-') && startsWith(matrix.target, 'x86_64-') }}
+      run: |
+        sudo apt-get install -qqy libinput-dev
+    - name: Setup cross linux toolchain
+      if: ${{ contains(matrix.target, '-linux-') && !startsWith(matrix.target, 'x86_64-') }}
+      run: |
+        case "${{ matrix.target }}" in
+          i686-*) SYSTEM_ARCH=i386 ;;
+          arm*) SYSTEM_ARCH=armhf ;;
+          aarch64*) SYSTEM_ARCH=arm64 ;;
+        esac
+        GCC_TARGET=$(printf "${{ matrix.target }}" | sed 's/-unknown-/-/' | sed 's/arm[^-]*/arm/g')
+        ENV_TARGET=$(printf "${{ matrix.target }}" | tr '-' '_')
+        ENV_TARGET_UC=$(printf "${ENV_TARGET}" | tr '[[:lower:]]' '[[:upper:]]')
+        sudo rm -f /etc/apt/sources.list.d/*.list
+        case "${{ matrix.target }}" in
+          arm* | aarch64*)
+        sudo tee /etc/apt/sources.list << EOF
+        deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal main universe
+        deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal-updates main universe
+        deb [arch=i386,amd64] http://security.ubuntu.com/ubuntu/ focal-security main universe
+        deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main universe
+        deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main universe
+        deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-security main universe
+        EOF
+            ;;
+        esac
+        sudo dpkg --add-architecture ${SYSTEM_ARCH}
+        dpkg --print-foreign-architectures
+        sudo apt-get update -qqy
+        sudo apt-get dist-upgrade -qqy --fix-broken
+        sudo apt-get install -qqy --fix-broken -o Debug::pkgProblemResolver=yes libinput-dev:${SYSTEM_ARCH} gcc-${GCC_TARGET} pkg-config-${GCC_TARGET}
+        echo "CARGO_TARGET_${ENV_TARGET_UC}_LINKER=${GCC_TARGET}-gcc" >> $GITHUB_ENV
+        echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+        echo "PKG_CONFIG_${ENV_TARGET}=${GCC_TARGET}-pkg-config" >> $GITHUB_ENV
+        echo "PKG_CONFIG=${GCC_TARGET}-pkg-config" >> $GITHUB_ENV
+        echo "BINDGEN_EXTRA_CLANG_ARGS=\"-L/usr/lib/${GCC_TARGET} -L/lib/${GCC_TARGET}\"" >> $GITHUB_ENV
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+        profile: minimal
+        default: true
+        override: true
+    - name: Cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.toml') }}
+    - name: Build cache
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-build-rust_stable-target_${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}
+    - name: Update deps
+      uses: actions-rs/cargo@v1
+      with:
+        command: update
+    - name: Build sys
+      uses: actions-rs/cargo@v1
+      with:
+        command: build --release --target ${{ matrix.target }}
+    - name: Upload builds
+      uses: actions/upload-artifact@v2
+      with:
+        name: btknmle-${{ matrix.target }}
+        path: |
+          target/release/btknmle
+
 ### -----
 #  build-image:
 #    runs-on: ubuntu-latest

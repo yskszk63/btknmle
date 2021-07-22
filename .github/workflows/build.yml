@@ -2,7 +2,11 @@ name: build
 
 on:
   push:
-
+    branches:
+    - master
+  pull_request:
+    branches:
+      - main
 jobs:
   fmt:
     runs-on: ubuntu-latest
@@ -196,6 +200,7 @@ jobs:
 
 # It was helpful: https://github.com/Smithay/input.rs/blob/master/.github/workflows/ci.yml
   builds:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     strategy:
       matrix:
         include:
@@ -292,6 +297,7 @@ jobs:
 
 
   docker:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     needs:
     - builds
     strategy:

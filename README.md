@@ -3,6 +3,7 @@ BTKNMLE (BlueTooth Keyboard aNd Mouse Low Energy)
 
 [![build](https://github.com/yskszk63/btknmle/workflows/build/badge.svg)](https://github.com/yskszk63/btknmle/actions)
 [![codecov](https://codecov.io/gh/yskszk63/btknmle/branch/master/graph/badge.svg)](https://codecov.io/gh/yskszk63/btknmle)
+[![dependency status](https://deps.rs/repo/github/yskszk63/btknmle/status.svg)](https://deps.rs/repo/github/yskszk63/btknmle)
 
 Expose local keyboard and mouse as Bluetooth HID device.
 
@@ -16,7 +17,7 @@ Linux 5.8+
 Build Requirements
 ------------------
 
-Rust 1.48+
+Rust 1.51+
 
 Prerequisite
 ------------
@@ -24,7 +25,7 @@ Prerequisite
 Stop bluez if running.
 
 ```
-sudo systemctl stop bluez
+sudo systemctl stop bluetooth.service
 ```
 
 Run
@@ -32,23 +33,21 @@ Run
 
 via Docker
 
-```
-docker run \
+```bash
+docker run --rm \
   --mount type=volume,source=btknmle,target=/var/lib/btknmle \
-  --device /dev/input \
-  --mount type=bind,source=/run/udev,target=/run/udev,readonly \
+  --device /dev/input --mount type=bind,source=/run/udev,target=/run/udev,readonly \
   --mount type=bind,source=/sys/class/bluetooth,target=/sys/class/bluetooth,readonly \
-  --mount type=bind,source=/sys/kernel/debug,target=/sys/kernel/debug \
-  --net host \
-  --cap-add net_admin \
-  yskszk63/btknmle:latest
+  --net host --cap-add net_admin \
+  ghcr.io/yskszk63/btknmle:amd64
 ```
 
 ### tags
 
-- yskszk63/btknmle:latest
-- yskszk63/btknmle:amd64
-- yskszk63/btknmle:arm32v7
+- ghcr.io/yskszk63/btknmle:latest
+- ghcr.io/yskszk63/btknmle:amd64
+- ghcr.io/yskszk63/btknmle:arm32v7
+- ghcr.io/yskszk63/btknmle:arm64
 - ~~yskszk63/btknmle:arm32v5~~
 
 Using
@@ -66,7 +65,7 @@ Build
 
 Archlinux
 
-```
+```bash
 sudo pacman -S libinput
 git clone https://github.com/yskszk63/btknmle
 cd btknmle

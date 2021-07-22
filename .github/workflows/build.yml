@@ -2,31 +2,35 @@ name: build
 
 on:
   push:
+    branches:
+    - master
+  pull_request:
 
 jobs:
-  check:
+  fmt:
     runs-on: ubuntu-latest
-    env:
-      RUST_TEST_THREADS: 1
     steps:
+    - uses: actions/checkout@v2
+
     - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install -y --no-install-recommends libudev-dev libinput-dev
-
-    - uses: actions/checkout@v2
-
-    - name: Checkout submodules
-      run: |
-        git submodule sync --recursive
-        git submodule update --init --recursive --depth 1
 
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         override: true
         profile: minimal
-        components: rustfmt, clippy
+        components: rustfmt
+
+    - name: Cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.toml') }}
 
     - name: Check format
       uses: actions-rs/cargo@v1
@@ -34,242 +38,385 @@ jobs:
         command: fmt
         args: -- --check
 
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y --no-install-recommends libudev-dev libinput-dev
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        profile: minimal
+        components: clippy
+
+    - name: Cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.toml') }}
+
+    - name: Build cache
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-build-rust_stable-clippy-${{ hashFiles('**/Cargo.toml') }}
+
     - name: Annotate commit with clippy warnings
       uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         args: --all-features
 
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y --no-install-recommends libudev-dev libinput-dev
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        profile: minimal
+
+    - name: Cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.toml') }}
+
+    - name: Build cache
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-build-rust_stable-audit-${{ hashFiles('**/Cargo.toml') }}
+
     - name: Security audit
       uses: actions-rs/audit-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y --no-install-recommends libudev-dev libinput-dev
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        profile: minimal
+
+    - name: Cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.toml') }}
+
+    - name: Build cache
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-build-rust_stable-tests-${{ hashFiles('**/Cargo.toml') }}
+
     - name: Tests
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --no-fail-fast
+        args: --no-fail-fast --workspace
+
 
   cov:
     runs-on: ubuntu-latest
-    continue-on-error: true
-    env:
-      RUST_TEST_THREADS: 1
     steps:
+    - uses: actions/checkout@v2
+
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y --no-install-recommends libudev-dev libinput-dev llvm libgoogle-perftools-dev
-
-    - uses: actions/checkout@v2
-
-    - name: Checkout submodules
-      run: |
-        git submodule sync --recursive
-        git submodule update --init --recursive --depth 1
+        sudo apt install -y --no-install-recommends libudev-dev libinput-dev
 
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
         override: true
         profile: minimal
+        components: llvm-tools-preview
 
-    - name: Tests
+    - name: Cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.toml') }}
+
+    - name: Build cache
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-build-rust_stable-tests-${{ hashFiles('**/Cargo.toml') }}
+
+    - name: Install cargo-llvm-cov
+      run: curl -LsSf https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.1.0-alpha.4/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz | tar xzf - -C ~/.cargo/bin
+
+    - name: Coverage
       uses: actions-rs/cargo@v1
       with:
-        command: test
-        args: --no-fail-fast
-      env:
-        CARGO_INCREMENTAL: '0'
-        RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-        RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+        command: llvm-cov
+        args: --all-features --workspace --lcov --output-path lcov.info
 
-    - id: coverage
-      name: Coverage
-      uses: actions-rs/grcov@v0.1
-
-    - name: Upload coverage
+    - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
-        file: ${{ steps.coverage.outputs.report }}
+        files: lcov.info
+        fail_ci_if_error: true
 
-  build-image:
-    runs-on: ubuntu-latest
-    needs: check
-    if: contains(github.ref, 'tags/v')
+
+# It was helpful: https://github.com/Smithay/input.rs/blob/master/.github/workflows/ci.yml
+  builds:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     strategy:
       matrix:
         include:
-        - arch: amd64
-          target: x86_64-unknown-linux-gnu
-          docker: linux/amd64
-        - arch: arm32v6
-          target: arm-unknown-linux-gnueabihf
-          docker: '-'
-        - arch: arm32v7
-          target: armv7-unknown-linux-gnueabihf
-          docker: linux/arm/v7
-    env:
-      DOCKER_REPO: yskszk63/btknmle
-      ver: 0.1.0
-
+        - target: x86_64-unknown-linux-gnu
+        - target: arm-unknown-linux-gnueabihf
+        - target: armv7-unknown-linux-gnueabihf
+        - target: aarch64-unknown-linux-gnu
+        #- i686-unknown-linux-gnu
+    runs-on: ubuntu-latest
+    container: ubuntu:focal
     steps:
     - uses: actions/checkout@v2
-
-    - name: Checkout submodules
+    - run: |
+        TZ=Etc/UTC
+        ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime
+        echo ${TZ} > /etc/timezone
+        apt-get update -qqy
+        apt-get install -qqy sudo curl gcc pkg-config libclang-dev dpkg-dev
+    - name: Setup linux toolchain
+      if: ${{ contains(matrix.target, '-linux-') && startsWith(matrix.target, 'x86_64-') }}
       run: |
-        git submodule sync --recursive
-        git submodule update --init --recursive --depth 1
-
-    - name: Install toolchain
+        sudo apt-get install -qqy libinput-dev
+    - name: Setup cross linux toolchain
+      if: ${{ contains(matrix.target, '-linux-') && !startsWith(matrix.target, 'x86_64-') }}
+      shell: sh -xe {0}
       run: |
-        case "${{ matrix.arch }}" in
-          arm32v6 )
-            git clone --depth 1 'https://github.com/raspberrypi/tools.git' ~/tools
-            cat << EOF > ~/.cargo/config
-        [target.arm-unknown-linux-gnueabihf]
-        linker = "arm-linux-gnueabihf-gcc"
-        EOF
-            echo "$HOME/tools/arm-bcm2708/arm-linux-gnueabihf/bin" >> $GITHUB_PATH
-            ;;
-
-          arm32v7 )
-            sudo apt install gcc-arm-linux-gnueabihf
-            cat << EOF > ~/.cargo/config
-        [target.armv7-unknown-linux-gnueabihf]
-        linker = "arm-linux-gnueabihf-gcc"
+        case "${{ matrix.target }}" in
+          i686-*) SYSTEM_ARCH=i386 ;;
+          arm*) SYSTEM_ARCH=armhf ;;
+          aarch64*) SYSTEM_ARCH=arm64 ;;
+        esac
+        GCC_TARGET=$(printf "${{ matrix.target }}" | sed 's/-unknown-/-/' | sed 's/arm[^-]*/arm/g')
+        ENV_TARGET=$(printf "${{ matrix.target }}" | tr '-' '_')
+        ENV_TARGET_UC=$(printf "${ENV_TARGET}" | tr '[[:lower:]]' '[[:upper:]]')
+        rm -f /etc/apt/sources.list.d/*.list
+        case "${{ matrix.target }}" in
+          arm* | aarch64*)
+        tee /etc/apt/sources.list << EOF
+        deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal main universe
+        deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal-updates main universe
+        deb [arch=i386,amd64] http://security.ubuntu.com/ubuntu/ focal-security main universe
+        deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main universe
+        deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main universe
+        deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-security main universe
         EOF
             ;;
         esac
-
-    - uses: actions-rs/toolchain@v1
+        dpkg --add-architecture ${SYSTEM_ARCH}
+        dpkg --print-foreign-architectures
+        apt-get update -qqy
+        apt-get dist-upgrade -qqy --fix-broken
+        apt-get install -qqy --fix-broken -o Debug::pkgProblemResolver=yes libinput-dev:${SYSTEM_ARCH} gcc-${GCC_TARGET} pkg-config-${GCC_TARGET}
+        echo "CARGO_TARGET_${ENV_TARGET_UC}_LINKER=${GCC_TARGET}-gcc" >> $GITHUB_ENV
+        echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+        echo "PKG_CONFIG_${ENV_TARGET}=${GCC_TARGET}-pkg-config" >> $GITHUB_ENV
+        echo "PKG_CONFIG=${GCC_TARGET}-pkg-config" >> $GITHUB_ENV
+        echo "BINDGEN_EXTRA_CLANG_ARGS=\"-L/usr/lib/${GCC_TARGET} -L/lib/${GCC_TARGET}\"" >> $GITHUB_ENV
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
       with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-          profile: minimal
-
+        toolchain: stable
+        target: ${{ matrix.target }}
+        profile: minimal
+        default: true
+        override: true
+    - name: Cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.toml') }}
+    - name: Build cache
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-build-rust_stable-target_${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}
+    - name: Update deps
+      uses: actions-rs/cargo@v1
+      with:
+        command: update
     - name: Build
       uses: actions-rs/cargo@v1
       with:
         command: build
         args: --release --target ${{ matrix.target }}
-
-    - name: Make deb pakcage
-      run: |
-        base=$(mktemp -d)
-        trap "rm -vrf $base" EXIT
-
-        install -Dm755 target/$target/release/$binname $base/usr/bin/$binname
-        mkdir $base/DEBIAN
-        cat > $base/DEBIAN/control << EOF
-        Package: $binname
-        Version: $ver
-        Section: utils
-        Priority: optional
-        Maintainer: yskszk63 <yskszk63@gmail.com>
-        Architecture: $arch
-        Provides: $binname
-        Depends: libinput10
-        Description: Expose local keyboard and mouse as Bluetooth HID device.
-        EOF
-
-        fakeroot dpkg-deb --build $base ${binname}_$arch.deb
-      env:
-        target: ${{ matrix.target }}
-        arch: ${{ matrix.arch }}
-        binname: btknmle
-
-    - uses: actions/upload-artifact@v2
+    - run: find target -name btknmle
+    - name: Upload builds
+      uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.target }}
-        path: '*.deb'
+        name: btknmle-${{ matrix.target }}
+        path: |
+          target/*/release/btknmle
 
+
+  docker:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    needs:
+    - builds
+    strategy:
+      matrix:
+        include:
+        - target: x86_64-unknown-linux-gnu
+          docker: linux/amd64
+          arch: amd64
+#        no ubuntu image
+#        - target: arm-unknown-linux-gnueabihf
+#          docker: '-'
+#          arch: arm32v6
+        - target: armv7-unknown-linux-gnueabihf
+          docker: linux/arm/v7
+          arch: arm32v7
+        - target: aarch64-unknown-linux-gnu
+          docker: linux/arm64/v8
+          arch: arm64
+        #- i686-unknown-linux-gnu
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_REPO: yskszk63/btknmle
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: btknmle-${{ matrix.target }}
     - name: Setup binfmt
       run: |
         docker run --rm --privileged "$BINFMT_IMAGE"
       env:
-        BINFMT_IMAGE: 'docker/binfmt:a7996909642ee92942dcd6cff44b9b95f08dad64'
-
-    - name: Login Doker
-      run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+        BINFMT_IMAGE: 'linuxkit/binfmt:5d33e7346e79f9c13a73c6952669e47a53b063d4-amd64'
+    - name: Login Github Container Registry
+      run: echo $TOKEN | docker login ghcr.io -u USERNAME --password-stdin
       env:
-        DOCKER_USERNAME: yskszk63
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
-
-    - name: Build and push
-      if: matrix.docker != '-'
+        TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build Docker image
       run: |
-        cp target/${{ matrix.target }}/release/btknmle target/
+        chmod +x */release/btknmle
         docker build \
-          -t $DOCKER_REPO:$TARGETARCH \
+          -t ghcr.io/$DOCKER_REPO:$TARGETARCH \
           --build-arg TARGETPLATFORM=${TARGETPLATFORM} \
           .
-        docker push $DOCKER_REPO:$TARGETARCH
+        docker push ghcr.io/$DOCKER_REPO:$TARGETARCH
       env:
         TARGETARCH: ${{ matrix.arch }}
         TARGETPLATFORM: ${{ matrix.docker }}
 
-  push-manifest:
-    runs-on: ubuntu-latest
-    needs: build-image
-    if: contains(github.ref, 'tags/v')
-    env:
-      DOCKER_REPO: yskszk63/btknmle
-      DOCKER_CLI_EXPERIMENTAL: enabled
-
-    steps:
-    - name: Login Doker
-      run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-      env:
-        DOCKER_USERNAME: yskszk63
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
-
-    - name: Create manifest
-      run: |
-        docker manifest create $DOCKER_REPO:latest \
-          $DOCKER_REPO:amd64 \
-          $DOCKER_REPO:arm32v7
-        docker manifest annotate --variant v7 $DOCKER_REPO:latest $DOCKER_REPO:arm32v7
-        docker manifest push $DOCKER_REPO:latest
-
-    - uses: actions/download-artifact@v2
-    - run: find . -type f
-
-    - id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: true
-
-    - uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./x86_64-unknown-linux-gnu/btknmle_amd64.deb
-        asset_name: btknmle_0.1.0_amd64.deb
-        asset_content_type: application/octet-stream
-
-    - uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./armv7-unknown-linux-gnueabihf/btknmle_arm32v7.deb
-        asset_name: btknmle_0.1.0_arm32v7.deb
-        asset_content_type: application/octet-stream
-
-    - uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./arm-unknown-linux-gnueabihf/btknmle_arm32v6.deb
-        asset_name: btknmle_0.1.0_arm32v6.deb
-        asset_content_type: application/octet-stream
+### -----
+#    - name: Make deb pakcage
+#      run: |
+#        base=$(mktemp -d)
+#        trap "rm -vrf $base" EXIT
+#
+#        install -Dm755 target/$target/release/$binname $base/usr/bin/$binname
+#        mkdir $base/DEBIAN
+#        cat > $base/DEBIAN/control << EOF
+#        Package: $binname
+#        Version: $ver
+#        Section: utils
+#        Priority: optional
+#        Maintainer: yskszk63 <yskszk63@gmail.com>
+#        Architecture: $arch
+#        Provides: $binname
+#        Depends: libinput10
+#        Description: Expose local keyboard and mouse as Bluetooth HID device.
+#        EOF
+#
+#        fakeroot dpkg-deb --build $base ${binname}_$arch.deb
+#      env:
+#        target: ${{ matrix.target }}
+#        arch: ${{ matrix.arch }}
+#        binname: btknmle
+#
+#    - uses: actions/upload-artifact@v2
+#      with:
+#        name: ${{ matrix.target }}
+#        path: '*.deb'
+#
+#    - name: Create manifest
+#      run: |
+#        docker manifest create $DOCKER_REPO:latest \
+#          $DOCKER_REPO:amd64 \
+#          $DOCKER_REPO:arm32v7
+#        docker manifest annotate --variant v7 $DOCKER_REPO:latest $DOCKER_REPO:arm32v7
+#        docker manifest push $DOCKER_REPO:latest
+#
+#    - id: create_release
+#      uses: actions/create-release@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        tag_name: ${{ github.ref }}
+#        release_name: Release ${{ github.ref }}
+#        draft: true
+#
+#    - uses: actions/upload-release-asset@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        upload_url: ${{ steps.create_release.outputs.upload_url }}
+#        asset_path: ./x86_64-unknown-linux-gnu/btknmle_amd64.deb
+#        asset_name: btknmle_0.1.0_amd64.deb
+#        asset_content_type: application/octet-stream
+#
+#    - uses: actions/upload-release-asset@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        upload_url: ${{ steps.create_release.outputs.upload_url }}
+#        asset_path: ./armv7-unknown-linux-gnueabihf/btknmle_arm32v7.deb
+#        asset_name: btknmle_0.1.0_arm32v7.deb
+#        asset_content_type: application/octet-stream
+#
+#    - uses: actions/upload-release-asset@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        upload_url: ${{ steps.create_release.outputs.upload_url }}
+#        asset_path: ./arm-unknown-linux-gnueabihf/btknmle_arm32v6.deb
+#        asset_name: btknmle_0.1.0_arm32v6.deb
+#        asset_content_type: application/octet-stream
 # vim: set sw=2 ts=2 sts=2:

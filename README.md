@@ -86,7 +86,7 @@ Using
 Build
 -----
 
-Archlinux
+ArchLinux
 
 ```bash
 sudo pacman -S libinput

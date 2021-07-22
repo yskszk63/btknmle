@@ -5,7 +5,7 @@ BTKNMLE (BlueTooth Keyboard aNd Mouse Low Energy)
 [![codecov](https://codecov.io/gh/yskszk63/btknmle/branch/master/graph/badge.svg)](https://codecov.io/gh/yskszk63/btknmle)
 [![dependency status](https://deps.rs/repo/github/yskszk63/btknmle/status.svg)](https://deps.rs/repo/github/yskszk63/btknmle)
 
-Expose local keyboard and mouse as Bluetooth HID device.
+Turn your keyboard and mouse connected to your computer into a bluetooth hid device.
 
 WIP
 

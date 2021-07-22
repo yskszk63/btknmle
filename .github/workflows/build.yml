@@ -432,9 +432,10 @@ jobs:
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
-          const { owner, repo } = context.repo
-          const { data: { id } } = await github.repos.getReleaseByTag({ owner, repo, tag: 'nightly' })
-          await github.repos.deleteRelease({ owner, repo, release_id: id })
+          const { owner, repo } = context.repo;
+          const { data: { id } } = await github.repos.getReleaseByTag({ owner, repo, tag: 'nightly' });
+          await github.repos.deleteRelease({ owner, repo, release_id: id });
+          await github.git.deleteRef({ owner, repo, 'refs/tags/nightly' });
     - name: Rename bin
       run: |
         for dir in `ls -d *-bin/*`; do

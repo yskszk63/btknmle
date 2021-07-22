@@ -413,11 +413,31 @@ jobs:
         arch: ${{ matrix.arch }}
         binname: btknmle
         ver: 0.1.0-${{ github.sha }}
-
     - uses: actions/upload-artifact@v2
       with:
         name: btknmle-${{ matrix.target }}-deb
         path: '*.deb'
+
+
+  release:
+    #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    needs:
+    - builds
+    - deb
+    - docker-manifest
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        prerelease: true
+        files: |
+          *.deb
+          */release/btknmle
+        tag_name: nightly
 
 ### -----
 #    - id: create_release

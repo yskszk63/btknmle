@@ -2,8 +2,8 @@ name: build
 
 on:
   push:
-    branches:
-    - master
+#    branches:
+#    - master
   pull_request:
 
 jobs:
@@ -345,6 +345,28 @@ jobs:
         TARGETARCH: ${{ matrix.arch }}
         TARGETPLATFORM: ${{ matrix.docker }}
 
+  docker-manifest:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    needs:
+    - docker
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_REPO: yskszk63/btknmle
+    steps:
+    - name: Login Github Container Registry
+      run: echo $TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+      env:
+        TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create docker manifest
+      run: |
+        docker manifest create ghcr.io/$DOCKER_REPO:latest \
+          ghcr.io/$DOCKER_REPO:amd64 \
+          ghcr.io/$DOCKER_REPO:arm32v7 \
+          ghcr.io/$DOCKER_REPO:arm64
+        docker manifest annotate --variant v7 ghcr.io/$DOCKER_REPO:latest \
+          ghcr.io/$DOCKER_REPO:arm32v7
+        docker manifest push ghcr.io/$DOCKER_REPO:latest
+
 ### -----
 #    - name: Make deb pakcage
 #      run: |
@@ -375,14 +397,6 @@ jobs:
 #      with:
 #        name: ${{ matrix.target }}
 #        path: '*.deb'
-#
-#    - name: Create manifest
-#      run: |
-#        docker manifest create $DOCKER_REPO:latest \
-#          $DOCKER_REPO:amd64 \
-#          $DOCKER_REPO:arm32v7
-#        docker manifest annotate --variant v7 $DOCKER_REPO:latest $DOCKER_REPO:arm32v7
-#        docker manifest push $DOCKER_REPO:latest
 #
 #    - id: create_release
 #      uses: actions/create-release@v1

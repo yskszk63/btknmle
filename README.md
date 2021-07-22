@@ -39,7 +39,7 @@ docker run --rm \
   --device /dev/input --mount type=bind,source=/run/udev,target=/run/udev,readonly \
   --mount type=bind,source=/sys/class/bluetooth,target=/sys/class/bluetooth,readonly \
   --net host --cap-add net_admin \
-  ghcr.io/yskszk63/btknmle:amd64
+  ghcr.io/yskszk63/btknmle:latest
 ```
 
 ### tags

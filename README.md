@@ -12,7 +12,10 @@ WIP
 Runtime Requirements
 --------------------
 
-Linux 5.8+
+- Linux 5.8+
+- libinput
+
+(Sorry. Only linux is supported.)
 
 Build Requirements
 ------------------
@@ -41,6 +44,15 @@ docker run --rm \
   --net host --cap-add net_admin \
   ghcr.io/yskszk63/btknmle:latest
 ```
+
+or
+
+[Download form Nightly Release Page](https://github.com/yskszk63/btknmle/releases/tag/nightly)
+
+- pre build binary
+- deb package
+
+arch: amd64 / arm / armv7 / arm64
 
 Using
 -----

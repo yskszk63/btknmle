@@ -300,9 +300,10 @@ jobs:
         - target: x86_64-unknown-linux-gnu
           docker: linux/amd64
           arch: amd64
-        - target: arm-unknown-linux-gnueabihf
-          docker: '-'
-          arch: arm32v6
+#        no ubuntu image
+#        - target: arm-unknown-linux-gnueabihf
+#          docker: '-'
+#          arch: arm32v6
         - target: armv7-unknown-linux-gnueabihf
           docker: linux/arm/v7
           arch: arm32v7
@@ -314,6 +315,7 @@ jobs:
     env:
       DOCKER_REPO: yskszk63/btknmle
     steps:
+    - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
         name: btknmle-${{ matrix.target }}
@@ -324,7 +326,6 @@ jobs:
       env:
         BINFMT_IMAGE: 'linuxkit/binfmt:5d33e7346e79f9c13a73c6952669e47a53b063d4-amd64'
     - name: Build Docker image
-      if: ${{ matrix.docker != '-' }}
       run: |
         docker build \
           -t $DOCKER_REPO:$TARGETARCH \

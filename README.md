@@ -54,6 +54,25 @@ or
 
 arch: amd64 / arm / armv7 / arm64
 
+usage
+
+```
+btknmle
+
+USAGE:
+    btknmle [FLAGS] [OPTIONS]
+
+FLAGS:
+    -h, --help         Prints help information
+    -v, --verbosity
+    -V, --version      Prints version information
+
+OPTIONS:
+    -d, --device-id <device-id>    [env: BTKNMLE_DEVID=] [default: 0]
+        --grab <grab>              [env: BTKNMLE_GRAB=]
+    -f, --var-file <var-file>      [env: BTKNMLE_VAR_FILE=] [default: /var/lib/btknmle/db.toml]
+    ```
+
 Using
 -----
 
@@ -75,6 +94,11 @@ git clone https://github.com/yskszk63/btknmle
 cd btknmle
 cargo build --release
 ```
+
+Tested device
+-------------
+
+Currently ThinkPad A285 (ArchLinux) as device and Pixel3 as host only.
 
 ## License
 

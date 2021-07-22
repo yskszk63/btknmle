@@ -428,14 +428,12 @@ jobs:
     steps:
     - uses: actions/download-artifact@v2
     - name: Remove latest nightly release
-      uses: actions/github-script@v4
+      uses: dev-drprasad/delete-tag-and-release@v0.1.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        github-token: ${{secrets.GITHUB_TOKEN}}
-        script: |
-          const { owner, repo } = context.repo;
-          const { data: { id } } = await github.repos.getReleaseByTag({ owner, repo, tag: 'nightly' });
-          await github.repos.deleteRelease({ owner, repo, release_id: id });
-          await github.git.deleteRef({ owner, repo, ref: 'refs/tags/nightly' });
+        delete_release: true
+        tag_name: nightly
     - name: Rename bin
       run: |
         for dir in `ls -d *-bin/*`; do

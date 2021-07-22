@@ -345,6 +345,7 @@ jobs:
         TARGETARCH: ${{ matrix.arch }}
         TARGETPLATFORM: ${{ matrix.docker }}
 
+
   docker-manifest:
     #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     needs:
@@ -367,37 +368,58 @@ jobs:
           ghcr.io/$DOCKER_REPO:arm32v7
         docker manifest push ghcr.io/$DOCKER_REPO:latest
 
+  deb:
+    #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    needs:
+    - builds
+    strategy:
+      matrix:
+        include:
+        - target: x86_64-unknown-linux-gnu
+          arch: amd64
+        - target: arm-unknown-linux-gnueabihf
+          arch: arm32v6
+        - target: armv7-unknown-linux-gnueabihf
+          arch: arm32v7
+        - target: aarch64-unknown-linux-gnu
+          arch: arm64
+        #- i686-unknown-linux-gnu
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: btknmle-${{ matrix.target }}
+    - name: Make deb pakcage
+      run: |
+        base=$(mktemp -d)
+        trap "rm -vrf $base" EXIT
+
+        install -Dm755 */release/$binname $base/usr/bin/$binname
+        mkdir $base/DEBIAN
+        cat > $base/DEBIAN/control << EOF
+        Package: $binname
+        Version: $ver
+        Section: utils
+        Priority: optional
+        Maintainer: yskszk63 <yskszk63@gmail.com>
+        Architecture: $arch
+        Provides: $binname
+        Depends: libinput10
+        Description: Expose local keyboard and mouse as Bluetooth HID device.
+        EOF
+
+        fakeroot dpkg-deb --build $base ${binname}_$arch.deb
+      env:
+        arch: ${{ matrix.arch }}
+        binname: btknmle
+        ver: 0.1.0-${{ env.GITHUB_SHA }}
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: btknmle-${{ matrix.target }}-deb
+        path: '*.deb'
+
 ### -----
-#    - name: Make deb pakcage
-#      run: |
-#        base=$(mktemp -d)
-#        trap "rm -vrf $base" EXIT
-#
-#        install -Dm755 target/$target/release/$binname $base/usr/bin/$binname
-#        mkdir $base/DEBIAN
-#        cat > $base/DEBIAN/control << EOF
-#        Package: $binname
-#        Version: $ver
-#        Section: utils
-#        Priority: optional
-#        Maintainer: yskszk63 <yskszk63@gmail.com>
-#        Architecture: $arch
-#        Provides: $binname
-#        Depends: libinput10
-#        Description: Expose local keyboard and mouse as Bluetooth HID device.
-#        EOF
-#
-#        fakeroot dpkg-deb --build $base ${binname}_$arch.deb
-#      env:
-#        target: ${{ matrix.target }}
-#        arch: ${{ matrix.arch }}
-#        binname: btknmle
-#
-#    - uses: actions/upload-artifact@v2
-#      with:
-#        name: ${{ matrix.target }}
-#        path: '*.deb'
-#
 #    - id: create_release
 #      uses: actions/create-release@v1
 #      env:

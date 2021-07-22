@@ -71,7 +71,7 @@ OPTIONS:
     -d, --device-id <device-id>    [env: BTKNMLE_DEVID=] [default: 0]
         --grab <grab>              [env: BTKNMLE_GRAB=]
     -f, --var-file <var-file>      [env: BTKNMLE_VAR_FILE=] [default: /var/lib/btknmle/db.toml]
-    ```
+```
 
 Using
 -----

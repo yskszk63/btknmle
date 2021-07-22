@@ -282,12 +282,13 @@ jobs:
       with:
         command: build
         args: --release --target ${{ matrix.target }}
+    - run: find target -name btknmle
     - name: Upload builds
       uses: actions/upload-artifact@v2
       with:
         name: btknmle-${{ matrix.target }}
         path: |
-          target/release/btknmle
+          target/*/release/btknmle
 
 ### -----
 #  build-image:

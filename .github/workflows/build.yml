@@ -199,7 +199,7 @@ jobs:
 
 # It was helpful: https://github.com/Smithay/input.rs/blob/master/.github/workflows/ci.yml
   builds:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     strategy:
       matrix:
         include:
@@ -296,7 +296,7 @@ jobs:
 
 
   docker:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     needs:
     - builds
     strategy:
@@ -346,7 +346,7 @@ jobs:
         TARGETPLATFORM: ${{ matrix.docker }}
 
   docker-manifest:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     needs:
     - docker
     runs-on: ubuntu-latest

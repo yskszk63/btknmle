@@ -330,6 +330,7 @@ jobs:
         TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Build Docker image
       run: |
+        chmod +x */release/btknmle
         docker build \
           -t ghcr.io/$DOCKER_REPO:$TARGETARCH \
           --build-arg TARGETPLATFORM=${TARGETPLATFORM} \

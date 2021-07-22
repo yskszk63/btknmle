@@ -324,13 +324,17 @@ jobs:
         docker run --rm --privileged "$BINFMT_IMAGE"
       env:
         BINFMT_IMAGE: 'linuxkit/binfmt:5d33e7346e79f9c13a73c6952669e47a53b063d4-amd64'
+    - name: Login Github Container Registry
+      run: echo $TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+      env:
+        TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Build Docker image
       run: |
         docker build \
           -t $DOCKER_REPO:$TARGETARCH \
           --build-arg TARGETPLATFORM=${TARGETPLATFORM} \
           .
-#        docker push $DOCKER_REPO:$TARGETARCH
+        docker push ghcr.io/$DOCKER_REPO:$TARGETARCH
       env:
         TARGETARCH: ${{ matrix.arch }}
         TARGETPLATFORM: ${{ matrix.docker }}

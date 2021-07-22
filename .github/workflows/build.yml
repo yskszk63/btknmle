@@ -198,11 +198,19 @@ jobs:
   builds:
     strategy:
       matrix:
-        target:
-        - x86_64-unknown-linux-gnu
-        - arm-unknown-linux-gnueabihf
-        - armv7-unknown-linux-gnueabihf
-        - aarch64-unknown-linux-gnu
+        include:
+        - target: x86_64-unknown-linux-gnu
+          docker: linux/amd64
+          arch: amd64
+        - target: arm-unknown-linux-gnueabihf
+          docker: '-'
+          arch: arm32v6
+        - target: armv7-unknown-linux-gnueabihf
+          docker: linux/arm/v7
+          arch: arm32v7
+        - target: aarch64-unknown-linux-gnu
+          docker: linux/arm64/v8
+          arch: arm64
         #- i686-unknown-linux-gnu
     runs-on: ubuntu-latest
     container: ubuntu:focal
@@ -289,6 +297,22 @@ jobs:
         name: btknmle-${{ matrix.target }}
         path: |
           target/*/release/btknmle
+    - name: Setup binfmt
+      run: |
+        docker run --rm --privileged "$BINFMT_IMAGE"
+      env:
+        BINFMT_IMAGE: 'linuxkit/binfmt:5d33e7346e79f9c13a73c6952669e47a53b063d4-amd64'
+    - name: Build Docker image
+      if: ${{ matrix.docker != '-' }}
+      run: |
+        docker build \
+          -t $DOCKER_REPO:$TARGETARCH \
+          --build-arg TARGETPLATFORM=${TARGETPLATFORM} \
+          .
+#        docker push $DOCKER_REPO:$TARGETARCH
+      env:
+        TARGETARCH: ${{ matrix.arch }}
+        TARGETPLATFORM: ${{ matrix.docker }}
 
 ### -----
 #  build-image:

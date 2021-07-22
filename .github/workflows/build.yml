@@ -224,7 +224,6 @@ jobs:
         sudo apt-get install -qqy libinput-dev
     - name: Setup cross linux toolchain
       if: ${{ contains(matrix.target, '-linux-') && !startsWith(matrix.target, 'x86_64-') }}
-      shell: sh -xe {0}
       run: |
         case "${{ matrix.target }}" in
           i686-*) SYSTEM_ARCH=i386 ;;
@@ -290,7 +289,7 @@ jobs:
     - name: Upload builds
       uses: actions/upload-artifact@v2
       with:
-        name: btknmle-${{ matrix.target }}
+        name: btknmle-${{ matrix.target }}-bin
         path: |
           target/*/release/btknmle
 
@@ -323,7 +322,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
-        name: btknmle-${{ matrix.target }}
+        name: btknmle-${{ matrix.target }}-bin
     - name: Setup binfmt
       run: |
         docker run --rm --privileged "$BINFMT_IMAGE"
@@ -388,7 +387,7 @@ jobs:
     steps:
     - uses: actions/download-artifact@v2
       with:
-        name: btknmle-${{ matrix.target }}
+        name: btknmle-${{ matrix.target }}-bin
     - name: Make deb pakcage
       run: |
         base=$(mktemp -d)
@@ -428,6 +427,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@v2
+    - name: Remove latest nightly release
+      uses: actions/github-script@v4
+      with:
+        github-token: ${{secrets.GITHUB_TOKEN}}
+        script: |
+          const { owner, repo } = context.repo
+          const { data: { id } } = await github.repos.getReleaseByTag({ owner, repo, tag: 'nightly' })
+          await github.repos.deleteRelease({ owner, repo, release_id: id })
+    - name: Rename bin
+      run: |
+        for dir in `ls -d *-bin/*`; do
+          name=`basename $dir`
+          cp $dir/release/btknmle btknmle-$name
+        done
     - name: Release
       uses: softprops/action-gh-release@v1
       env:
@@ -436,7 +449,7 @@ jobs:
         prerelease: true
         files: |
           */*.deb
-          */*/release/btknmle
+          btknmle-*
         tag_name: nightly
 
 # vim: set sw=2 ts=2 sts=2:

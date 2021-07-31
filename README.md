@@ -5,14 +5,17 @@ BTKNMLE (BlueTooth Keyboard aNd Mouse Low Energy)
 [![codecov](https://codecov.io/gh/yskszk63/btknmle/branch/master/graph/badge.svg)](https://codecov.io/gh/yskszk63/btknmle)
 [![dependency status](https://deps.rs/repo/github/yskszk63/btknmle/status.svg)](https://deps.rs/repo/github/yskszk63/btknmle)
 
-Expose local keyboard and mouse as Bluetooth HID device.
+Turn your keyboard and mouse connected to your computer into a bluetooth hid device.
 
 WIP
 
 Runtime Requirements
 --------------------
 
-Linux 5.8+
+- Linux 5.8+
+- libinput
+
+(Sorry. Only linux is supported.)
 
 Build Requirements
 ------------------
@@ -31,7 +34,7 @@ sudo systemctl stop bluetooth.service
 Run
 ---
 
-via Docker
+via [Docker](https://github.com/yskszk63/btknmle/pkgs/container/btknmle)
 
 ```bash
 docker run --rm \
@@ -42,13 +45,33 @@ docker run --rm \
   ghcr.io/yskszk63/btknmle:latest
 ```
 
-### tags
+or
 
-- ghcr.io/yskszk63/btknmle:latest
-- ghcr.io/yskszk63/btknmle:amd64
-- ghcr.io/yskszk63/btknmle:arm32v7
-- ghcr.io/yskszk63/btknmle:arm64
-- ~~yskszk63/btknmle:arm32v5~~
+[Download form Nightly Release Page](https://github.com/yskszk63/btknmle/releases/tag/nightly)
+
+- pre build binary
+- deb package
+
+arch: amd64 / arm / armv7 / arm64
+
+usage
+
+```
+btknmle
+
+USAGE:
+    btknmle [FLAGS] [OPTIONS]
+
+FLAGS:
+    -h, --help         Prints help information
+    -v, --verbosity
+    -V, --version      Prints version information
+
+OPTIONS:
+    -d, --device-id <device-id>    [env: BTKNMLE_DEVID=] [default: 0]
+        --grab <grab>              [env: BTKNMLE_GRAB=]
+    -f, --var-file <var-file>      [env: BTKNMLE_VAR_FILE=] [default: /var/lib/btknmle/db.toml]
+```
 
 Using
 -----
@@ -63,7 +86,7 @@ Using
 Build
 -----
 
-Archlinux
+ArchLinux
 
 ```bash
 sudo pacman -S libinput
@@ -71,3 +94,25 @@ git clone https://github.com/yskszk63/btknmle
 cd btknmle
 cargo build --release
 ```
+
+Tested device
+-------------
+
+Currently ThinkPad A285 (ArchLinux) as device and Pixel3 as host only.
+
+## License
+
+Licensed under either of
+
+ * Apache License, Version 2.0
+   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license
+   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.

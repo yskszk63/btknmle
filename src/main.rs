@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 use btknmle_keydb::Store;
 use clap::Clap;
+use futures_util::StreamExt;
 use gatt::Server;
 use input::{InputEvent, InputSource};
 use tokio::select;
-use tokio_stream::StreamExt;
 
 mod gap;
 mod hid;
@@ -30,7 +30,10 @@ fn bonded(store: &Store, addr: &btmgmt::packet::Address) -> bool {
 }
 
 enum InputSink<'a, 'b> {
-    NotifyHost(&'b gatt::server::Control<hogp::Token>),
+    NotifyHost(
+        &'b mut gatt::server::Notification,
+        &'b mut gatt::server::Notification,
+    ),
     StartAdvertising(&'a btmgmt::Client, u16),
     PasskeyInput(
         &'a btmgmt::Client,
@@ -44,12 +47,12 @@ enum InputSink<'a, 'b> {
 impl<'a, 'b> InputSink<'a, 'b> {
     async fn handle_event(&mut self, evt: &InputEvent) -> anyhow::Result<()> {
         match self {
-            Self::NotifyHost(ctrl) => match evt {
+            Self::NotifyHost(kbd, mouse) => match evt {
                 InputEvent::Keyboard(evt) => {
-                    ctrl.notify(&hogp::Token::Keyboard, evt.to_bytes())?;
+                    evt.write_to(kbd).await?;
                 }
                 InputEvent::Mouse(evt) => {
-                    ctrl.notify(&hogp::Token::Mouse, evt.to_bytes())?;
+                    evt.write_to(mouse).await?;
                 }
             },
 
@@ -125,18 +128,20 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
     let mut input = InputSource::new()?;
     let mut sig = sig::Sig::new()?;
 
-    let server = Server::bind()?;
+    let mut server = Server::bind()?;
     server.needs_bond_mitm()?;
     loop {
         let mut sink = InputSink::Nop;
 
         gap::start_advertising(&gap_client, device_id).await?;
-        let (address, gatt_loop, gatt_ctrl, mut events) = loop {
+        let mut connection = loop {
             select! {
-                connection = server.accept() => {
-                    let connection = connection?;
-                    let authenticated = bonded(&store, &connection.address().clone().into());
-                    break connection.run(authenticated, hogp::new());
+                connection = server.accept(hogp::new()) => {
+                    if let Some(connection) = connection? {
+                        break connection;
+                    } else {
+                        return Ok(());
+                    };
                 }
 
                 gap_evt = gap_events.next() => {
@@ -155,21 +160,31 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
             }
         };
 
+        let address = connection.address().clone();
+        let mut events = connection.events();
+        let mut kbdnotify = connection.notification(&hogp::Token::Keyboard)?;
+        let mut mousenotify = connection.notification(&hogp::Token::Mouse)?;
+        let authnticator = connection.authenticator();
+        if bonded(&store, &connection.address().clone().into()) {
+            authnticator.mark_authenticated();
+        }
+        let gatt_loop = connection.run();
+
         gap::stop_advertising(&gap_client, device_id).await?;
-        let mut gatt_loop = tokio::spawn(gatt_loop);
         if bonded(&store, &address.clone().into()) {
-            sink = InputSink::NotifyHost(&gatt_ctrl);
+            sink = InputSink::NotifyHost(&mut kbdnotify, &mut mousenotify);
             if grab {
                 input.grab()?;
             }
         } else {
             sink = InputSink::Nop;
         }
+        tokio::pin!(gatt_loop);
 
         loop {
             select! {
-                r = &mut gatt_loop => {
-                    if let Err(err) = r? {
+                r = Pin::new(&mut gatt_loop) => {
+                    if let Err(err) = r {
                         log::warn!("{}", err);
                     }
                     break;
@@ -185,8 +200,8 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
                             gap::handle_event(device_id, &gap_client, &evt, &mut store, &mut sink).await;
                             if let btmgmt::event::Event::NewLongTermKey(evt) = evt {
                                 if authenticated(evt.key(), &address.clone().into()) {
-                                    gatt_ctrl.mark_authenticated();
-                                    sink = InputSink::NotifyHost(&gatt_ctrl);
+                                    authnticator.mark_authenticated();
+                                    sink = InputSink::NotifyHost(&mut kbdnotify, &mut mousenotify);
                                     if grab {
                                         input.grab()?;
                                     }
@@ -204,7 +219,7 @@ async fn run(opts: Opts) -> anyhow::Result<()> {
             }
         }
         input.ungrab()?;
-        gatt_loop.abort();
+        drop(gatt_loop);
     }
 }
 

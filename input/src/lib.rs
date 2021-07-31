@@ -9,11 +9,11 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
+use futures_core::Stream;
 pub use input::event;
 use input::{Event, Libinput, LibinputInterface};
 use log::{debug, warn};
 use tokio::io::unix::AsyncFd;
-use tokio_stream::Stream;
 
 pub use codes::{ButtonCodes, KeyCodes};
 

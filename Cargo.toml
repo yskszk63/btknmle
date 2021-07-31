@@ -1,8 +1,28 @@
+[package]
+name = "btknmle"
+version = "0.2.0"
+authors = ["yskszk63 <yskszk63@gmail.com>"]
+edition = "2018"
+resolver = "2"
+
+[dependencies]
+tokio = { version = "1.8", features = ["sync", "rt", "macros", "signal"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+bitflags = "1.2"
+thiserror = "1.0"
+btknmle-input = { path = "input" }
+btknmle-keydb = { path = "keydb" }
+clap = "3.0.0-beta.2"
+log = "0.4"
+stderrlog = "0.5"
+anyhow = "1.0"
+gatt = "0.2"
+btmgmt = "0.2"
+
 [workspace]
 members = [
-    "btknmle",
-    "btknmle-input",
-    "btknmle-keydb",
+    "input",
+    "keydb",
 ]
 
 [profile.release]

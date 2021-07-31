@@ -1,5 +1,7 @@
+use std::io;
+
 use bitflags::bitflags;
-use bytes::{BufMut, Bytes, BytesMut};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use btknmle_input::event::pointer::{
     Axis, ButtonState, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
@@ -59,31 +61,26 @@ impl MouseStat {
         }
     }
 
-    pub fn to_bytes(&self) -> Bytes {
-        let mut b = BytesMut::new();
-        b.put_u8(self.button.bits());
-
-        match self.value {
-            Value::None => {
-                b.put_i8(0x00);
-                b.put_i8(0x00);
-                b.put_i8(0x00);
-            }
+    pub async fn write_to<W>(&self, write: &mut W) -> io::Result<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let b = match &self.value {
+            Value::None => [self.button.bits(), 0x00, 0x00, 0x00],
             Value::Move(dx, dy) => {
-                let dx = dx as i8;
-                let dy = dy as i8;
-
-                b.put_i8(dx);
-                b.put_i8(dy);
-                b.put_i8(0x00);
+                const MUL: f64 = 1.5;
+                [
+                    self.button.bits(),
+                    (*dx * MUL) as i8 as _,
+                    (*dy * MUL) as i8 as _,
+                    0x00,
+                ]
             }
             Value::Wheel(z) => {
-                b.put_i8(0x00);
-                b.put_i8(0x00);
-                b.put_i8(z as i8);
+                const MUL: f64 = 2.0;
+                [self.button.bits(), 0x00, 0x00, (*z * MUL) as i8 as _]
             }
-        }
-
-        b.freeze()
+        };
+        write.write_all(&b).await
     }
 }

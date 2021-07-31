@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 use std::convert::TryFrom;
+use std::io;
 
 use bitflags::bitflags;
-use bytes::{BufMut as _, Bytes, BytesMut};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use btknmle_input::event::keyboard::KeyState;
 use btknmle_input::event::keyboard::KeyboardEventTrait as _;
@@ -81,20 +82,21 @@ impl KbStat {
         }
     }
 
-    pub fn to_bytes(&self) -> Bytes {
-        let mut b = BytesMut::new();
-        b.put_u8(self.meta.bits());
-        b.put_u8(0x00);
-        for v in &self.keys {
-            b.put_u8(v.clone().into())
-        }
-        b.put_u8(0x00);
-        b.put_u8(0x00);
-        b.put_u8(0x00);
-        b.put_u8(0x00);
-        b.put_u8(0x00);
-        b.put_u8(0x00);
-
-        b.freeze().split_to(8)
+    pub async fn write_to<W>(&self, write: &mut W) -> io::Result<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let mut keys = self.keys.iter().map(|v| v.clone().into());
+        let b = [
+            self.meta.bits(),
+            0x00,
+            keys.next().unwrap_or_default(),
+            keys.next().unwrap_or_default(),
+            keys.next().unwrap_or_default(),
+            keys.next().unwrap_or_default(),
+            keys.next().unwrap_or_default(),
+            keys.next().unwrap_or_default(),
+        ];
+        write.write_all(&b).await
     }
 }

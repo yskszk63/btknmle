@@ -1,5 +1,5 @@
 use btknmle_input::LibinputStream;
-use tokio_stream::StreamExt;
+use futures::StreamExt;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {

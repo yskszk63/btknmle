@@ -14,6 +14,8 @@ log = "0.4"
 [dev-dependencies]
 tokio = { version = "1.8", features = ["macros", "rt", "time"] }
 anyhow = "1.0"
+futures = "0.3"
+tokio-stream = { version = "0.1", features = ["time"] }
 
 [build-dependencies]
 bindgen = { version = "0.59", optional = true }

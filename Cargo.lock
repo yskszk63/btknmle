@@ -162,9 +162,9 @@ dependencies = [
 
 [[package]]
 name = "btmgmt"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58785a47b634631f8f67db47e54d6519c0ad269999f1974061666c6abf9bfe2f"
+checksum = "490f1968aa7f167ac1a1839e3d135465493387cbeac0f036cdc68e2f95471ffb"
 dependencies = [
  "btmgmt-packet",
  "futures-channel",
@@ -180,9 +180,9 @@ dependencies = [
 
 [[package]]
 name = "btmgmt-packet"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d81262cef0d17c5f110d69514d30e6cf83cc38e33a04d5f3c0c0201ec821ee8c"
+checksum = "94426032df2f08ec8c7ef86664454165bcc4cc34d40bf40c7532a5aefa456a4d"
 dependencies = [
  "bdaddr",
  "bitflags",
@@ -197,9 +197,9 @@ dependencies = [
 
 [[package]]
 name = "btmgmt-packet-helper"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c1a639c2c21eb3592bc4cbdb6b39e22498884173255f29abe26c2027e1089a4"
+checksum = "8bc93063a99268b419d8e052b2ec32a9f9045f1c1c242a37624e253048ea66d6"
 dependencies = [
  "btmgmt-packet-macros",
  "thiserror",
@@ -207,9 +207,9 @@ dependencies = [
 
 [[package]]
 name = "btmgmt-packet-macros"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524ee616754764c26cbc73648d6ed37194634c038668a3f2395b6f1dc7f5629e"
+checksum = "9d3a817c246b138777fec0918022a50f45010d03057635eb0f2b22497e1e5066"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -906,18 +906,18 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "serde"
-version = "1.0.126"
+version = "1.0.127"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec7505abeacaec74ae4778d9d9328fe5a5d04253220a85c4ee022239fc996d03"
+checksum = "f03b9878abf6d14e6779d3f24f07b2cfa90352cfec4acc5aab8f1ac7f146fae8"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.126"
+version = "1.0.127"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "963a7dbc9895aeac7ac90e74f34a5d5261828f79df35cbed41e10189d3804d43"
+checksum = "a024926d3432516606328597e0f224a51355a493b49fdd67e9209187cbe55ecc"
 dependencies = [
  "proc-macro2",
  "quote",

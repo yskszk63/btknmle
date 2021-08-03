@@ -1,5 +1,5 @@
 pub use source::*;
 
-mod kbstat;
+pub mod kbstat;
 mod mousestat;
 mod source;

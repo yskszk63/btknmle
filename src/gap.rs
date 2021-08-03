@@ -1,8 +1,9 @@
 use btknmle_keydb::Store;
 use btmgmt::client::Client;
+use btmgmt::packet::ControllerIndex;
 use btmgmt::packet::{
-    command as cmd, event::Event, AdvDataScanResp, AdvertisingFlag, IoCapability, Privacy,
-    SecureConnections, Settings, SystemConfigurationParameter,
+    command as cmd, AdvDataScanResp, AdvertisingFlag, IoCapability, Privacy, SecureConnections,
+    Settings, SystemConfigurationParameter,
 };
 
 pub(crate) async fn setup(
@@ -91,8 +92,10 @@ pub(crate) async fn setup(
     Ok(client)
 }
 
-pub(crate) async fn start_advertising(client: &Client, devid: u16) -> anyhow::Result<()> {
-    log::info!("Start advertising.");
+pub(crate) async fn start_advertising(
+    client: &Client,
+    devid: ControllerIndex,
+) -> anyhow::Result<()> {
     client
         .call(
             devid,
@@ -112,56 +115,21 @@ pub(crate) async fn start_advertising(client: &Client, devid: u16) -> anyhow::Re
     Ok(())
 }
 
-pub(crate) async fn stop_advertising(client: &Client, devid: u16) -> anyhow::Result<()> {
+pub(crate) async fn stop_advertising(
+    client: &Client,
+    devid: ControllerIndex,
+) -> anyhow::Result<()> {
     client
         .call(devid, cmd::RemoveAdvertising::new(1.into()))
         .await?;
     Ok(())
 }
 
-pub(crate) async fn handle_event<'a>(
-    devid: u16,
-    client: &'a Client,
-    evt: &Event,
-    store: &mut Store,
-    sink: &mut super::InputSink<'a, '_>,
-) {
-    match evt {
-        Event::NewLongTermKey(evt) => {
-            if *evt.store_hint() {
-                store.add_ltk(evt.key().clone()).await.unwrap();
-            }
-        }
-
-        Event::NewIdentityResolvingKey(evt) => {
-            if *evt.store_hint() {
-                store.add_irk(evt.key().clone()).await.unwrap();
-            }
-        }
-
-        Event::AdvertisingRemoved(..) => {
-            if matches!(sink, super::InputSink::Nop) {
-                *sink = super::InputSink::StartAdvertising(client, devid);
-            }
-        }
-
-        Event::UserConfirmationRequest(evt) => {
-            client
-                .call(
-                    devid,
-                    cmd::UserConfirmationNegativeReply::new(
-                        evt.address().clone(),
-                        evt.address_type().clone(),
-                    ),
-                )
-                .await
-                .unwrap();
-        }
-
-        Event::UserPasskeyRequest(evt) => {
-            *sink = super::InputSink::PasskeyInput(client, devid, evt.clone(), 0);
-        }
-
-        x => log::debug!("unhandled event {:?}", x),
-    }
+pub(crate) async fn is_advertising_enabled(
+    client: &Client,
+    devid: ControllerIndex,
+) -> anyhow::Result<bool> {
+    let info = client.call(devid, cmd::ReadAdvertisingFeature).await?;
+    let mut instances = info.instances().iter();
+    Ok(instances.next().is_some())
 }

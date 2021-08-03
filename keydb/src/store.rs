@@ -86,7 +86,7 @@ impl Store {
     }
 
     pub fn key_for_resolvable_private_address(&self) -> &[u8; 16] {
-        &self.data.key_for_resolvable_private_address.as_ref()
+        self.data.key_for_resolvable_private_address.as_ref()
     }
 
     pub async fn add_irk(&mut self, record: IdentityResolvingKey) -> Result<(), Error> {

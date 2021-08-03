@@ -68,8 +68,10 @@ FLAGS:
     -V, --version      Prints version information
 
 OPTIONS:
+    -D, --debug <debug>            [env: BTKNMLE_DEBUG=]
     -d, --device-id <device-id>    [env: BTKNMLE_DEVID=] [default: 0]
         --grab <grab>              [env: BTKNMLE_GRAB=]
+    -T, --trace <trace>            [env: BTKNMLE_TRACE=]
     -f, --var-file <var-file>      [env: BTKNMLE_VAR_FILE=] [default: /var/lib/btknmle/db.toml]
 ```
 

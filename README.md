@@ -45,6 +45,18 @@ docker run --rm \
   ghcr.io/yskszk63/btknmle:latest
 ```
 
+With key grab.
+
+```bash
+docker run --rm \
+  --mount type=volume,source=btknmle,target=/var/lib/btknmle \
+  --device /dev/input --mount type=bind,source=/run/udev,target=/run/udev,readonly \
+  --mount type=bind,source=/sys/class/bluetooth,target=/sys/class/bluetooth,readonly \
+  --net host --cap-add net_admin \
+  -eBTKNMLE_GRAB=yes \
+  ghcr.io/yskszk63/btknmle:latest
+```
+
 or
 
 [Download form Nightly Release Page](https://github.com/yskszk63/btknmle/releases/tag/nightly)

@@ -9,6 +9,11 @@ Turn your keyboard and mouse connected to your computer into a bluetooth hid dev
 
 WIP
 
+DEMO (Linux PC vs Pixel3)
+-------------------------
+
+![demo](assets/demo.png)
+
 Runtime Requirements
 --------------------
 

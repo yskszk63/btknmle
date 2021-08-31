@@ -9,6 +9,8 @@ Turn your keyboard and mouse connected to your computer into a bluetooth hid dev
 
 WIP
 
+![logo](assets/logo.png)
+
 DEMO (Linux PC vs Pixel3)
 -------------------------
 

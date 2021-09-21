@@ -5,14 +5,14 @@ authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-input = { version = "0.6", default-features = false, features = ["udev"] }
-tokio = { version = "1.8", features = ["net"] }
+input = { version = "0.6", default-features = false, features = ["udev", "libinput_1_15"] }
+tokio = { version = "1.11", features = ["net"] }
 futures-core = { version = "0.3", default-features = false }
 libc = "0.2"
 log = "0.4"
 
 [dev-dependencies]
-tokio = { version = "1.8", features = ["macros", "rt", "time"] }
+tokio = { version = "1.11", features = ["macros", "rt", "time"] }
 anyhow = "1.0"
 futures = "0.3"
 tokio-stream = { version = "0.1", features = ["time"] }

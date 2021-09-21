@@ -5,7 +5,7 @@ authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-tokio = { version = "1.8", features = ["fs", "io-util"] }
+tokio = { version = "1.11", features = ["fs", "io-util"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.5"
 rand = "0.8"
@@ -13,5 +13,5 @@ thiserror = "1.0"
 btmgmt = "0.2"
 
 [dev-dependencies]
-tokio = { version = "1.8", features = ["macros", "rt"] }
+tokio = { version = "1.11", features = ["macros", "rt"] }
 mktemp-rs = "0.2"

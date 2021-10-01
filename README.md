@@ -9,6 +9,8 @@ Turn your keyboard and mouse connected to your computer into a bluetooth hid dev
 
 WIP
 
+NOTE: Currently, if you are using libinput v1.9, using the touchpad will not work properly.
+
 ![logo](assets/logo.png)
 
 DEMO (Linux PC vs Pixel3)

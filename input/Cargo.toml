@@ -5,7 +5,7 @@ authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-input = { version = "0.6", default-features = false, features = ["udev", "libinput_1_15"] }
+input = { version = "0.7", default-features = false, features = ["udev", "libinput_1_15"] }
 tokio = { version = "1.11", features = ["net"] }
 futures-core = { version = "0.3", default-features = false }
 libc = "0.2"

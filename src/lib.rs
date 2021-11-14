@@ -1,15 +1,19 @@
 #![warn(clippy::all)]
+use std::collections::HashMap;
 use std::future;
+use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use bdaddr::Address;
 use btknmle_keydb::Store;
-use btmgmt::client::{Client as GapClient, EventSubscribe};
+use btmgmt::client::Client as MgmtClient;
 use btmgmt::packet::event::Event as MgmtEvent;
 use btmgmt::packet::{command as cmd, ControllerIndex};
+use futures_channel::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use futures_channel::oneshot::{self, Sender};
 use futures_util::lock::Mutex;
-use futures_util::{StreamExt, TryFutureExt};
-use gatt::server::Connection;
+use futures_util::{pin_mut, select, FutureExt, StreamExt, TryFutureExt};
 use gatt::Server;
 
 use crate::input::InputEvent;
@@ -20,52 +24,86 @@ mod hogp;
 mod input;
 mod sig;
 
-async fn store_keys(
-    device_id: u16,
-    events: EventSubscribe,
-    store: Arc<Mutex<Store>>,
-) -> anyhow::Result<()> {
-    let device_id = device_id.into();
-    let mut events = events.filter_map(|(idx, evt)| future::ready((idx == device_id).then(|| evt)));
-
-    while let Some(event) = events.next().await {
-        match event {
-            MgmtEvent::NewLongTermKey(evt) => {
-                if *evt.store_hint() {
-                    let mut store = store.lock().await;
-                    store.add_ltk(evt.key().clone()).await?;
-                }
-            }
-
-            MgmtEvent::NewIdentityResolvingKey(evt) => {
-                if *evt.store_hint() {
-                    let mut store = store.lock().await;
-                    store.add_irk(evt.key().clone()).await?;
-                }
-            }
-
-            _ => {}
-        }
-    }
-
-    Ok(())
-}
-
-fn authenticated(ltk: &btmgmt::packet::LongTermKey, addr: &btmgmt::packet::Address) -> bool {
+fn authenticated(ltk: &btmgmt::packet::LongTermKey, addr: &Address) -> bool {
     match ltk.key_type() {
         btmgmt::packet::LongTermKeyType::AuthenticatedKey
         | btmgmt::packet::LongTermKeyType::AuthenticatedP256Key => {}
         _ => return false,
     }
 
-    ltk.address().as_ref() == addr.as_ref()
+    ltk.address().as_ref() == addr
 }
 
-fn bonded(store: &Store, addr: &btmgmt::packet::Address) -> bool {
+fn bonded(store: &Store, addr: &Address) -> bool {
     store.iter_ltks().any(|ltk| authenticated(ltk, addr))
 }
 
-fn add_passkey(buf: u32, kbstat: &input::kbstat::KbStat) -> (bool, u32) {
+async fn store_keys(
+    device_id: ControllerIndex,
+    gap: &MgmtClient,
+    mut store: Store,
+    mut auth_channel: UnboundedReceiver<(Address, Sender<()>)>,
+) -> anyhow::Result<()> {
+    let events = gap.events().await;
+    let mut events = events
+        .filter_map(|(idx, evt)| future::ready((idx == device_id).then(|| evt)))
+        .fuse();
+    let mut pendings = HashMap::<Address, Sender<()>>::new();
+
+    loop {
+        select! {
+            item = events.next() => {
+                let event = if let Some(event) = item {
+                    event
+                } else {
+                    return Ok(());
+                };
+
+                match event {
+                    MgmtEvent::NewLongTermKey(evt) => {
+                        if *evt.store_hint() {
+                            store.add_ltk(evt.key().clone()).await?;
+
+                            // TODO
+                            // 1. Get identity resolving key by identity key.
+                            // 2. Iterate pending address, wich is Resolvable random address.
+                            // 3. If matches this event address. Notify authorized.
+                            if let Some(sender) = pendings.remove(evt.key().address()) {
+                                log::debug!("New bonded for {}", evt.key().address());
+                                sender.send(()).ok();
+                            }
+                        }
+                    }
+
+                    MgmtEvent::NewIdentityResolvingKey(evt) => {
+                        if *evt.store_hint() {
+                            store.add_irk(evt.key().clone()).await?;
+                        }
+                    }
+
+                    _ => {}
+                }
+            },
+
+            item = auth_channel.next() => {
+                let (addr, sender) = if let Some((addr, sender)) = item {
+                    (addr, sender)
+                } else {
+                    return Ok(());
+                };
+
+                if bonded(&store, &addr) {
+                    sender.send(()).ok();
+                } else {
+                    log::debug!("Pending for {}", addr);
+                    pendings.insert(addr, sender);
+                }
+            },
+        }
+    }
+}
+
+fn add_passkey(buf: &mut u32, kbstat: &input::kbstat::KbStat) -> bool {
     use hid::KeyboardUsageId::*;
 
     if let Some(key) = kbstat.keys().iter().next() {
@@ -80,232 +118,199 @@ fn add_passkey(buf: u32, kbstat: &input::kbstat::KbStat) -> (bool, u32) {
             KEY_7 => 7,
             KEY_8 => 8,
             KEY_9 => 9,
-            KEY_ENTER => return (true, buf),
-            _ => return (false, buf),
+            KEY_ENTER => return true,
+            _ => return false,
         };
-        (false, buf.wrapping_mul(10) + k)
-    } else {
-        (false, buf)
+        *buf = buf.wrapping_mul(10) + k;
     }
+    false
+}
+
+async fn fill_passkey(input: &mut input::InputSource) -> anyhow::Result<u32> {
+    let mut passkey = 0;
+    while let Some(input_event) = input.next().await {
+        let kbstat = if let input::InputEvent::Keyboard(kbstat) = input_event? {
+            kbstat
+        } else {
+            continue;
+        };
+        if add_passkey(&mut passkey, &kbstat) {
+            return Ok(passkey);
+        }
+    }
+    anyhow::bail!("failed to fill passkey.")
 }
 
 async fn passkey_input(
-    client: &GapClient,
     device_id: ControllerIndex,
-    input: &mut input::InputSource,
+    gap: &MgmtClient,
+    input: Arc<Mutex<input::InputSource>>,
 ) -> anyhow::Result<()> {
-    let events = client.events().await;
+    let events = gap.events().await;
     let mut events = events.filter_map(|(idx, evt)| future::ready((idx == device_id).then(|| evt)));
-    let mut passkey_buf = None;
 
-    let mut adv_enabled = gap::is_advertising_enabled(client, device_id.clone()).await?;
-
-    loop {
-        tokio::select! {
-            event = events.next() => {
-                let event = if let Some(event) = event {
-                    event
+    while let Some(event) = events.next().await {
+        match event {
+            MgmtEvent::UserPasskeyRequest(event) => {
+                log::trace!("begin passkey input.");
+                let mut input = if let Some(input) = input.try_lock() {
+                    input
                 } else {
-                    anyhow::bail!("unexpect eof.");
-                };
-
-                match event {
-                    MgmtEvent::UserConfirmationRequest(event) => {
-                        client
-                            .call(
-                                device_id.clone(),
-                                cmd::UserConfirmationNegativeReply::new(
-                                    event.address().clone(),
-                                    event.address_type().clone(),
-                                ),
-                            )
-                            .await?;
-                    }
-
-                    MgmtEvent::UserPasskeyRequest(event) => {
-                        passkey_buf = Some((event, 0));
-                        log::trace!("begin passkey input.");
-                    }
-
-                    MgmtEvent::AdvertisingRemoved(..) => {
-                        log::info!("advertising stopped by timeout.");
-                        adv_enabled = false;
-                    }
-
-                    _ => {}
-                }
-            }
-
-            event = input.next() => {
-                let event = if let Some(event) = event {
-                    event?
-                } else {
-                    anyhow::bail!("unexpect eof.");
-                };
-
-                if let input::InputEvent::Keyboard(kbstat) = event {
-                    if let Some((req, passkey)) = passkey_buf {
-                        let (done, passkey) = add_passkey(passkey, &kbstat);
-                        if done {
-                            client
-                                .call(
-                                    device_id.clone(),
-                                    cmd::UserPasskeyReply::new(
-                                        req.address().clone(),
-                                        req.address_type().clone(),
-                                        passkey,
-                                    ),
-                                )
-                                .await?;
-                            passkey_buf = None;
-                            log::trace!("passkey done.");
-                        } else {
-                            passkey_buf = Some((req, passkey))
-                        }
-                    } else if !adv_enabled {
-                        log::info!("Start advertising.");
-                        gap::start_advertising(client, device_id.clone()).await?;
-                        adv_enabled = true;
-                    }
-                }
-            }
-        }
-    }
-}
-
-async fn accept(
-    server: &mut Server,
-    gap_client: &GapClient,
-    input: &mut input::InputSource,
-    device_id: ControllerIndex,
-) -> anyhow::Result<Option<Connection<hogp::Token>>> {
-    let registration = hogp::new();
-
-    let accept = server.accept(registration);
-    tokio::pin!(accept);
-
-    let passkey_input = passkey_input(gap_client, device_id, input);
-    tokio::pin!(passkey_input);
-
-    loop {
-        tokio::select! {
-            connection = Pin::new(&mut accept) => {
-                let connection = connection?;
-                return Ok(connection);
-            }
-
-            result = Pin::new(&mut passkey_input) => {
-                result?;
-            }
-        }
-    }
-}
-
-async fn gatt_loop(
-    store: Arc<Mutex<Store>>,
-    device_id: ControllerIndex,
-    grab: bool,
-    gap_client: GapClient,
-) -> anyhow::Result<()> {
-    let mut server = Server::bind()?;
-    server.needs_bond_mitm()?;
-
-    let mut input = input::InputSource::new()?;
-
-    log::info!("Start serving.");
-
-    log::info!("Start advertising.");
-    gap::start_advertising(&gap_client, device_id.clone()).await?;
-    while let Some(connection) =
-        accept(&mut server, &gap_client, &mut input, device_id.clone()).await?
-    {
-        let addr = connection.address();
-        log::info!("Connection accepted {}", addr);
-
-        log::info!("Stop advertising.");
-        gap::stop_advertising(&gap_client, device_id.clone()).await?;
-
-        let store = store.lock().await;
-        if bonded(&store, &addr.clone().into()) {
-            connection.authenticator().mark_authenticated();
-        } else {
-            anyhow::bail!("not bounded");
-        }
-
-        let mut kbdnotify = connection.notification(&hogp::Token::Keyboard)?;
-        let mut mousenotify = connection.notification(&hogp::Token::Mouse)?;
-
-        let task = connection.run();
-        tokio::pin!(task);
-
-        if grab {
-            log::info!("Grab inputs.");
-            input.grab()?;
-        }
-
-        loop {
-            tokio::select! {
-                result = Pin::new(&mut task) => {
-                    if let Err(err) = result {
-                        // may be connection terminated by remote host.
-                        log::info!("{}", err);
-                    }
+                    let msg = cmd::UserPasskeyNegativeReply::new(
+                        event.address().clone(),
+                        event.address_type().clone(),
+                    );
+                    gap.call(device_id.clone(), msg).await?;
                     break;
-                }
-
-                event = input.next() => {
-                    let event = if let Some(event) = event {
-                        event?
-                    } else {
-                        anyhow::bail!("unexpected end of input.");
-                    };
-
-                    match event {
-                        InputEvent::Keyboard(evt) => {
-                            if let Err(err) = evt.write_to(&mut kbdnotify).await {
-                                // may be connection terminated by remote host.
-                                log::info!("{}", err);
-                                break;
-                            }
-                        }
-                        InputEvent::Mouse(evt) => {
-                            if let Err(err) = evt.write_to(&mut mousenotify).await {
-                                // may be connection terminated by remote host.
-                                log::info!("{}", err);
-                                break;
-                            }
-                        }
-                    }
-                }
+                };
+                let passkey = fill_passkey(&mut input).await?;
+                let msg = cmd::UserPasskeyReply::new(
+                    event.address().clone(),
+                    event.address_type().clone(),
+                    passkey,
+                );
+                gap.call(device_id.clone(), msg).await?;
             }
+            _ => {}
         }
-
-        if grab {
-            log::info!("Ungrab inputs.");
-            input.ungrab()?;
-        }
-        log::info!("Start advertising.");
-        gap::start_advertising(&gap_client, device_id.clone()).await?;
     }
 
     Ok(())
 }
 
+async fn advertising(
+    device_id: ControllerIndex,
+    gap: &MgmtClient,
+    input: Arc<Mutex<input::InputSource>>,
+) -> anyhow::Result<()> {
+    log::info!("Start advertising.");
+    gap::start_advertising(&gap, device_id.clone()).await?;
+
+    // TODO controll advertising.
+    future::pending::<()>().await;
+    Ok(())
+}
+
+struct InputSourceWrapper<'a> {
+    inner: &'a mut input::InputSource,
+    grab: bool,
+}
+
+impl<'a> InputSourceWrapper<'a> {
+    fn with(inner: &'a mut input::InputSource, grab: bool) -> io::Result<Self> {
+        if grab {
+            inner.grab()?;
+        }
+        Ok(Self { inner, grab })
+    }
+
+    async fn next(&mut self) -> Option<io::Result<InputEvent>> {
+        self.inner.next().await
+    }
+}
+
+impl<'a> Drop for InputSourceWrapper<'a> {
+    fn drop(&mut self) {
+        if self.grab {
+            self.inner.ungrab().ok();
+        }
+    }
+}
+
+async fn gatt_loop(
+    grab: bool,
+    input: Arc<Mutex<input::InputSource>>,
+    auth_channel: UnboundedSender<(Address, Sender<()>)>,
+) -> anyhow::Result<()> {
+    let mut server = Server::bind()?;
+    server.needs_bond_mitm()?;
+
+    log::info!("Start serving.");
+
+    while let Some(connection) = server.accept(hogp::new()).await? {
+        let addr = connection.address().clone();
+        let authenticator = connection.authenticator();
+
+        let mut kbdnotify = connection.notification(&hogp::Token::Keyboard)?;
+        let mut mousenotify = connection.notification(&hogp::Token::Mouse)?;
+
+        let task = connection.run().fuse();
+        pin_mut!(task);
+
+        let kbtask = async move {
+            let (reply_tx, reply_rx) = oneshot::channel();
+            auth_channel.unbounded_send((addr.clone(), reply_tx))?;
+
+            reply_rx.await?;
+            log::debug!("Authenticated {}", addr);
+            authenticator.mark_authenticated();
+
+            let mut input = input.lock().await;
+            let mut input = InputSourceWrapper::with(&mut input, grab)?;
+
+            while let Some(event) = input.next().await {
+                match event? {
+                    InputEvent::Keyboard(evt) => {
+                        if let Err(err) = evt.write_to(&mut kbdnotify).await {
+                            // may be connection terminated by remote host.
+                            log::info!("{}", err);
+                            break;
+                        }
+                    }
+                    InputEvent::Mouse(evt) => {
+                        if let Err(err) = evt.write_to(&mut mousenotify).await {
+                            // may be connection terminated by remote host.
+                            log::info!("{}", err);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            anyhow::Result::<()>::Ok(())
+        }
+        .fuse();
+        pin_mut!(kbtask);
+
+        loop {
+            select! {
+                result = task => {
+                    if let Err(err) = result {
+                        // may be connection terminated by remote host.
+                        log::info!("{}", err);
+                    }
+                    return Ok(());
+                },
+
+                result = kbtask => {
+                    result?;
+                },
+            }
+        }
+    }
+    Ok(())
+}
+
+#[allow(unused)]
 pub async fn run(var_file: PathBuf, device_id: u16, grab: bool) -> anyhow::Result<()> {
     let io_capability = btmgmt::packet::IoCapability::KeyboardOnly;
 
     let store = Store::open(var_file).await?;
     let gap_client = gap::setup(device_id, &store, io_capability).await?;
-    let store = Arc::new(Mutex::new(store));
 
+    let input = input::InputSource::new()?;
+    let input = Arc::new(Mutex::new(input));
+
+    let (auth_tx, auth_rx) = mpsc::unbounded();
     let mut sig = sig::Sig::new()?;
 
     log::info!("starting.");
     tokio::try_join!(
-        store_keys(device_id, gap_client.events().await, store.clone()),
-        gatt_loop(store, device_id.into(), grab, gap_client),
+        store_keys(device_id.into(), &gap_client, store, auth_rx),
+        passkey_input(device_id.into(), &gap_client, input.clone()),
+        advertising(device_id.into(), &gap_client, input.clone()),
+        gatt_loop(grab, input, auth_tx),
         sig.recv().map_err(Into::<anyhow::Error>::into),
     )?;
-
     Ok(())
 }

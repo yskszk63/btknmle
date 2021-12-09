@@ -3,7 +3,7 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use btmgmt::packet::{
-    Address, AddressType, IdentityResolvingKey, LongTermKey, LongTermKeyBuilder, LongTermKeyType,
+    AddressType, BdAddr, IdentityResolvingKey, LongTermKey, LongTermKeyBuilder, LongTermKeyType,
 };
 use serde::de::{Deserialize, Deserializer, Error as _, MapAccess, Unexpected, Visitor};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
@@ -48,7 +48,7 @@ impl TryFrom<Wrapper<Vec<u8>>> for [u8; 8] {
     }
 }
 
-impl<'a> Serialize for Wrapper<&'a Address> {
+impl<'a> Serialize for Wrapper<&'a BdAddr> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -57,17 +57,17 @@ impl<'a> Serialize for Wrapper<&'a Address> {
     }
 }
 
-impl<'de> Deserialize<'de> for Wrapper<Address> {
+impl<'de> Deserialize<'de> for Wrapper<BdAddr> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(WrapperVisitor::<Address>(PhantomData))
+        deserializer.deserialize_str(WrapperVisitor::<BdAddr>(PhantomData))
     }
 }
 
-impl<'de> Visitor<'de> for WrapperVisitor<Address> {
-    type Value = Wrapper<Address>;
+impl<'de> Visitor<'de> for WrapperVisitor<BdAddr> {
+    type Value = Wrapper<BdAddr>;
 
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "address")
@@ -264,8 +264,8 @@ impl Serialize for Wrapper<IdentityResolvingKey> {
         S: Serializer,
     {
         let mut s = serializer.serialize_struct("IdentityResolvingKey", 3)?;
-        s.serialize_field("address", &Wrapper(self.0.address()))?;
-        s.serialize_field("address_type", &Wrapper(self.0.address_type()))?;
+        s.serialize_field("address_type", &Wrapper(&self.0.address().address_type()))?;
+        s.serialize_field("address", &Wrapper(&self.0.address().into_bd_addr()))?;
         s.serialize_field("value", &Wrapper(self.0.value().as_ref()))?;
         s.end()
     }
@@ -302,7 +302,7 @@ impl<'de> Visitor<'de> for WrapperVisitor<IdentityResolvingKey> {
         while let Some(key) = map.next_key()? {
             match key {
                 "address" => {
-                    address = Some(map.next_value::<Wrapper<Address>>()?).map(Wrapper::into_inner)
+                    address = Some(map.next_value::<Wrapper<BdAddr>>()?).map(Wrapper::into_inner)
                 }
                 "address_type" => {
                     address_type =
@@ -321,9 +321,14 @@ impl<'de> Visitor<'de> for WrapperVisitor<IdentityResolvingKey> {
         }
 
         match (address, address_type, value) {
-            (Some(address), Some(address_type), Some(value)) => Ok(Wrapper(
-                IdentityResolvingKey::new(address, address_type, value),
-            )),
+            (Some(address), Some(address_type), Some(value)) => {
+                let address = match address_type {
+                    AddressType::BrEdr => address.to_br_edr_addr(),
+                    AddressType::LePublic => address.to_le_public_addr(),
+                    AddressType::LeRandom => address.to_le_random_addr(),
+                };
+                Ok(Wrapper(IdentityResolvingKey::new(address, value)))
+            }
             (None, _, _) => Err(A::Error::missing_field("address")),
             (_, None, _) => Err(A::Error::missing_field("address_type")),
             (_, _, None) => Err(A::Error::missing_field("value")),
@@ -337,8 +342,8 @@ impl Serialize for Wrapper<LongTermKey> {
         S: Serializer,
     {
         let mut s = serializer.serialize_struct("LongTermKey", 8)?;
-        s.serialize_field("address", &Wrapper(self.0.address()))?;
-        s.serialize_field("address_type", &Wrapper(self.0.address_type()))?;
+        s.serialize_field("address_type", &Wrapper(&self.0.address().address_type()))?;
+        s.serialize_field("address", &Wrapper(&self.0.address().into_bd_addr()))?;
         s.serialize_field("key_type", &Wrapper(self.0.key_type()))?;
         s.serialize_field("master", self.0.master())?;
         s.serialize_field("encryption_size", self.0.encryption_size())?;
@@ -393,7 +398,7 @@ impl<'de> Visitor<'de> for WrapperVisitor<LongTermKey> {
 
         while let Some(key) = map.next_key()? {
             match key {
-                "address" => address = Some(map.next_value::<Wrapper<Address>>()?.into_inner()),
+                "address" => address = Some(map.next_value::<Wrapper<BdAddr>>()?.into_inner()),
                 "address_type" => {
                     address_type = Some(map.next_value::<Wrapper<AddressType>>()?.into_inner())
                 }
@@ -431,8 +436,11 @@ impl<'de> Visitor<'de> for WrapperVisitor<LongTermKey> {
                 Some(random_number),
                 Some(value),
             ) => LongTermKeyBuilder::default()
-                .address(address)
-                .address_type(address_type)
+                .address(match address_type {
+                    AddressType::BrEdr => address.to_br_edr_addr(),
+                    AddressType::LePublic => address.to_le_public_addr(),
+                    AddressType::LeRandom => address.to_le_random_addr(),
+                })
                 .key_type(key_type)
                 .master(master)
                 .encryption_size(encryption_size)

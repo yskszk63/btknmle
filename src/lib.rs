@@ -5,7 +5,7 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use bdaddr::Address;
+use bdaddr::{Address, RandomDeviceAddress};
 use btknmle_keydb::Store;
 use btmgmt::client::Client as MgmtClient;
 use btmgmt::packet::event::Event as MgmtEvent;
@@ -31,11 +31,28 @@ fn authenticated(ltk: &btmgmt::packet::LongTermKey, addr: &Address) -> bool {
         _ => return false,
     }
 
-    ltk.address().as_ref() == addr
+    match addr {
+        Address::LeRandom(RandomDeviceAddress::Resolvable(addr)) => addr.matches(ltk.value()),
+        _ => &ltk.address() == addr,
+    }
 }
 
 fn bonded(store: &Store, addr: &Address) -> bool {
     store.iter_ltks().any(|ltk| authenticated(ltk, addr))
+}
+
+fn resolve_identity_address(store: &Store, addr: &Address) -> Option<Address> {
+    match addr {
+        Address::LeRandom(RandomDeviceAddress::Resolvable(addr)) => store
+            .iter_irks()
+            .filter(|irk| addr.matches(irk.value()))
+            .map(|irk| irk.address())
+            .next(),
+        Address::LeRandom(RandomDeviceAddress::Static(..)) | Address::LePublic(..) => {
+            Some(addr.clone())
+        }
+        _ => None,
+    }
 }
 
 async fn store_keys(
@@ -64,13 +81,14 @@ async fn store_keys(
                         if *evt.store_hint() {
                             store.add_ltk(evt.key().clone()).await?;
 
-                            // TODO
-                            // 1. Get identity resolving key by identity key.
-                            // 2. Iterate pending address, wich is Resolvable random address.
-                            // 3. If matches this event address. Notify authorized.
-                            if let Some(sender) = pendings.remove(evt.key().address()) {
-                                log::debug!("New bonded for {}", evt.key().address());
-                                sender.send(()).ok();
+                            let addr = evt.key().address();
+                            if let Some(sender) = pendings.remove(&addr) {
+                                if bonded(&store, &addr) {
+                                    log::debug!("New bonded for {}", evt.key().address());
+                                    sender.send(()).ok();
+                                } else {
+                                    pendings.insert(addr, sender);
+                                }
                             }
                         }
                     }
@@ -78,6 +96,20 @@ async fn store_keys(
                     MgmtEvent::NewIdentityResolvingKey(evt) => {
                         if *evt.store_hint() {
                             store.add_irk(evt.key().clone()).await?;
+                            if let Some(sender) = pendings.remove(&evt.address()) {
+                                let addr = evt.address();
+                                let addr = if let Some(newaddr) = resolve_identity_address(&store, &addr) {
+                                    log::debug!("resolved {:?} -> {:?}", addr, newaddr);
+                                    newaddr
+                                } else {
+                                    addr
+                                };
+                                if bonded(&store, &addr) {
+                                    sender.send(()).ok();
+                                } else {
+                                    pendings.insert(addr, sender);
+                                }
+                            }
                         }
                     }
 
@@ -92,6 +124,12 @@ async fn store_keys(
                     return Ok(());
                 };
 
+                let addr = if let Some(resolved) = resolve_identity_address(&store, &addr) {
+                    log::debug!("resolved {:?} -> {:?}", addr, resolved);
+                    resolved
+                } else {
+                    addr
+                };
                 if bonded(&store, &addr) {
                     sender.send(()).ok();
                 } else {
@@ -156,19 +194,12 @@ async fn passkey_input(
                 let mut input = if let Some(input) = input.try_lock() {
                     input
                 } else {
-                    let msg = cmd::UserPasskeyNegativeReply::new(
-                        event.address().clone(),
-                        event.address_type().clone(),
-                    );
+                    let msg = cmd::UserPasskeyNegativeReply::new(event.address().clone());
                     gap.call(device_id.clone(), msg).await?;
                     break;
                 };
                 let passkey = fill_passkey(&mut input).await?;
-                let msg = cmd::UserPasskeyReply::new(
-                    event.address().clone(),
-                    event.address_type().clone(),
-                    passkey,
-                );
+                let msg = cmd::UserPasskeyReply::new(event.address().clone(), passkey);
                 gap.call(device_id.clone(), msg).await?;
             }
             _ => {}
@@ -229,6 +260,7 @@ async fn gatt_loop(
 
     while let Some(connection) = server.accept(hogp::new()).await? {
         let addr = connection.address().clone();
+        log::debug!("connected: {:?}", addr);
         let authenticator = connection.authenticator();
 
         let mut kbdnotify = connection.notification(&hogp::Token::Keyboard)?;

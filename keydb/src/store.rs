@@ -94,7 +94,7 @@ impl Store {
             .data
             .irks
             .drain(..)
-            .filter(|k| k.as_ref().address().as_ref() != record.address().as_ref())
+            .filter(|k| k.as_ref().address() != record.address())
             .collect::<VecDeque<_>>();
         new.push_front(record.into());
         mem::swap(&mut self.data.irks, &mut new);
@@ -107,7 +107,7 @@ impl Store {
             .data
             .ltks
             .drain(..)
-            .filter(|k| k.as_ref().address().as_ref() != record.address().as_ref())
+            .filter(|k| k.as_ref().address() != record.address())
             .collect::<VecDeque<_>>();
         new.push_front(record.into());
         mem::swap(&mut self.data.ltks, &mut new);
@@ -127,7 +127,9 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use btmgmt::packet::{AddressType, IdentityResolvingKey, LongTermKeyBuilder, LongTermKeyType};
+    use btmgmt::packet::{
+        Address, AddressType, IdentityResolvingKey, LongTermKeyBuilder, LongTermKeyType,
+    };
 
     #[tokio::test]
     async fn test() {
@@ -141,16 +143,14 @@ mod tests {
 
         store
             .add_irk(IdentityResolvingKey::new(
-                "00:11:22:33:44:55".parse().unwrap(),
-                AddressType::LePublic,
+                Address::le_public_from_str("00:11:22:33:44:55").unwrap(),
                 v1,
             ))
             .await
             .unwrap();
         store
             .add_irk(IdentityResolvingKey::new(
-                "55:44:33:22:11:00".parse().unwrap(),
-                AddressType::LeRandom,
+                Address::le_public_from_str("55:44:33:22:11:00").unwrap(),
                 v2,
             ))
             .await
@@ -159,8 +159,7 @@ mod tests {
         store
             .add_ltk(
                 LongTermKeyBuilder::default()
-                    .address("00:11:22:33:44:55".parse().unwrap())
-                    .address_type(AddressType::LeRandom)
+                    .address(Address::le_random_from_str("00:11:22:33:44:55").unwrap())
                     .key_type(LongTermKeyType::AuthenticatedKey)
                     .master(true)
                     .encryption_size(32)
@@ -181,7 +180,7 @@ mod tests {
             match n {
                 0 => {
                     assert_eq!(&irk.address().to_string(), "55:44:33:22:11:00");
-                    assert_eq!(irk.address_type(), &AddressType::LeRandom);
+                    assert_eq!(irk.address().address_type(), AddressType::LeRandom);
                     assert_eq!(irk.value(), &v2);
                 }
                 1 => {
@@ -194,7 +193,7 @@ mod tests {
 
         for ltk in store.iter_ltks() {
             assert_eq!(&ltk.address().to_string(), "00:11:22:33:44:55");
-            assert_eq!(ltk.address_type(), &AddressType::LeRandom);
+            assert_eq!(ltk.address().address_type(), AddressType::LeRandom);
             //assert_eq!(ltk.key_type(), LongTermKeyType::AuthenticatedKey);
             assert_eq!(ltk.master(), &true);
             assert_eq!(ltk.encryption_size(), &32);

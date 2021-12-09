@@ -17,9 +17,9 @@ clap = "3.0.0-beta.5"
 log = "0.4"
 stderrlog = "0.5"
 anyhow = "1.0"
-gatt = "0.2"
-btmgmt = "0.2"
-bdaddr = "0.1"
+gatt = "0.3.0-alpha.1"
+btmgmt = "0.3.0-alpha.4"
+bdaddr = { version = "0.2.0-alpha.4", features = ["matches"] }
 
 [workspace]
 members = [

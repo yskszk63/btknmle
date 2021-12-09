@@ -12,6 +12,7 @@ use btmgmt::packet::event::Event as MgmtEvent;
 use btmgmt::packet::{command as cmd, ControllerIndex};
 use futures_channel::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use futures_channel::oneshot::{self, Sender};
+use futures_util::future::{abortable, AbortHandle};
 use futures_util::lock::Mutex;
 use futures_util::{pin_mut, select, FutureExt, StreamExt, TryFutureExt};
 use gatt::Server;
@@ -31,10 +32,7 @@ fn authenticated(ltk: &btmgmt::packet::LongTermKey, addr: &Address) -> bool {
         _ => return false,
     }
 
-    match addr {
-        Address::LeRandom(RandomDeviceAddress::Resolvable(addr)) => addr.matches(ltk.value()),
-        _ => &ltk.address() == addr,
-    }
+    &ltk.address() == addr
 }
 
 fn bonded(store: &Store, addr: &Address) -> bool {
@@ -216,25 +214,34 @@ async fn advertising(
     let mut events = events.filter_map(|(idx, evt)| future::ready((idx == devid).then(|| evt)));
 
     let (mut wakeup_tx, mut wakeup_rx) = mpsc::channel::<()>(1);
-    let (mut cancelation_tx, mut cancelation_rx) = mpsc::channel::<()>(1);
+    let cancel_handle = Arc::new(Mutex::<Option<AbortHandle>>::new(None));
     let mut connected = false;
     let mut advertised = crate::gap::is_advertising_enabled(gap, device_id.clone()).await?;
 
     let devid = device_id.clone();
     let connection_watch = async {
+        let cancel_handle = cancel_handle.clone();
         while let Some(event) = events.next().await {
             match event {
                 MgmtEvent::DeviceConnected(..) => {
                     connected = true;
+                    if let Some(h) = cancel_handle.lock().await.take() {
+                        h.abort();
+                    }
                     crate::gap::stop_advertising(gap, devid.clone()).await?;
                 }
                 MgmtEvent::DeviceDisconnect(..) => {
                     connected = false;
+                    if let Some(h) = cancel_handle.lock().await.take() {
+                        h.abort();
+                    }
                     crate::gap::start_advertising(gap, devid.clone()).await?;
                 }
                 MgmtEvent::AdvertisingAdded(..) => {
                     advertised = true;
-                    cancelation_tx.try_send(()).ok();
+                    if let Some(h) = cancel_handle.lock().await.take() {
+                        h.abort();
+                    }
                 }
                 MgmtEvent::AdvertisingRemoved(..) => {
                     advertised = false;
@@ -252,7 +259,9 @@ async fn advertising(
     let devid = device_id.clone();
     let input_loop = async {
         log::info!("Start advertising.");
-        crate::gap::start_advertising(gap, device_id).await?;
+        if let Err(err) = crate::gap::start_advertising(gap, device_id).await {
+            return Err(err);
+        }
 
         loop {
             wakeup_rx.next().await;
@@ -265,14 +274,12 @@ async fn advertising(
                     crate::gap::start_advertising(gap, device_id).await?;
                 }
                 anyhow::Result::<()>::Ok(())
-            }
-            .fuse();
-
-            select! {
-                _ = cancelation_rx.next() => {}
-                r = Box::pin(fut) => if let Err(err) = r {
-                    return anyhow::Result::Err(err);
-                }
+            };
+            let (fut, handle) = abortable(fut);
+            let mut cancel_handle = cancel_handle.lock().await;
+            *cancel_handle = Some(handle);
+            if let Ok(Err(err)) = fut.await {
+                return Err(err);
             }
         }
     }

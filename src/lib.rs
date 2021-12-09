@@ -188,21 +188,18 @@ async fn passkey_input(
     let mut events = events.filter_map(|(idx, evt)| future::ready((idx == device_id).then(|| evt)));
 
     while let Some(event) = events.next().await {
-        match event {
-            MgmtEvent::UserPasskeyRequest(event) => {
-                log::trace!("begin passkey input.");
-                let mut input = if let Some(input) = input.try_lock() {
-                    input
-                } else {
-                    let msg = cmd::UserPasskeyNegativeReply::new(event.address().clone());
-                    gap.call(device_id.clone(), msg).await?;
-                    break;
-                };
-                let passkey = fill_passkey(&mut input).await?;
-                let msg = cmd::UserPasskeyReply::new(event.address().clone(), passkey);
+        if let MgmtEvent::UserPasskeyRequest(event) = event {
+            log::trace!("begin passkey input.");
+            let mut input = if let Some(input) = input.try_lock() {
+                input
+            } else {
+                let msg = cmd::UserPasskeyNegativeReply::new(event.address());
                 gap.call(device_id.clone(), msg).await?;
-            }
-            _ => {}
+                break;
+            };
+            let passkey = fill_passkey(&mut input).await?;
+            let msg = cmd::UserPasskeyReply::new(event.address().clone(), passkey);
+            gap.call(device_id.clone(), msg).await?;
         }
     }
 
@@ -221,7 +218,7 @@ async fn advertising(
     let (mut wakeup_tx, mut wakeup_rx) = mpsc::channel::<()>(1);
     let (mut cancelation_tx, mut cancelation_rx) = mpsc::channel::<()>(1);
     let mut connected = false;
-    let mut advertised = crate::gap::is_advertising_enabled(&gap, device_id.clone()).await?;
+    let mut advertised = crate::gap::is_advertising_enabled(gap, device_id.clone()).await?;
 
     let devid = device_id.clone();
     let connection_watch = async {
@@ -229,11 +226,11 @@ async fn advertising(
             match event {
                 MgmtEvent::DeviceConnected(..) => {
                     connected = true;
-                    crate::gap::stop_advertising(&gap, devid.clone()).await?;
+                    crate::gap::stop_advertising(gap, devid.clone()).await?;
                 }
                 MgmtEvent::DeviceDisconnect(..) => {
                     connected = false;
-                    crate::gap::start_advertising(&gap, devid.clone()).await?;
+                    crate::gap::start_advertising(gap, devid.clone()).await?;
                 }
                 MgmtEvent::AdvertisingAdded(..) => {
                     advertised = true;
@@ -255,7 +252,7 @@ async fn advertising(
     let devid = device_id.clone();
     let input_loop = async {
         log::info!("Start advertising.");
-        crate::gap::start_advertising(&gap, device_id).await?;
+        crate::gap::start_advertising(gap, device_id).await?;
 
         loop {
             wakeup_rx.next().await;
@@ -265,7 +262,7 @@ async fn advertising(
                 let mut input = input.lock().await;
                 if let Some(..) = input.next().await {
                     log::info!("Start advertising.");
-                    crate::gap::start_advertising(&gap, device_id).await?;
+                    crate::gap::start_advertising(gap, device_id).await?;
                 }
                 anyhow::Result::<()>::Ok(())
             }

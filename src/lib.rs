@@ -214,11 +214,77 @@ async fn advertising(
     gap: &MgmtClient,
     input: Arc<Mutex<input::InputSource>>,
 ) -> anyhow::Result<()> {
-    log::info!("Start advertising.");
-    gap::start_advertising(&gap, device_id.clone()).await?;
+    let events = gap.events().await;
+    let devid = device_id.clone();
+    let mut events = events.filter_map(|(idx, evt)| future::ready((idx == devid).then(|| evt)));
 
-    // TODO controll advertising.
-    future::pending::<()>().await;
+    let (mut wakeup_tx, mut wakeup_rx) = mpsc::channel::<()>(1);
+    let (mut cancelation_tx, mut cancelation_rx) = mpsc::channel::<()>(1);
+    let mut connected = false;
+    let mut advertised = crate::gap::is_advertising_enabled(&gap, device_id.clone()).await?;
+
+    let devid = device_id.clone();
+    let connection_watch = async {
+        while let Some(event) = events.next().await {
+            match event {
+                MgmtEvent::DeviceConnected(..) => {
+                    connected = true;
+                    crate::gap::stop_advertising(&gap, devid.clone()).await?;
+                }
+                MgmtEvent::DeviceDisconnect(..) => {
+                    connected = false;
+                    crate::gap::start_advertising(&gap, devid.clone()).await?;
+                }
+                MgmtEvent::AdvertisingAdded(..) => {
+                    advertised = true;
+                    cancelation_tx.try_send(()).ok();
+                }
+                MgmtEvent::AdvertisingRemoved(..) => {
+                    advertised = false;
+                    if !connected {
+                        wakeup_tx.try_send(()).ok();
+                    }
+                }
+                _ => {}
+            }
+        }
+        anyhow::Result::<()>::Ok(())
+    }
+    .fuse();
+
+    let devid = device_id.clone();
+    let input_loop = async {
+        log::info!("Start advertising.");
+        crate::gap::start_advertising(&gap, device_id).await?;
+
+        loop {
+            wakeup_rx.next().await;
+
+            let device_id = devid.clone();
+            let fut = async {
+                let mut input = input.lock().await;
+                if let Some(..) = input.next().await {
+                    log::info!("Start advertising.");
+                    crate::gap::start_advertising(&gap, device_id).await?;
+                }
+                anyhow::Result::<()>::Ok(())
+            }
+            .fuse();
+
+            select! {
+                _ = cancelation_rx.next() => {}
+                r = Box::pin(fut) => if let Err(err) = r {
+                    return anyhow::Result::Err(err);
+                }
+            }
+        }
+    }
+    .fuse();
+
+    select! {
+        r = Box::pin(connection_watch) => r?,
+        r = Box::pin(input_loop) => r?,
+    }
     Ok(())
 }
 

@@ -180,7 +180,7 @@ mod tests {
             match n {
                 0 => {
                     assert_eq!(&irk.address().to_string(), "55:44:33:22:11:00");
-                    assert_eq!(irk.address().address_type(), AddressType::LeRandom);
+                    assert_eq!(irk.address().address_type(), AddressType::LePublic);
                     assert_eq!(irk.value(), &v2);
                 }
                 1 => {

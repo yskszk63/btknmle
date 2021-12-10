@@ -1,7 +1,6 @@
 #![warn(clippy::all)]
 use std::collections::HashMap;
 use std::future;
-use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -162,10 +161,10 @@ fn add_passkey(buf: &mut u32, kbstat: &input::kbstat::KbStat) -> bool {
     false
 }
 
-async fn fill_passkey(input: &mut input::InputSource) -> anyhow::Result<u32> {
+async fn fill_passkey(input: &mut input::InputStream<'_>) -> anyhow::Result<u32> {
     let mut passkey = 0;
     while let Some(input_event) = input.next().await {
-        let kbstat = if let input::InputEvent::Keyboard(kbstat) = input_event? {
+        let kbstat = if let input::InputEvent::Keyboard(kbstat) = input_event {
             kbstat
         } else {
             continue;
@@ -180,7 +179,7 @@ async fn fill_passkey(input: &mut input::InputSource) -> anyhow::Result<u32> {
 async fn passkey_input(
     device_id: ControllerIndex,
     gap: &MgmtClient,
-    input: Arc<Mutex<input::InputSource>>,
+    input: input::InputSource,
 ) -> anyhow::Result<()> {
     let events = gap.events().await;
     let mut events = events.filter_map(|(idx, evt)| future::ready((idx == device_id).then(|| evt)));
@@ -188,13 +187,7 @@ async fn passkey_input(
     while let Some(event) = events.next().await {
         if let MgmtEvent::UserPasskeyRequest(event) = event {
             log::trace!("begin passkey input.");
-            let mut input = if let Some(input) = input.try_lock() {
-                input
-            } else {
-                let msg = cmd::UserPasskeyNegativeReply::new(event.address());
-                gap.call(device_id.clone(), msg).await?;
-                break;
-            };
+            let mut input = input.use_stream().await?;
             let passkey = fill_passkey(&mut input).await?;
             let msg = cmd::UserPasskeyReply::new(event.address().clone(), passkey);
             gap.call(device_id.clone(), msg).await?;
@@ -207,8 +200,10 @@ async fn passkey_input(
 async fn advertising(
     device_id: ControllerIndex,
     gap: &MgmtClient,
-    input: Arc<Mutex<input::InputSource>>,
+    input: input::InputSource,
 ) -> anyhow::Result<()> {
+    let timeout = 5;
+
     let events = gap.events().await;
     let devid = device_id.clone();
     let mut events = events.filter_map(|(idx, evt)| future::ready((idx == devid).then(|| evt)));
@@ -235,7 +230,7 @@ async fn advertising(
                     if let Some(h) = cancel_handle.lock().await.take() {
                         h.abort();
                     }
-                    crate::gap::start_advertising(gap, devid.clone()).await?;
+                    crate::gap::start_advertising(gap, devid.clone(), timeout).await?;
                 }
                 MgmtEvent::AdvertisingAdded(..) => {
                     advertised = true;
@@ -259,7 +254,7 @@ async fn advertising(
     let devid = device_id.clone();
     let input_loop = async {
         log::info!("Start advertising.");
-        if let Err(err) = crate::gap::start_advertising(gap, device_id).await {
+        if let Err(err) = crate::gap::start_advertising(gap, device_id, timeout).await {
             return Err(err);
         }
 
@@ -268,10 +263,25 @@ async fn advertising(
 
             let device_id = devid.clone();
             let fut = async {
-                let mut input = input.lock().await;
+                let mut input = input.use_stream().await?;
+                'input: while let Some(event) = input.next().await {
+                    if let input::InputEvent::Keyboard(kbstat) = event {
+                        for key in kbstat.keys() {
+                            use hid::KeyboardUsageId::*;
+
+                            match key {
+                                KEY_LEFT_CTRL | KEY_LEFT_SHIFT | KEY_LEFT_ALT | KEY_LEFT_GUI
+                                | KEY_RIGHT_CTRL | KEY_RIGHT_SHIFT | KEY_RIGHT_ALT
+                                | KEY_RIGHT_GUI => {}
+                                _ => break 'input,
+                            }
+                        }
+                    }
+                }
                 if let Some(..) = input.next().await {
+                    // FIXME filter Keyboard key without meta key.
                     log::info!("Start advertising.");
-                    crate::gap::start_advertising(gap, device_id).await?;
+                    crate::gap::start_advertising(gap, device_id, timeout).await?;
                 }
                 anyhow::Result::<()>::Ok(())
             };
@@ -292,35 +302,8 @@ async fn advertising(
     Ok(())
 }
 
-struct InputSourceWrapper<'a> {
-    inner: &'a mut input::InputSource,
-    grab: bool,
-}
-
-impl<'a> InputSourceWrapper<'a> {
-    fn with(inner: &'a mut input::InputSource, grab: bool) -> io::Result<Self> {
-        if grab {
-            inner.grab()?;
-        }
-        Ok(Self { inner, grab })
-    }
-
-    async fn next(&mut self) -> Option<io::Result<InputEvent>> {
-        self.inner.next().await
-    }
-}
-
-impl<'a> Drop for InputSourceWrapper<'a> {
-    fn drop(&mut self) {
-        if self.grab {
-            self.inner.ungrab().ok();
-        }
-    }
-}
-
 async fn gatt_loop(
-    grab: bool,
-    input: Arc<Mutex<input::InputSource>>,
+    input: input::InputSource,
     auth_channel: UnboundedSender<(Address, Sender<()>)>,
 ) -> anyhow::Result<()> {
     let mut server = Server::bind()?;
@@ -347,11 +330,11 @@ async fn gatt_loop(
             log::debug!("Authenticated {}", addr);
             authenticator.mark_authenticated();
 
-            let mut input = input.lock().await;
-            let mut input = InputSourceWrapper::with(&mut input, grab)?;
+            let mut input = input.use_stream().await?;
+            //let mut input = InputSourceWrapper::with(&mut input, grab)?;
 
             while let Some(event) = input.next().await {
-                match event? {
+                match event {
                     InputEvent::Keyboard(evt) => {
                         if let Err(err) = evt.write_to(&mut kbdnotify).await {
                             // may be connection terminated by remote host.
@@ -400,8 +383,7 @@ pub async fn run(var_file: PathBuf, device_id: u16, grab: bool) -> anyhow::Resul
     let store = Store::open(var_file).await?;
     let gap_client = gap::setup(device_id, &store, io_capability).await?;
 
-    let input = input::InputSource::new()?;
-    let input = Arc::new(Mutex::new(input));
+    let (input, input_loop) = input::InputSource::new(grab)?;
 
     let (auth_tx, auth_rx) = mpsc::unbounded();
     let mut sig = sig::Sig::new()?;
@@ -411,8 +393,9 @@ pub async fn run(var_file: PathBuf, device_id: u16, grab: bool) -> anyhow::Resul
         store_keys(device_id.into(), &gap_client, store, auth_rx),
         passkey_input(device_id.into(), &gap_client, input.clone()),
         advertising(device_id.into(), &gap_client, input.clone()),
-        gatt_loop(grab, input, auth_tx),
+        gatt_loop(input, auth_tx),
         sig.recv().map_err(Into::<anyhow::Error>::into),
+        input_loop,
     )?;
     Ok(())
 }

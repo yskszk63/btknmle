@@ -95,6 +95,7 @@ pub(crate) async fn setup(
 pub(crate) async fn start_advertising(
     client: &Client,
     devid: ControllerIndex,
+    timeout: u16,
 ) -> anyhow::Result<()> {
     client
         .call(
@@ -107,7 +108,7 @@ pub(crate) async fn start_advertising(
                     | AdvertisingFlag::AddAppearanceFieldToScanResp
                     | AdvertisingFlag::AddLocalNameInScanResp,
                 0,
-                60,
+                timeout,
                 AdvDataScanResp::new(vec![], vec![0x03, 0x03, 0x12, 0x18]),
             ),
         )

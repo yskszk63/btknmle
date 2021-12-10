@@ -1,9 +1,9 @@
 #![warn(clippy::all)]
 use std::path::PathBuf;
 
-use clap::Clap;
+use clap::Parser;
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 struct Opts {
     #[clap(
         short = 'f',

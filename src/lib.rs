@@ -202,7 +202,7 @@ async fn advertising(
     gap: &MgmtClient,
     input: input::InputSource,
 ) -> anyhow::Result<()> {
-    let timeout = 5;
+    let timeout = 60;
 
     let events = gap.events().await;
     let devid = device_id.clone();

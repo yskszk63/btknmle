@@ -47,19 +47,11 @@ async fn main() -> anyhow::Result<()> {
         verbosity += 1;
     }
 
-    simplelog::TermLogger::init(
-        match verbosity {
-            0 => simplelog::LevelFilter::Info,
-            1 => simplelog::LevelFilter::Debug,
-            _ => simplelog::LevelFilter::Trace,
-        },
-        simplelog::ConfigBuilder::new()
-            .set_thread_level(simplelog::LevelFilter::Off)
-            .set_time_level(simplelog::LevelFilter::Off)
-            .set_target_level(simplelog::LevelFilter::Off)
-            .build(),
-        simplelog::TerminalMode::Stderr,
-        simplelog::ColorChoice::Auto,
-    )?;
+    simple_logger::init_with_level(match verbosity {
+        0 => log::Level::Info,
+        1 => log::Level::Debug,
+        _ => log::Level::Trace,
+    })?;
+
     btknmle::run(var_file, device_id, grab).await
 }

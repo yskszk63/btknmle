@@ -15,7 +15,7 @@ btknmle-input = { path = "input" }
 btknmle-keydb = { path = "keydb" }
 clap = { version = "3.0.0-rc.3", features = ["derive", "env"] }
 log = "0.4"
-simplelog = "0.11"
+simple_logger = { version = "1.15", default-features = false, features = ["colored", "stderr"] }
 anyhow = "1.0"
 gatt = "0.3.0-alpha.1"
 btmgmt = "0.3.0-alpha.4"
